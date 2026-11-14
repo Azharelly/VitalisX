@@ -179,8 +179,11 @@ export function GoodNews({ data, normal, zoneLevels }: { data: TodayView; normal
   const allClearZones = ZONES.filter((z) => zoneLevels[z.id] === 'ok')
   const total = data.readings.filter((r) => r.level !== 'none').length
   const inRange = normal.filter((r) => r.level === 'ok').length
+  const learning = normal.some((r) => r.level === 'learn')
+  const learningOnly = learning && inRange === 0
+  const title = learningOnly ? 'Still learning' : 'Good news'
   return (
-    <section aria-labelledby="today-good" className={s.goodWrap}>
+    <section aria-labelledby="today-good" className={`${s.goodWrap} ${learningOnly ? s.learning : ''}`}>
       <div className={s.goodHead}>
         <span className={s.goodCheck} aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -189,7 +192,7 @@ export function GoodNews({ data, normal, zoneLevels }: { data: TodayView; normal
         </span>
         <div>
           <h2 id="today-good" className={s.goodTitle}>
-            Good news
+            {title}
           </h2>
           <p className={s.muted}>
             {inRange} of {total} readings are normal for you
