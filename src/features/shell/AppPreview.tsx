@@ -3,7 +3,7 @@ import { db } from '../../data/db'
 import { dexieOutbox, simulatedEarthLink } from '../../data/outbox'
 import { RadiationScreen } from '../RadiationScreen'
 import { CheckInPreview } from '../checkin'
-import { MISSION, simulatedCrewApi, simulatedTodayApi } from '../today/simulate.ts'
+import { MISSION, simulatedCrewApi, simulatedDoses, simulatedTodayApi } from '../today/simulate.ts'
 import { AppShell } from './AppShell'
 import s from './shell.module.css'
 
@@ -30,7 +30,8 @@ export function AppPreview() {
         todayApi={simulatedTodayApi}
         day={day}
         screens={{
-          radiation: () => <RadiationScreen />, // the team's screen, still on its own mock data
+          // the team's screen, fed the chosen person's simulated doses up to the chosen day
+          radiation: ({ crewId, day: d = MISSION.currentDay }) => <RadiationScreen key={crewId} {...simulatedDoses(crewId, d)} currentDay={d} arrivalDay={MISSION.arrivalDay} />,
           checkin: ({ crewId, day, go }) => (
             <CheckInPreview
               api={simulatedTodayApi}

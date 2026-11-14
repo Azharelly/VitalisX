@@ -1,3 +1,4 @@
+import type { RadiationDose } from '../../data/types'
 import type { CrewSummary, TodayApi } from './api.ts'
 import type { CrewApi } from '../crew/api.ts'
 import { checkNewMember, initialsOf, type CrewBoard, type CrewCard } from '../crew/model.ts'
@@ -218,6 +219,17 @@ function projectedDose(c: Crew, asOf: number) {
   const n = Math.min(7, asOf)
   const rate = Array.from({ length: n }, (_, i) => dailyDose(c, asOf - i)).reduce((a, b) => a + b, 0) / n
   return asOf < MISSION.arrivalDay ? careerDose(c, asOf) + rate * (MISSION.arrivalDay - asOf) : null
+}
+
+/** Demo: one person's dosimeter log up to `upTo`, shaped like the radiation_dose_log store, for the Radiation tab. */
+export function simulatedDoses(crewId: string, upTo: number): { priorDoseMsv: number; doses: RadiationDose[] } {
+  const c = CREW.find((x) => x.id === crewId)
+  if (!c) return { priorDoseMsv: 0, doses: [] }
+  const doses = Array.from({ length: Math.max(0, upTo) }, (_, i): RadiationDose => ({
+    id: i + 1, crew_id: 0, mission_day: i + 1, date: '', dose_msv: dailyDose(c, i + 1), environment: 'mars_transit',
+    sep_flag: STORM_DAYS.includes(i + 1), event_id: null, is_simulated: true,
+  })).filter((d) => d.mission_day > (c.joinedDay ?? 0))
+  return { priorDoseMsv: c.priorDoseMsv, doses }
 }
 
 function evalRadiation(c: Crew, asOf: number): Reading {
