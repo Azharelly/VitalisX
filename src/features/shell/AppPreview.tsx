@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { db } from '../../data/db'
 import { dexieOutbox, simulatedEarthLink } from '../../data/outbox'
 import { RadiationScreen } from '../RadiationScreen'
@@ -20,6 +20,16 @@ const demoOutbox = dexieOutbox(db, (id) => (DEMO_CREW[id] ??= nextExtra++))
 export function AppPreview() {
   const [day, setDay] = useState(MISSION.currentDay)
   const [event, setEvent] = useState('Actions you trigger appear here.')
+  const demoRef = useRef<HTMLDetailsElement>(null)
+  // Close the Demo panel on a tap outside it, like any dropdown (a <details> only closes from its own summary).
+  useEffect(() => {
+    const close = (e: PointerEvent) => {
+      const d = demoRef.current
+      if (d?.open && !d.contains(e.target as Node)) d.open = false
+    }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [])
   const log = (name: string, ...args: (string | number | undefined)[]) =>
     setEvent(`${name}(${args.filter((a) => a !== undefined).map((a) => `'${a}'`).join(', ')})`)
 
@@ -31,7 +41,7 @@ export function AppPreview() {
       screens={{
         // the team's screen, fed the chosen person's simulated doses up to the chosen day
         radiation: ({ crewId, day: d = MISSION.currentDay }) => <RadiationScreen key={crewId} {...simulatedDoses(crewId, d)} currentDay={d} arrivalDay={MISSION.arrivalDay} />,
-        checkin: ({ crewId, day, go }) => (
+        checkin: ({ crewId, day, go, noteForEarth }) => (
           <CheckInPreview
             api={simulatedTodayApi}
             crewId={crewId}
@@ -39,7 +49,7 @@ export function AppPreview() {
             onDone={() => go('today')}
             onEmergency={() => log('onEmergency', crewId)}
             onWhy={(m) => log('onWhy', m)}
-            onNoteForEarth={(m) => log('onNoteForEarth', crewId, m)}
+            onNoteForEarth={noteForEarth}
           />
         ),
       }}
@@ -51,7 +61,7 @@ export function AppPreview() {
       outbox={demoOutbox}
       send={simulatedEarthLink} // no real Earth link yet
       demo={
-        <details className={s.demo}>
+        <details ref={demoRef} className={s.demo}>
           <summary aria-label={`Demo controls, mission day ${day}`}>
             <span className={s.demoTag}>Demo</span>
             <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">

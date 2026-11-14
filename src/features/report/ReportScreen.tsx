@@ -20,6 +20,10 @@ export interface ReportActions {
   onSendSummary?: (crewId: string, days: number) => void
   /** Open the Why? modal for a metric (F-05). */
   onWhy?: (metricId: string) => void
+  /** Open the Earth summary straight away (arriving from "Note for Earth" on another tab). Needs `outbox`. */
+  openSummary?: boolean
+  /** The Earth summary was closed. */
+  onSummaryClosed?: () => void
 }
 
 /** Where SBAR summaries go. Without `outbox` the button only emits `onSendSummary`. */
@@ -36,7 +40,7 @@ const ZONE_ORDER = ZONES.map((z) => z.id)
 /** Week or month in review for one crew member. Presentational: data in, callbacks out. */
 export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }: { report: ReportView } & ReportActions & ReportOutbox) {
   const [whyId, setWhyId] = useState<string | null>(null)
-  const [sbarOpen, setSbarOpen] = useState(false)
+  const [sbarOpen, setSbarOpen] = useState(Boolean(actions.openSummary && outbox))
   const onWhy = (metricId: string) => {
     setWhyId(metricId)
     actions.onWhy?.(metricId)
@@ -162,7 +166,7 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
 
       <section aria-labelledby="report-trends">
         <h2 id="report-trends" className={s.h2}>
-          Trends <span className={s.hint}>Shaded band = your usual range · hover a point for its value</span>
+          Trends <span className={s.hint}>Shaded band = your usual range · tap or hover a chart to read a day</span>
         </h2>
         <div className={s.trends}>
           {sorted.map((m) => (
@@ -199,7 +203,11 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
         <p className={s.fine}>The app records dosimeter readings; it does not measure radiation. Limit: NASA-STD-3001 Vol. 1.</p>
       </section>
       {sbarOpen && outbox && (
-        <SbarDialog report={report} outbox={outbox} send={send} commsDelaySec={commsDelaySec} onClose={() => setSbarOpen(false)} />
+        <SbarDialog report={report} outbox={outbox} send={send} commsDelaySec={commsDelaySec} onClose={() => {
+            setSbarOpen(false)
+            actions.onSummaryClosed?.()
+          }}
+        />
       )}
       {why && <WhyModal e={why} onClose={() => setWhyId(null)} />}
     </section>

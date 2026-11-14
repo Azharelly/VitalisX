@@ -21,7 +21,7 @@ function LevelTag({ level }: { level: Level }) {
   return (
     <span className={`${c.level} ${t[level]}`}>
       <StatusIcon level={level} />
-      {LEVEL_WORD[level]}
+      <span className={c.levelWord}>{LEVEL_WORD[level]}</span>
     </span>
   )
 }
@@ -331,7 +331,7 @@ function PersonCard({ m, i, day, viewing, onOpen, onRemove }: CardProps) {
 /** The per-person zone matrix: every zone as shape + word, for scanning the whole crew at once. */
 function ZoneGrid({ members, day, onOpen, onRemove }: { members: CrewCard[]; day: number; onOpen: (id: string) => void; onRemove: (m: CrewCard) => void }) {
   return (
-    <div className={`${t.weekWrap} ${t.weekScroll}`}>
+    <div className={`${t.weekWrap} ${t.weekScroll} ${c.matrixWrap}`}>
       <table className={`${t.week} ${c.matrix}`}>
         <thead>
           <tr>

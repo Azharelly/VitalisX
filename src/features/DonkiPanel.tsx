@@ -36,9 +36,9 @@ function Ready({ load }: { load: DonkiLoad }) {
       {origin === 'live' ? (
         <p className="rad-dim rad-small">Live from NASA · fetched {asOf.toISOString().slice(0, 16).replace('T', ' ')} UTC</p>
       ) : (
-        <p className="rad-dim rad-small">
+        <p className="rad-dim rad-small" title={liveError ?? undefined}>
           Showing saved data from {s.generatedAt} · works offline
-          {liveError ? ` · live update unavailable (${liveError})` : ''}
+          {liveError ? ' · NASA could not be reached just now, so this is the saved copy' : ''}
         </p>
       )}
 
