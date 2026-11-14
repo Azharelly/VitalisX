@@ -308,7 +308,7 @@ describe('stories', () => {
   it('Ravi: temperature climbs; Alert by z at 37.5, then by the fever limit at 38.2', () => {
     const temp = metric({ id: 'temp', label: 'Temperature', unit: '°C', direction: 'high_is_bad', min_sd: 0.15, abs_high: 37.9, abs_rule: 'Fever from 38.0', decimals: 1 });
     const vals = [36.9, 36.95, 37.0];
-    const base = Array.from({ length: 20 }, (_, i) => reading(i + 1, vals[i % 3], { metric_id: 'temp' }));
+    const base = Array.from({ length: 20 }, (_, i) => reading(i + 120, vals[i % 3], { metric_id: 'temp' }));
     const t = (day: number, v: number) => reading(day, v, { metric_id: 'temp' });
     expect(evaluate(temp, [...base, t(140, 37.1)]).state).toBe('ok');
     const d141 = evaluate(temp, [...base, t(140, 37.1), t(141, 37.5)]);
