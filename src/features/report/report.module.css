@@ -1,6 +1,6 @@
 /* Report styles. Tokens, base resets and shared controls come from the Today module via `composes`,
    so the palette lives in one place. shortcut: move shared bits to src/ui once it exists. */
-.root { composes: root from '../today/today.module.css'; display: grid; gap: 24px; align-content: start; }
+.root { composes: root from '../today/today.module.css'; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-content: start; }
 .backBtn { composes: backBtn from '../today/today.module.css'; }
 .why { composes: why from '../today/today.module.css'; }
 .badge { composes: badge from '../today/today.module.css'; }
@@ -172,10 +172,13 @@
 .budget { display: grid; gap: 12px; }
 .budgetTrack { position: relative; height: 26px; border-radius: 8px; background: var(--surface-2); overflow: hidden; }
 .budgetTrack > span { position: absolute; top: 0; bottom: 0; }
-.segPrior { background: #4a5563; }
-.segMission { background: var(--text); }
-.segProjected { background: repeating-linear-gradient(135deg, var(--muted) 0 4px, transparent 4px 8px); }
-.tick { width: 2px; background: var(--watch); }
+/* Segments take the status colour (--c from .ok / .watch / .alert): earlier missions darker, projection striped. */
+.segPrior { background: color-mix(in srgb, var(--c) 42%, var(--bg)); }
+.segMission { background: var(--c); }
+.segProjected { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--c) 75%, transparent) 0 4px, transparent 4px 8px); }
+.budgetTrack .segMission,
+.budgetTrack .segProjected { box-shadow: inset 2px 0 0 var(--surface-2); } /* hairline gap between segments */
+.tick { z-index: 1; width: 3px; margin-left: -1px; background: var(--watch); box-shadow: 0 0 0 1.5px var(--bg); } /* outlined so it shows on a coloured bar */
 .tickLimit { background: var(--alert); }
 .budgetLegend { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--muted); font-size: 12px; }
 .budgetLegend i { display: inline-block; position: static; width: 12px; height: 12px; margin-right: 8px; border-radius: 3px; vertical-align: -2px; }
@@ -187,6 +190,7 @@
   position: relative;
   display: flex;
   align-items: flex-end;
+  justify-content: space-around; /* a week of bars spreads across the chart instead of bunching left */
   gap: 3px;
   border-bottom: 1px solid var(--line-strong);
 }

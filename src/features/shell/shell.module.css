@@ -1,0 +1,265 @@
+/* App frame. Colour tokens come from today.module.css (`.theme`), so the shell matches every page. */
+
+.app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 var(--sans);
+}
+
+.skip {
+  position: absolute;
+  left: 16px;
+  top: -64px;
+  z-index: 30;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 600;
+}
+.skip:focus { top: 12px; }
+
+/* ── Header: one sticky block, so who is on screen and Emergency are always visible ── */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(100deg, rgba(88, 166, 255, 0.08), transparent 45%), rgba(11, 15, 20, 0.86);
+  backdrop-filter: blur(14px);
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 64px;
+  padding: 10px 24px;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; flex: none; }
+.logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, #9fd0ff, var(--accent) 45%, #1d3b66 100%);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.brandText { display: grid; line-height: 1.2; }
+.brandText strong { font: 600 16px var(--heading); letter-spacing: 0.01em; }
+.brandText span { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.emergency {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  min-height: 44px;
+  margin-left: auto;
+  padding: 0 18px;
+  border: 2px solid var(--alert);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--alert) 12%, transparent);
+  color: var(--alert);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.15s;
+}
+.emergency svg { width: 18px; height: 18px; }
+.emergency:hover { background: color-mix(in srgb, var(--alert) 22%, transparent); }
+.emergency:active { background: #d93636; border-color: #d93636; color: #fff; }
+
+.crewRow {
+  padding: 0 22px 8px;
+  min-width: 0;
+}
+
+/* ── Tabs ── */
+.tabList { display: flex; margin: 0; padding: 0; list-style: none; }
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+.tab:hover { color: var(--text); }
+.tab[aria-current='page'] { color: var(--text); }
+.tabIcon { position: relative; display: grid; place-items: center; }
+.tabIcon svg { width: 20px; height: 20px; }
+.count {
+  position: absolute; /* bottom bar: on the icon's corner */
+  top: 2px;
+  left: calc(50% + 8px);
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+  background: var(--watch);
+  color: var(--bg);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 13px;
+  text-align: center;
+}
+.mark {
+  position: absolute;
+  top: 3px;
+  left: calc(50% + 8px);
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg);
+}
+.mark svg { width: 10px; height: 10px; }
+
+/* Wide screens: tabs sit in the header, next to the brand. */
+.navWide { display: none; }
+@media (min-width: 1024px) {
+  .navWide { display: block; margin-left: 24px; }
+  .navWide .tabList {
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(11, 15, 20, 0.5);
+  }
+  .navWide .tab { min-height: 40px; padding: 0 16px; border-radius: 999px; }
+  .navWide .tab:hover { background: var(--surface); }
+  .navWide .tab[aria-current='page'] { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-strong); }
+  .navWide .tab[aria-current='page'] svg { color: var(--accent); }
+  .navWide .count, .navWide .mark { position: static; } /* header: a small pill after the label */
+  .navWide .count { border: 0; }
+  .navWide .mark { background: none; }
+  .navBottom { display: none; }
+}
+
+/* Phones and tablets: a bottom bar within thumb reach. */
+.navBottom {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: rgba(16, 22, 29, 0.92);
+  backdrop-filter: blur(14px);
+}
+.navBottom .tabList { justify-content: space-around; max-width: 640px; margin: 0 auto; }
+.navBottom li { flex: 1; }
+.navBottom .tab {
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-height: 56px;
+  padding: 6px 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+.navBottom .tabIcon { width: 56px; height: 30px; border-radius: 999px; transition: background 0.15s; }
+.navBottom .tab[aria-current='page'] .tabIcon { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+
+/* ── Content ── */
+.content { display: block; min-width: 0; }
+.content:focus { outline: none; }
+@media (max-width: 1023px) {
+  .content { padding-bottom: calc(80px + env(safe-area-inset-bottom)); } /* room for the bottom bar */
+}
+
+.note { display: grid; place-items: center; min-height: 50vh; }
+.note .noteTitle { margin-bottom: 6px; color: var(--text); font: 600 18px var(--heading); }
+.note button { margin-top: 16px; }
+
+@media (max-width: 640px) {
+  .topRow { min-height: 56px; padding: 8px 16px; }
+  .crewRow { padding: 0 14px 6px; }
+  .emergency { min-height: 44px; padding: 0 14px; font-size: 13px; letter-spacing: 0.06em; }
+  .logo { width: 24px; height: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab, .emergency, .navBottom .tabIcon { transition: none; }
+}
+
+/* ── Demo panel (AppPreview only) ── */
+.demo {
+  position: fixed;
+  left: 16px;
+  bottom: calc(92px + env(safe-area-inset-bottom));
+  z-index: 25;
+  color: #e6edf3;
+  font: 14px/1.5 Inter, system-ui, sans-serif;
+}
+@media (min-width: 1024px) { .demo { bottom: 20px; } }
+.demo > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px 0 10px;
+  border: 1px solid rgba(230, 237, 243, 0.18);
+  border-radius: 999px;
+  background: rgba(16, 22, 29, 0.92);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+.demo > summary::-webkit-details-marker { display: none; }
+.demo > summary:focus-visible { outline: 2px solid #58a6ff; outline-offset: 2px; }
+.demoTag {
+  padding: 1px 8px;
+  border: 1px dashed #f2c94c;
+  border-radius: 999px;
+  color: #f2c94c;
+  font-size: 11px;
+  font-weight: 600;
+}
+.demoPanel {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  display: grid;
+  gap: 12px;
+  width: min(340px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid rgba(230, 237, 243, 0.14);
+  border-radius: 18px;
+  background: rgba(16, 22, 29, 0.97);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+.demoDay { display: grid; gap: 6px; }
+.demoDay input { width: 100%; accent-color: #58a6ff; }
+.demoBtn {
+  justify-self: start;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(230, 237, 243, 0.18);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.demoLog {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(88, 166, 255, 0.1);
+  color: #9fc8ff;
+  font: 12px ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}

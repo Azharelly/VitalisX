@@ -1,0 +1,425 @@
+/* Crew styles. Colour tokens and shared pieces (cards, buttons, table) come from today.module.css,
+   imported side by side in the components (no cross-file composes). */
+
+/* ── Avatar with status ring ── */
+.ring {
+  position: relative;
+  display: inline-grid;
+  width: 56px;
+  height: 56px;
+  flex: none;
+  padding: 3px;
+  border: 3px solid var(--c);
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+.face {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--c) 22%, var(--surface-2)), var(--surface-2) 70%);
+  color: var(--text);
+  font: 600 17px var(--heading);
+  letter-spacing: 0.02em;
+}
+.ringBadge {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg);
+}
+.ringBadge svg { width: 13px; height: 13px; }
+.ringSmall { width: 40px; height: 40px; padding: 2px; border-width: 2px; }
+.ringSmall .face { font-size: 13px; }
+.ringSmall .ringBadge { width: 18px; height: 18px; right: -5px; bottom: -5px; }
+.ringSmall .ringBadge svg { width: 11px; height: 11px; }
+/* Learning and no data have no settled state yet: a dashed ring. */
+.dashed { border-style: dashed; }
+
+/* ── Avatar row (in the app header). Others: ring + word stacked; the selected one: a pill with name and role ── */
+.avatars {
+  display: flex;
+  align-items: flex-start; /* every ring starts 6px from the top, so all circles share one line */
+  gap: 4px;
+  margin: 0;
+  padding: 4px 2px;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-right: 24px;
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); /* hints that more crew scroll in */
+}
+.avatars::-webkit-scrollbar { display: none; }
+.avatarBtn {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 60px;
+  min-height: 64px;
+  padding: 6px 6px 4px;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.avatarBtn:hover { background: var(--surface); }
+.avatarBtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.avatarOn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 0; /* hug the ring, so it sits on the same line as the others */
+  padding: 6px 18px 6px 6px;
+  border-color: var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  text-align: left;
+}
+.avatarOn .ring { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--accent); }
+.avatarText { display: grid; line-height: 1.3; }
+.avatarName { font-weight: 600; white-space: nowrap; }
+.avatarMeta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.avatarWord { color: var(--c); font-size: 11px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+.avatarOn .avatarWord { font-size: 12px; }
+.addBtn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 4px 8px 0; /* centres the 44px "+" on the 40px rings (6px padding + 20px radius) */
+  border: 1px dashed var(--line-strong);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font: 300 24px/1 var(--sans);
+  cursor: pointer;
+}
+.addBtn:hover { border-color: var(--accent); color: var(--text); }
+.addBtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.barNote { color: var(--muted); font-size: 13px; }
+.barSkeleton {
+  width: min(420px, 100%);
+  height: 52px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%) 0 0 / 200% 100%;
+}
+
+/* ── Crew page ── */
+.page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-content: start; } /* minmax(0) keeps the wide zone table scrolling inside its card */
+.head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.title { font: 600 32px/1.15 var(--heading); }
+.simInline {
+  margin-left: 10px;
+  padding: 2px 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+.block { margin: 0; }
+
+/* Shared panel: the soft gradient card used across the app */
+.panel {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--c, var(--accent)) 12%, transparent), transparent 60%), var(--surface);
+}
+
+/* ── Bento: overview + needs attention side by side on wide screens ── */
+.bento { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+@media (min-width: 960px) {
+  .bento { grid-template-columns: minmax(340px, 5fr) minmax(0, 7fr); align-items: stretch; }
+}
+
+.overview { display: flex; flex-wrap: wrap; align-items: center; gap: 24px; }
+.donutWrap { position: relative; width: 132px; height: 132px; flex: none; }
+.donut { width: 100%; height: 100%; transform: rotate(-90deg); }
+.donutTrack { fill: none; stroke: var(--surface-2); stroke-width: 12; }
+.donutArc { fill: none; stroke: var(--c); stroke-width: 12; stroke-linecap: round; }
+.donutText {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+.donutText strong { color: var(--text); font: 300 34px/1 var(--sans); }
+.overviewText { display: grid; gap: 14px; flex: 1 1 180px; min-width: 0; }
+.panel .overviewTitle { font: 600 20px/1.25 var(--heading); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0; padding: 0; list-style: none; font-size: 14px; }
+.legend li { display: inline-flex; align-items: center; gap: 8px; }
+.legendNum { font-variant-numeric: tabular-nums; font-weight: 600; }
+.checkins { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+.checkins strong { color: var(--text); }
+.progress { display: block; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.progress span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+
+/* Level word with its shape */
+.level {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--c);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Needs attention: one row per person, their readings as chips */
+.attentionPanel { --c: var(--alert); background: var(--surface); }
+.attentionPanel h2 { margin-bottom: 12px; }
+.attention { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.attnRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 16px 12px 12px;
+  border: 1px solid color-mix(in srgb, var(--c) 28%, transparent);
+  border-radius: 18px;
+  background: radial-gradient(120% 160% at 100% 0%, color-mix(in srgb, var(--c) 10%, transparent), transparent 60%), var(--bg);
+  text-align: left;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.attnRow:hover { border-color: color-mix(in srgb, var(--c) 60%, transparent); transform: translateY(-1px); }
+.attnText { display: grid; gap: 6px; min-width: 0; }
+.attnItems { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 13%, transparent);
+  color: color-mix(in srgb, var(--c) 75%, var(--text));
+  font-size: 13px;
+}
+.chip svg { width: 11px; height: 11px; }
+.chipValue { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
+.attnGo { color: var(--muted); }
+.allClear { display: flex; align-items: center; gap: 10px; color: var(--muted); }
+
+/* ── People ── */
+.sectionHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.sectionHead h2 { margin-bottom: 0; }
+.toggle {
+  display: inline-flex;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+}
+.toggle button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+}
+.toggle button[aria-pressed='true'] { background: var(--text); color: var(--bg); }
+
+.people {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.person {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: radial-gradient(130% 90% at 100% 0%, color-mix(in srgb, var(--c) 13%, transparent), transparent 60%), var(--surface);
+  animation: rise 0.45s ease-out both;
+  animation-delay: calc(var(--i, 0) * 50ms);
+  transition: border-color 0.2s, transform 0.2s;
+}
+.person:hover { transform: translateY(-2px); border-color: var(--line-strong); }
+.flagged { border-color: color-mix(in srgb, var(--c) 35%, transparent); }
+.viewing { border-color: color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent); }
+.personHead { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; min-height: 64px; } /* room for a two-line name, so rows line up across cards */
+.personName { display: grid; min-width: 0; font-size: 13px; }
+.personName h3 { margin: 0; font: 600 18px/1.25 var(--heading); overflow-wrap: anywhere; }
+.statePill { padding: 6px 12px; font-size: 13px; }
+.statePill svg { width: 12px; height: 12px; }
+
+.person .checkLine { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.checkLine svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; }
+.person .checkDue { color: color-mix(in srgb, var(--watch) 85%, var(--text)); }
+.viewingTag {
+  margin-left: auto;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.topItem {
+  display: grid;
+  gap: 4px;
+  min-height: 68px;
+  align-content: center;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--c) 8%, var(--bg));
+}
+.topLabel { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.topValue { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font: 300 24px/1.15 var(--sans); font-variant-numeric: tabular-nums; }
+.topValue .level { font: 600 13px var(--sans); }
+
+/* Zones strip: the per-person matrix in card form (icon + state shape) */
+.zones { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.zone {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+  height: 52px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--c) 9%, transparent);
+  color: var(--c);
+}
+.zoneIcon { width: 18px; height: 18px; color: color-mix(in srgb, var(--c) 70%, var(--text)); }
+.zone svg:last-of-type { width: 11px; height: 11px; }
+
+.personFoot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.openBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  font-weight: 600;
+}
+.openBtn:hover { background: var(--surface-2); }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+/* Zone grid view */
+.matrix { min-width: 860px; }
+.matrix thead th { vertical-align: bottom; }
+.matrix thead th:first-child { text-align: left; padding-left: 12px; }
+.matrix thead th svg { display: block; width: 16px; height: 16px; margin: 0 auto 6px; }
+.zoneHead { display: block; line-height: 1.3; }
+.matrix tbody td { white-space: nowrap; }
+.personBtn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 4px 12px 4px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  text-align: left;
+}
+.personBtn:hover { background: var(--surface-2); }
+.personText { display: grid; font-size: 13px; line-height: 1.35; }
+.personText strong { font-size: 15px; }
+.removeBtn {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+.removeBtn:hover { border-color: color-mix(in srgb, var(--alert) 40%, transparent); color: var(--alert); }
+
+/* ── Dialogs ── */
+.dialog {
+  width: min(460px, calc(100vw - 32px));
+  padding: 28px;
+  border: 1px solid var(--line-strong);
+  border-radius: 24px;
+  background: radial-gradient(120% 80% at 0% 0%, rgba(88, 166, 255, 0.1), transparent 55%), var(--surface);
+  color: var(--text);
+}
+.dialog::backdrop { background: rgba(5, 8, 12, 0.7); backdrop-filter: blur(3px); }
+.dialog .dialogTitle { margin: 0 0 20px; font: 600 22px/1.25 var(--heading); }
+.dialog .dialogText { margin: 0 0 20px; color: var(--muted); }
+.dialogActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 8px; }
+.form { display: grid; gap: 20px; }
+.field { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.fieldLabel { display: flex; justify-content: space-between; gap: 8px; padding: 0; font-weight: 600; font-size: 14px; }
+.fieldLabel span { font-weight: 400; font-size: 12px; }
+.field input:not([type='radio']) {
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.field input[aria-invalid='true'] { border-color: var(--alert); }
+.choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.choice:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.choice input { accent-color: var(--accent); margin: 0; }
+.error { color: var(--alert); font-size: 13px; margin: 0; }
+.dialog p.error { margin-bottom: 12px; }
+.dangerBtn {
+  min-height: 44px;
+  padding: 0 22px;
+  border: 1px solid var(--alert);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--alert) 14%, transparent);
+  color: var(--alert);
+  font-weight: 700;
+}
+.dangerBtn:hover { background: color-mix(in srgb, var(--alert) 24%, transparent); }
+.dialog button:disabled { opacity: 0.6; cursor: progress; }
+
+@media (max-width: 640px) {
+  .title { font-size: 26px; }
+  .attnGo { display: none; }
+  .attnRow { grid-template-columns: auto minmax(0, 1fr); }
+  .person { padding: 16px; }
+  .panel { padding: 20px; }
+  .overview { gap: 16px; flex-wrap: nowrap; }
+  .donutWrap { width: 88px; height: 88px; }
+  .donutText strong { font-size: 26px; }
+  .overviewText { flex-basis: auto; }
+  .panel .overviewTitle { font-size: 17px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatarBtn, .attnRow, .person { transition: none; animation: none; }
+}

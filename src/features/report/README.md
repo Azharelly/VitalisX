@@ -22,7 +22,7 @@ import { simulatedTodayApi } from './features/today'
 />
 ```
 
-`<TodayPreview />` (in `features/today`) has a Today / Report switch for trying it.
+`<AppPreview />` (in `features/shell`) shows it as the Report tab.
 
 ## What is on the page
 

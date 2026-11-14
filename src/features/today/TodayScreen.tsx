@@ -1,3 +1,4 @@
+import { Avatar } from '../crew/Avatar'
 import { useState } from 'react'
 import { BodyFigure, ZoneButton } from './BodyFigure'
 import { GuidancePanel } from './GuidancePanel'
@@ -9,9 +10,9 @@ import s from './today.module.css'
 
 /** Everything the Today page can ask the app to do. All optional; the app wires the ones it supports. */
 export interface TodayActions {
-  /** Back to the crew overview. Shows a "Crew" link when set. */
+  /** Back to the crew overview. Shows a "Crew" link when set (leave unset inside AppShell: the tabs do this). */
   onBack?: () => void
-  /** Open the emergency flow (F-08) for this person. */
+  /** Open the emergency flow (F-08) for this person. Shows an Emergency button when set (AppShell has its own). */
   onEmergency?: (crewId: string) => void
   /** Open the Why? modal (F-05) for a metric. */
   onWhy?: (metricId: string) => void
@@ -51,27 +52,29 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
 
   return (
     <section className={s.root} aria-labelledby="today-viewing">
-      <div className={s.topBar}>
-        {actions.onBack ? (
-          <button type="button" className={s.backBtn} onClick={actions.onBack}>
-            <span aria-hidden="true">←</span> Crew
-          </button>
-        ) : (
-          <span />
-        )}
-        <button type="button" className={s.emergency} onClick={() => actions.onEmergency?.(id)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 3 22 20H2ZM12 10v4M12 17v.5" />
-          </svg>
-          Emergency
-        </button>
-      </div>
+      {(actions.onBack || actions.onEmergency) && ( // inside AppShell both live in the header, so this bar is not drawn
+        <div className={s.topBar}>
+          {actions.onBack ? (
+            <button type="button" className={s.backBtn} onClick={actions.onBack}>
+              <span aria-hidden="true">←</span> Crew
+            </button>
+          ) : (
+            <span />
+          )}
+          {actions.onEmergency && (
+            <button type="button" className={s.emergency} onClick={() => actions.onEmergency?.(id)}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 3 22 20H2ZM12 10v4M12 17v.5" />
+              </svg>
+              Emergency
+            </button>
+          )}
+        </div>
+      )}
 
       <header className={s.banner}>
         <div className={s.who}>
-          <span className={`${s.avatar} ${s[overall]}`} aria-hidden="true">
-            {initials}
-          </span>
+          <Avatar initials={initials} status={overall} />
           <div>
             <p className={s.eyebrow}>Viewing</p>
             <h1 id="today-viewing" className={s.name}>
@@ -105,7 +108,12 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
       <div className={s.layout}>
         <div className={s.bodyPanel}>
           <BodyFigure sex={data.person.sex} levels={levels} headline={headline} selected={zone} onSelect={toggle} />
-          <p className={s.auraLegend}>Glow colour = status. Outer field = Radiation · Body outline = Immune · Core = Metabolism</p>
+          <ul className={s.auraLegend} aria-label="How to read the body">
+            <li><strong>Glow colour</strong> status</li>
+            <li><strong>Outer field</strong> radiation</li>
+            <li><strong>Body outline</strong> immune</li>
+            <li><strong>Core</strong> metabolism</li>
+          </ul>
           <div className={s.offBody}>
             {OFF_BODY.map((z) => (
               <ZoneButton
