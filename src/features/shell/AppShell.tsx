@@ -6,6 +6,7 @@ import { AddMemberDialog } from '../crew/dialogs'
 import { useCrew } from '../crew/useCrew.ts'
 import type { CrewApi } from '../crew/api.ts'
 import { Report } from '../report/Report'
+import type { ReportOutbox } from '../report/ReportScreen'
 import type { TodayApi } from '../today/api.ts'
 import { LEVEL_WORD, isFlagged } from '../today/model.ts'
 import { StatusIcon } from '../today/StatusIcon'
@@ -17,7 +18,7 @@ import { TABS, onHashChange, readTab, type TabId } from './tabs.ts'
 /** A teammate's screen. It receives the chosen person and mission day, and can switch tabs. */
 export type ScreenSlot = (ctx: { crewId: string; day?: number; go: (tab: TabId) => void }) => ReactNode
 
-export interface AppShellProps {
+export interface AppShellProps extends ReportOutbox {
   crewApi: CrewApi
   todayApi: TodayApi
   /** Mission day to show; omitted = today (the data source decides). */
@@ -47,7 +48,7 @@ export function AppShell({ crewApi, day, ...rest }: AppShellProps) {
 
 const CONTENT_ID = 'vx-content'
 
-function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNoteForEarth, onSendSummary }: Omit<AppShellProps, 'crewApi'>) {
+function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNoteForEarth, onSendSummary, outbox, send, commsDelaySec }: Omit<AppShellProps, 'crewApi'>) {
   const { board, selected, addMember } = useCrew()
   const tab = useSyncExternalStore(onHashChange, readTab, () => 'crew' as TabId)
   const [adding, setAdding] = useState(false)
@@ -152,7 +153,7 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
               onOpenReport={() => go('report')}
             />,
           )}
-        {tab === 'report' && needsPerson(<Report key={id} api={todayApi} crewId={id!} day={day} onSendSummary={onSendSummary} onWhy={onWhy} />)}
+        {tab === 'report' && needsPerson(<Report key={id} api={todayApi} crewId={id!} day={day} onSendSummary={onSendSummary} onWhy={onWhy} outbox={outbox} send={send} commsDelaySec={commsDelaySec} />)}
         {tab === 'checkin' && slot('checkin', 'Check-in')}
         {tab === 'radiation' && slot('radiation', 'Radiation')}
       </main>
