@@ -41,45 +41,72 @@
 /* Learning and no data have no settled state yet: a dashed ring. */
 .dashed { border-style: dashed; }
 
-/* ── Avatar row (top of every tab) ── */
-.bar {
+/* ── Avatar row (in the app header). Others: ring + word stacked; the selected one: a pill with name and role ── */
+.avatars {
   display: flex;
   align-items: center;
-  min-height: 96px;
-  padding: 12px 24px;
+  gap: 4px;
+  margin: 0;
+  padding: 4px 2px;
+  list-style: none;
   overflow-x: auto;
-  background: linear-gradient(100deg, rgba(88, 166, 255, 0.08), transparent 50%), var(--bg);
-  border-bottom: 1px solid var(--line);
-  color: var(--text);
-  font: 15px/1.5 var(--sans);
+  scrollbar-width: none;
+  padding-right: 24px;
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); /* hints that more crew scroll in */
 }
-.bar p { margin: 0; }
-.avatars { display: flex; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.avatars::-webkit-scrollbar { display: none; }
 .avatarBtn {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 72px;
-  padding: 8px 16px 8px 8px;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 60px;
+  min-height: 64px;
+  padding: 6px 6px 4px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: 18px;
   background: transparent;
   color: inherit;
   font: inherit;
-  text-align: left;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
 }
 .avatarBtn:hover { background: var(--surface); }
-.avatarBtn[aria-pressed='true'] { background: var(--surface); border-color: var(--line-strong); }
 .avatarBtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.avatarOn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 18px 6px 6px;
+  border-color: var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  text-align: left;
+}
+.avatarOn .ring { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--accent); }
 .avatarText { display: grid; line-height: 1.3; }
 .avatarName { font-weight: 600; white-space: nowrap; }
-.avatarWord { color: var(--c); font-size: 13px; font-weight: 600; }
-.avatarBtn[aria-pressed='true'] .ring { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--accent); }
+.avatarMeta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.avatarWord { color: var(--c); font-size: 11px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+.avatarOn .avatarWord { font-size: 12px; }
+.addBtn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 8px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font: 300 24px/1 var(--sans);
+  cursor: pointer;
+}
+.addBtn:hover { border-color: var(--accent); color: var(--text); }
+.addBtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.barNote { color: var(--muted); font-size: 13px; }
 .barSkeleton {
-  width: min(520px, 100%);
-  height: 56px;
+  width: min(420px, 100%);
+  height: 52px;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%) 0 0 / 200% 100%;
 }
@@ -380,7 +407,6 @@
 .dialog button:disabled { opacity: 0.6; cursor: progress; }
 
 @media (max-width: 640px) {
-  .bar { padding: 8px 16px; }
   .title { font-size: 26px; }
   .attnGo { display: none; }
   .attnRow { grid-template-columns: auto minmax(0, 1fr); }

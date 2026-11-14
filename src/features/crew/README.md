@@ -18,13 +18,13 @@ import { CrewProvider, AvatarRow, CrewScreen, useCrew, simulatedCrewApi } from '
 const { selected } = useCrew()          // selected.id → <Today crewId={selected.id} … />
 ```
 
-To try it with no wiring: render `<TodayPreview />` (from `features/today`). It has the avatar row and the Crew / Today / Report tabs.
+Inside the app, `AppShell` (`features/shell`) already does this wiring. To try everything: render `<AppPreview />`.
 
 ## What's on the page
 
 | Part | What it does |
 |---|---|
-| **Avatar row** | One avatar per current crew member. The ring shows the state three ways: colour, a shape badge (● ▲ ◆, dashed for learning / no data) and a word. Choosing one switches the person on every tab. |
+| **Avatar row** | In the app header. One avatar per current crew member; the ring shows the state three ways: colour, a shape badge (● ▲ ◆, dashed for learning / no data) and a word. The selected one also shows name and role. Choosing one switches the person on every tab. `onAdd` adds a "+" circle (Add crew member). |
 | **Overview** | A ring split by state (Alert / Watch / Normal / Learning / No data) with the counts beside it, a one-line headline ("2 of 4 need attention") and today's check-ins. |
 | **Needs attention** | Next to the overview on wide screens. One row per person with their Watch / Alert readings as chips, Alert first. Choosing a row opens that person's Today. |
 | **Person cards** | One card per person, like the sketch: ring, name, role, state pill, check-in line, their most urgent reading (or "in usual range" / "Learning their normal" / "Waiting for the first check-in"), and a strip of all seven zones (icon + state shape). **Open profile** and **Remove** at the bottom. |

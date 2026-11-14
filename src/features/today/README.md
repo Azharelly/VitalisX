@@ -28,7 +28,7 @@ import { Today, simulatedTodayApi } from './features/today'
 ```
 
 Every callback is optional, so you can wire them one feature at a time.
-To try it with no wiring: render `<TodayPreview />`. It is a mini app shell: the crew avatar row on top, Crew / Today / Report tabs and a mission-day slider, and it prints each action the page emits.
+To try it with no wiring: render `<AppPreview />` from `features/shell` (the whole app on simulated data, with a floating Demo panel for the mission day and a log of every action the page emits).
 
 Good days to try in the preview:
 
@@ -132,7 +132,6 @@ Sources labelled `Design rule` or `Source pending` are shown with a dashed outli
 | `api.ts` | `TodayApi` contract, HTTP client, response validation. |
 | `simulate.ts` | Simulated backend (replace with the engine when it lands). |
 | `model.ts` | View-model types and small pure helpers. |
-| `TodayPreview.tsx` | Demo harness, not product UI. |
 | `today.module.css` | Styles, scoped to this feature (Flight deck palette). |
 | `model.check.mjs` | Self-check (see below). |
 
