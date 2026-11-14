@@ -30,14 +30,14 @@ describe('dexieCrewApi', () => {
         expect(parseCrewBoard(JSON.parse(JSON.stringify(board)))).toBeTruthy()
     })
 
-    it('rings follow the stories, and Mind & sleep stays private', async () => {
+    it('rings follow the stories, Mind & sleep included (decision D2)', async () => {
         expect((await byName('Ravi')).status).toBe('alert')
         expect((await byName('Kenji')).status).toBe('watch')
         expect((await byName('Lucía')).status).toBe('ok')
-        const amara = await byName('Amara') // her only flag is sleep (Mind): the crew sees a normal ring
-        expect(amara.status).toBe('ok')
-        expect(amara.zones).not.toHaveProperty('mind')
-        expect(amara.attention).toEqual([])
+        const amara = await byName('Amara') // her sleep is on Watch, and every zone is visible to the crew
+        expect(amara.status).toBe('watch')
+        expect(amara.zones.mind).toBe('watch')
+        expect(amara.attention.map((r) => r.id)).toContain('sleep')
     })
 
     it('Ravi needs attention, most urgent first', async () => {

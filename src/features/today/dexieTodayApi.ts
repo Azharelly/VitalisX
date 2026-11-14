@@ -277,15 +277,12 @@ function buildReport(ctx: Ctx, asOf: number, days: number): ReportView {
 
 // ── crew board card (used by dexieCrewApi) ──────────────────────────────────────────────────
 
-/**
- * One card of the Crew board. Mind & sleep is private to the person (PRD F-01): it does not count towards the
- * ring, the zones or "needs attention" that the rest of the crew sees.
- */
+
+/** One card of the Crew board. Every zone is visible to the whole crew, Mind & sleep included (decision D2). */
 export async function crewCardOf(database: VitalisDB, mission: MissionConfig, crewId: string, day: number): Promise<CrewCard> {
   const ctx = await loadCtx(database, mission, crewId)
-  const shared = entriesAt(ctx, day).filter((e) => e.reading.zone !== 'mind')
-  const zones = zoneLevels(shared.map((e) => e.reading))
-  delete (zones as Partial<Record<ZoneId, Level>>).mind
+  const entries = entriesAt(ctx, day)
+  const zones = zoneLevels(entries.map((e) => e.reading))
   const lastDay = [...ctx.daysWithCheckIn].filter((d) => d <= day).sort((a, b) => b - a)[0] ?? null
   return {
     id: String(ctx.crew.id),
@@ -296,7 +293,7 @@ export async function crewCardOf(database: VitalisDB, mission: MissionConfig, cr
     status: lastDay === null ? 'none' : worst(Object.values(zones)),
     zones,
     checkIn: { doneAt: ctx.daysWithCheckIn.has(day) ? checkInClock(ctx, day) : undefined, lastDay },
-    attention: shared.filter((e) => isFlagged(e.reading.level)).sort(urgency).map((e) => e.reading),
+    attention: entries.filter((e) => isFlagged(e.reading.level)).sort(urgency).map((e) => e.reading),
   }
 }
 
