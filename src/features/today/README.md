@@ -133,7 +133,8 @@ Sources labelled `Design rule` or `Source pending` are shown with a dashed outli
 | `simulate.ts` | Simulated backend (replace with the engine when it lands). |
 | `model.ts` | View-model types and small pure helpers. |
 | `TodayPreview.tsx` | Demo harness, not product UI. |
-| `today.module.css` | Styles, scoped to this feature (Flight deck palette). |
+| `shared.module.css` | Design tokens and primitives shared with Report: one type scale (12 · 14 · 16 · 18 · 24 · 32 · 44), one spacing scale (4 · 8 · 12 · 16 · 24 · 32 · 48), three radii, buttons, badges, cards. |
+| `today.module.css` | Page-specific styles. Components combine both: `className={`${ui.card} ${s.next}`}`. |
 | `model.check.mjs` | Self-check (see below). |
 
 ## Check it
@@ -149,7 +150,8 @@ The self-check fails if a metric the data layer returns has no `GUIDANCE` entry.
 
 - `model.ts` types are local until `src/data/types.ts` lands. `Level` uses the same names as its `State`.
 - `simulate.ts` has its own mini-evaluator and mission constants. Replace with `src/engine` + `mission_config.json`.
-- Palette tokens live in `today.module.css`. Move to `src/ui` tokens when they exist.
+- Palette tokens live in `shared.module.css`. Point them at `src/ui` tokens when those exist.
+- Styling rule: no cross-file CSS `composes` (Vite copies the composed file into every stylesheet that uses it, and the copies override each other). Combine `ui.*` and `s.*` classes in the component instead.
 - One neutral body drawing. F/M drawings replace the paths in `BodyFigure.tsx`.
 - Fonts fall back to system fonts until the bundled fonts land (F-09).
 

@@ -192,7 +192,7 @@ export function ZoneButton({ id, label, level, reading, selected, onSelect, clas
   return (
     <button
       type="button"
-      className={`${s.zoneBtn} ${flagged ? `${s.flag} ${s[level]}` : ''} ${className}`}
+      className={`${s.zoneBtn} ${s[level]} ${flagged ? s.flag : ''} ${className}`}
       style={style}
       aria-pressed={selected}
       onClick={() => onSelect(id)}
@@ -211,7 +211,7 @@ export function ZoneButton({ id, label, level, reading, selected, onSelect, clas
           </span>
         )}
         <span className={s.zoneWord}>
-          {(flagged || level === 'learn') && <StatusIcon level={level} />}
+          <StatusIcon level={level} />
           {LEVEL_WORD[level]}
         </span>
       </span>

@@ -1,6 +1,8 @@
+import type { ReactNode } from 'react'
 import { ZONES, LEVEL_WORD, changeText, isFlagged, type Level, type ReportMetric, type ReportView } from '../today/model.ts'
-import { StatusIcon } from '../today/StatusIcon'
+import { StatusBadge } from '../today/StatusIcon'
 import { ZoneIcon } from '../today/ZoneIcon'
+import ui from '../today/shared.module.css'
 import { BudgetBar, DoseChart, TrendChart, ZoneRibbon } from './ReportCharts'
 import s from './report.module.css'
 
@@ -22,7 +24,7 @@ const RANK: Record<Level, number> = { alert: 0, watch: 1, learn: 2, ok: 3, none:
 /** Week or month in review for one crew member. Presentational: data in, callbacks out. */
 export function ReportScreen({ report, ...actions }: { report: ReportView } & ReportActions) {
   const period = report.days === 7 ? 'week' : 'month'
-  const first = report.zones[0]?.day ?? report.missionDay
+  const firstDay = report.zones[0]?.day ?? report.missionDay
   const open = report.metrics.filter((m) => isFlagged(m.level)).sort((a, b) => RANK[a.level] - RANK[b.level] || a.priority - b.priority)
   const sorted = [...report.metrics].sort(
     (a, b) => RANK[a.level] - RANK[b.level] || ZONE_ORDER.indexOf(a.zone) - ZONE_ORDER.indexOf(b.zone) || a.priority - b.priority,
@@ -33,10 +35,10 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
   const radLevel: Level = rad.daily.at(-1)?.storm || (projPct ?? radPct) >= 100 ? 'alert' : (projPct ?? radPct) >= 80 ? 'watch' : 'ok'
 
   return (
-    <section className={s.root} aria-labelledby="report-title">
+    <section className={`${ui.root} ${s.page}`} aria-labelledby="report-title">
       <div className={s.topBar}>
         {actions.onBack ? (
-          <button type="button" className={s.backBtn} onClick={actions.onBack}>
+          <button type="button" className={ui.btnText} onClick={actions.onBack}>
             <span aria-hidden="true">←</span> Today
           </button>
         ) : (
@@ -51,38 +53,37 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
         </div>
       </div>
 
-      <header className={s.header}>
-        <div>
-          <p className={s.eyebrow}>
-            Report · {report.person.name} · {report.person.role}
+      <header className={`${ui.card} ${s.header}`}>
+        <div className={s.headerText}>
+          <p className={ui.caption}>
+            Report · {report.person.name}, {report.person.role}
           </p>
-          <h1 id="report-title" className={s.title}>
+          <h1 id="report-title" className={ui.title}>
             Your {period} in review
           </h1>
-          <p className={s.muted}>
-            Mission days {first}–{report.missionDay}
-            {report.isSimulated && <span className={s.sim}>Simulated data</span>}
+          <p className={s.headerMeta}>
+            <span className={`${ui.small} ${ui.muted}`}>
+              Mission days {firstDay}–{report.missionDay}
+            </span>
+            {report.isSimulated && <span className={ui.tag}>Simulated data</span>}
           </p>
         </div>
-        <button type="button" className={s.sendBtn} onClick={() => actions.onSendSummary?.(report.person.id, report.days)}>
+        <button type="button" className={ui.btnPrimary} onClick={() => actions.onSendSummary?.(report.person.id, report.days)}>
           Send summary to Earth
         </button>
       </header>
 
       <div className={s.kpis}>
-        <Kpi label="Days logged" value={report.logged} suffix={`of ${report.days}`} />
-        <Kpi label="Check-in streak" value={report.streakDays} suffix="days" />
-        <Kpi label="Open now" value={open.length} suffix={open.length === 1 ? 'reading' : 'readings'} level={open[0]?.level} />
-        <Kpi label="Career dose" value={radPct} suffix={`% of ${rad.limitMsv} mSv`} level={radLevel} />
+        <Kpi label="Days logged" value={report.logged} unit={`of ${report.days}`} />
+        <Kpi label="Check-in streak" value={report.streakDays} unit="days" />
+        <Kpi label="Open now" value={open.length} unit={open.length === 1 ? 'reading' : 'readings'} level={open[0]?.level} />
+        <Kpi label="Career dose" value={radPct} unit={`% of ${rad.limitMsv} mSv`} level={radLevel} />
       </div>
 
-      <section className={s.panel} aria-labelledby="report-summary">
-        <h2 id="report-summary" className={s.h2}>
-          Summary
-        </h2>
+      <Section id="report-summary" title="Summary">
         <ul className={s.summary}>
           <li>
-            {report.logged} of {report.days} days logged{report.streakDays > 1 ? `; ${report.streakDays}-day check-in streak.` : '.'}
+            {report.logged} of {report.days} days logged{report.streakDays > 1 ? `, with a ${report.streakDays}-day check-in streak.` : '.'}
           </li>
           <li>
             {open.length
@@ -90,49 +91,45 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
               : `All body readings ended the ${period} inside your usual range.`}
           </li>
           <li>
-            Radiation: {rad.careerMsv} mSv ({radPct}% of {rad.limitMsv})
+            Radiation: {rad.careerMsv} mSv ({radPct}% of the {rad.limitMsv} mSv limit)
             {rad.projectedMsv !== null && `, ${rad.projectedMsv} mSv projected at arrival (${projPct}%)`}.
           </li>
         </ul>
-      </section>
+      </Section>
 
-      <section className={s.panel} aria-labelledby="report-changes">
-        <h2 id="report-changes" className={s.h2}>
-          What changed
-        </h2>
+      <Section id="report-changes" title="Status changes" meta={`${report.events.length} this ${period}`}>
         {report.events.length ? (
           <ol className={s.events}>
             {report.events.map((e) => (
               <li key={`${e.day}-${e.metricId}-${e.to}`}>
                 <span className={s.eventDay}>{e.day === report.missionDay ? 'Today' : `Day ${e.day}`}</span>
                 <span className={s.eventLabel}>{e.label}</span>
-                <span className={`${s.eventLevel} ${s[e.from]}`}>{LEVEL_WORD[e.from]}</span>
-                <span aria-hidden="true" className={s.muted}>
-                  →
-                </span>
-                <span className={`${s.eventLevel} ${s[e.to]}`}>
-                  {isFlagged(e.to) && <StatusIcon level={e.to} />}
-                  {LEVEL_WORD[e.to]}
+                <span className={s.eventMove}>
+                  <span className={ui.caption}>{LEVEL_WORD[e.from]}</span>
+                  <span aria-label="to" className={ui.caption}>
+                    →
+                  </span>
+                  <StatusBadge level={e.to} label={LEVEL_WORD[e.to]} />
                 </span>
               </li>
             ))}
           </ol>
         ) : (
-          <p className={s.muted}>No Watch or Alert this {period}. Steady.</p>
+          <p className={`${ui.small} ${ui.muted}`}>No Watch or Alert this {period}.</p>
         )}
-      </section>
+      </Section>
 
-      <section className={s.panel} aria-labelledby="report-ribbon">
-        <h2 id="report-ribbon" className={s.h2}>
-          Zones by day
-        </h2>
+      <Section id="report-ribbon" title="Zones by day" meta="▲ Watch · ◆ Alert · hatched: no check-in">
         <ZoneRibbon report={report} />
-      </section>
+      </Section>
 
-      <section aria-labelledby="report-trends">
-        <h2 id="report-trends" className={s.h2}>
-          Trends <span className={s.hint}>Shaded band = your usual range · hover a point for its value</span>
-        </h2>
+      <section className={ui.section} aria-labelledby="report-trends">
+        <div className={ui.sectionHead}>
+          <h2 id="report-trends" className={ui.h2}>
+            Trends
+          </h2>
+          <span className={ui.sectionMeta}>Shaded band: your usual range. Hover a point for its value.</span>
+        </div>
         <div className={s.trends}>
           {sorted.map((m) => (
             <TrendCard key={m.id} m={m} period={period} lastDay={report.missionDay} onWhy={actions.onWhy} />
@@ -140,38 +137,45 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
         </div>
       </section>
 
-      <section className={s.panel} aria-labelledby="report-rad">
-        <div className={s.radHead}>
-          <h2 id="report-rad" className={s.h2}>
-            <ZoneIcon zone="radiation" className={s.rowIcon} /> Radiation
-          </h2>
-          <span className={`${s.badge} ${s[radLevel]}`}>
-            <StatusIcon level={radLevel} /> {LEVEL_WORD[radLevel]}
-          </span>
-        </div>
+      <Section id="report-rad" title="Radiation" aside={<StatusBadge level={radLevel} label={LEVEL_WORD[radLevel]} />}>
         <p className={s.radBig}>
           {rad.careerMsv}
-          <span className={s.unit}>
-            of {rad.limitMsv} mSv career limit · {radPct}%
+          <span className={ui.unit}>
+            of {rad.limitMsv} mSv career limit ({radPct}%)
           </span>
         </p>
         <BudgetBar r={rad} />
-        <h3 className={s.h3}>Daily dose · mSv</h3>
+        <h3 className={s.subhead}>Daily dose (mSv)</h3>
         <DoseChart r={rad} lastDay={report.missionDay} />
-        <p className={s.fine}>The app records dosimeter readings; it does not measure radiation. Limit: NASA-STD-3001 Vol. 1.</p>
-      </section>
+        <p className={ui.caption}>The app records dosimeter readings; it does not measure radiation. Limit: NASA-STD-3001 Vol. 1.</p>
+      </Section>
     </section>
   )
 }
 
-function Kpi({ label, value, suffix, level }: { label: string; value: number; suffix: string; level?: Level }) {
-  const tone = level && isFlagged(level) ? s[level] : ''
+/** A titled section whose content sits in one card. */
+function Section({ id, title, meta, aside, children }: { id: string; title: string; meta?: string; aside?: ReactNode; children: ReactNode }) {
   return (
-    <div className={`${s.kpi} ${tone}`}>
-      <span className={s.eyebrow}>{label}</span>
+    <section className={ui.section} aria-labelledby={id}>
+      <div className={ui.sectionHead}>
+        <h2 id={id} className={ui.h2}>
+          {title}
+        </h2>
+        {meta && <span className={ui.sectionMeta}>{meta}</span>}
+        {aside}
+      </div>
+      <div className={`${ui.card} ${s.panel}`}>{children}</div>
+    </section>
+  )
+}
+
+function Kpi({ label, value, unit, level }: { label: string; value: number; unit: string; level?: Level }) {
+  return (
+    <div className={`${ui.card} ${s.kpi} ${level && isFlagged(level) ? s[level] : ''}`}>
+      <span className={ui.caption}>{label}</span>
       <span className={s.kpiValue}>
         {value}
-        <span className={s.unit}>{suffix}</span>
+        <span className={ui.unit}>{unit}</span>
       </span>
     </div>
   )
@@ -180,31 +184,30 @@ function Kpi({ label, value, suffix, level }: { label: string; value: number; su
 function TrendCard({ m, period, lastDay, onWhy }: { m: ReportMetric; period: string; lastDay: number; onWhy?: (id: string) => void }) {
   const flagged = isFlagged(m.level)
   const change = changeText(m, period)
+  const usual = m.usual ? `Your usual ${m.usual[0].toFixed(m.decimals)}–${m.usual[1].toFixed(m.decimals)}${m.unit.startsWith('/') ? '' : ` ${m.unit}`}` : 'Rule-based: no personal band'
   return (
-    <article className={`${s.trendCard} ${flagged ? s[m.level] : ''}`}>
+    <article className={`${ui.card} ${s.trendCard} ${flagged ? s[m.level] : ''}`} aria-label={`${m.label}${flagged ? `, ${LEVEL_WORD[m.level]}` : ''}`}>
       <header className={s.trendHead}>
         <ZoneIcon zone={m.zone} className={s.rowIcon} />
-        <span className={s.trendLabel}>{m.label}</span>
-        {flagged && (
-          <span className={s.badge}>
-            <StatusIcon level={m.level} /> {LEVEL_WORD[m.level]}
-          </span>
-        )}
+        <span className={ui.h3}>{m.label}</span>
+        {flagged && <StatusBadge level={m.level} label={LEVEL_WORD[m.level]} />}
       </header>
-      <p className={s.trendValue}>
-        {m.avg === null ? '—' : m.avg.toFixed(m.decimals)}
-        <span className={s.unit}>{m.unit} average</span>
-      </p>
-      {change && <p className={s.change}>{change}</p>}
+      <div>
+        <p className={s.trendValue}>
+          {m.avg === null ? '—' : m.avg.toFixed(m.decimals)}
+          <span className={ui.unit}>{m.unit} average</span>
+        </p>
+        {change && <p className={ui.caption}>{change}</p>}
+      </div>
       <TrendChart m={m} lastDay={lastDay} />
-      <div className={s.trendFoot}>
-        <span className={s.muted}>{m.usual ? `Usual ${m.usual[0].toFixed(m.decimals)}–${m.usual[1].toFixed(m.decimals)} ${m.unit}` : 'Rule-based, no personal band'}</span>
+      <footer className={s.trendFoot}>
+        <span className={ui.caption}>{usual}</span>
         {flagged && (
-          <button type="button" className={s.why} onClick={() => onWhy?.(m.id)}>
+          <button type="button" className={ui.btnText} onClick={() => onWhy?.(m.id)}>
             Why?
           </button>
         )}
-      </div>
+      </footer>
     </article>
   )
 }

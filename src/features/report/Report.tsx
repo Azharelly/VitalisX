@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { TodayApi } from '../today/api.ts'
 import type { ReportView } from '../today/model.ts'
 import { ReportScreen, type ReportActions } from './ReportScreen'
+import ui from '../today/shared.module.css'
 import s from './report.module.css'
 
 interface Props extends Omit<ReportActions, 'onPeriodChange'> {
@@ -31,20 +32,20 @@ export function Report({ api, crewId, day, initialDays = 7, ...actions }: Props)
 
   if (!result || result.key !== key) {
     return (
-      <section className={s.root} aria-busy="true" aria-label="Loading report">
-        <div className={s.skeleton} style={{ height: 120 }} />
-        <div className={s.skeleton} style={{ height: 320 }} />
-        <div className={s.skeleton} style={{ height: 420 }} />
+      <section className={`${ui.root} ${s.page}`} aria-busy="true" aria-label="Loading report">
+        <div className={ui.skeleton} style={{ height: 120 }} />
+        <div className={ui.skeleton} style={{ height: 320 }} />
+        <div className={ui.skeleton} style={{ height: 420 }} />
       </section>
     )
   }
   if (result.error) {
     return (
-      <section className={s.root}>
-        <div className={s.errorBox} role="alert">
-          <p className={s.h2}>Could not load the report</p>
-          <p className={s.muted}>{result.error.message}</p>
-          <button type="button" className={s.why} onClick={() => setAttempt((n) => n + 1)}>
+      <section className={`${ui.root} ${s.page}`}>
+        <div className={ui.errorBox} role="alert">
+          <h1 className={ui.h2}>The report could not be loaded</h1>
+          <p className={`${ui.small} ${ui.muted}`}>{result.error.message}</p>
+          <button type="button" className={ui.btn} onClick={() => setAttempt((n) => n + 1)}>
             Try again
           </button>
         </div>

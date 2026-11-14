@@ -56,7 +56,7 @@ Types: `ReportView`, `ReportMetric`, `DayPoint`, `ReportEvent` in [`../today/mod
 | `Report.tsx` | Connected page: fetches, loading / error / retry, Week/Month state |
 | `ReportScreen.tsx` | The page (presentational), `ReportActions` |
 | `ReportCharts.tsx` | `TrendChart`, `DoseChart`, `BudgetBar`, `ZoneRibbon` (no chart library) |
-| `report.module.css` | Styles; shares tokens and controls with Today via CSS `composes` |
+| `report.module.css` | Page-specific styles; tokens and primitives come from `../today/shared.module.css` |
 
 ## Temporary on purpose
 
