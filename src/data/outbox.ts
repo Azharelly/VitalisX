@@ -108,3 +108,13 @@ export async function flushOutbox(
 
 /** Demo transport: no real Earth link exists yet, so this "sends" after a short pause. Replace when the link lands. */
 export const simulatedEarthLink: SendToEarth = () => new Promise((resolve) => setTimeout(resolve, 400));
+
+/** Seconds until a message reaches Earth: created_at + delay_sec - now. 0 = arrived. Derived from stored fields only. */
+export function arrivalLeftSec(
+  m: Pick<OutboxMessage, 'createdAt' | 'delaySec'>,
+  now: number,
+  fallbackDelaySec = DEFAULT_COMMS_DELAY_SEC,
+): number {
+  const at = Date.parse(m.createdAt) + (m.delaySec ?? fallbackDelaySec) * 1000
+  return Math.max(0, Math.ceil((at - now) / 1000))
+}

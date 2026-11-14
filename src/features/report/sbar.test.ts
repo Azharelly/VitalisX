@@ -70,7 +70,8 @@ describe('sbarToText / isSendable', () => {
   });
 });
 
-import { arrivalLeftSec, MIN_CHECKIN_DAYS } from './SbarDialog'
+import { arrivalLeftSec } from '../../data/outbox'
+import { MIN_CHECKIN_DAYS } from './SbarDialog'
 describe('outbox countdown and readiness (#23)', () => {
   it('needs 3 check-in days', () => expect(MIN_CHECKIN_DAYS).toBe(3))
   it('counts down from created_at + delay_sec', () => {
