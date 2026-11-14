@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { db } from '../../data/db'
 import { dexieOutbox, simulatedEarthLink } from '../../data/outbox'
 import { RadiationScreen } from '../RadiationScreen'
+import { CheckInPreview } from '../checkin/CheckInPreview'
 import { MISSION, simulatedCrewApi, simulatedTodayApi } from '../today/simulate.ts'
 import { AppShell } from './AppShell'
 import s from './shell.module.css'
@@ -28,7 +29,10 @@ export function AppPreview() {
         crewApi={simulatedCrewApi}
         todayApi={simulatedTodayApi}
         day={day}
-        screens={{ radiation: () => <RadiationScreen /> }} // the team's screen, still on its own mock data
+        screens={{
+          radiation: () => <RadiationScreen />, // the team's screen, still on its own mock data
+          checkin: ({ crewId, day, go }) => <CheckInPreview api={simulatedTodayApi} crewId={crewId} day={day} onDone={() => go('today')} />,
+        }}
         onEmergency={(id) => log('onEmergency', id)}
         onWhy={(m) => log('onWhy', m)}
         onStart={(id, m) => log('onStart', id, m)}
