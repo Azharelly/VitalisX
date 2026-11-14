@@ -19,6 +19,7 @@
 .none { --c: var(--learn); }
 
 .topBar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.headerActions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 
 .toggle {
   display: inline-flex;
@@ -27,7 +28,7 @@
   border-radius: 999px;
 }
 .toggle button {
-  min-height: 40px;
+  min-height: 44px;
   min-width: 84px;
   padding: 0 16px;
   border: 0;
@@ -226,3 +227,8 @@
   .skeleton { animation: none; }
 }
 .radStatus { display: inline-flex; align-items: center; gap: 8px; }
+
+/* Trend readout: tap or hover a day (phones cannot hover the point titles). */
+.hit { fill: transparent; cursor: pointer; }
+.dotActive { fill: none; stroke: var(--text); stroke-width: 1.5; pointer-events: none; }
+.readout { margin: 4px 0 0; min-height: 1.4em; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }

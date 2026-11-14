@@ -21,7 +21,7 @@ function LevelTag({ level }: { level: Level }) {
   return (
     <span className={`${c.level} ${t[level]}`}>
       <StatusIcon level={level} />
-      {LEVEL_WORD[level]}
+      <span className={c.levelWord}>{LEVEL_WORD[level]}</span>
     </span>
   )
 }
@@ -203,12 +203,11 @@ function Attention({ members, onOpen }: { members: CrewCard[]; onOpen: (id: stri
   const people = members
     .filter((m) => m.attention.length)
     .sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status))
-  const total = people.reduce((n, m) => n + m.attention.length, 0)
 
   return (
     <section className={`${c.panel} ${c.attentionPanel}`} aria-labelledby="crew-attention">
       <h2 id="crew-attention" className={t.h2}>
-        Needs attention <span className={t.count}>{total}</span>
+        Needs attention <span className={t.count}>{people.length}</span>
       </h2>
       {people.length === 0 ? (
         <p className={c.allClear}>
@@ -332,7 +331,7 @@ function PersonCard({ m, i, day, viewing, onOpen, onRemove }: CardProps) {
 /** The per-person zone matrix: every zone as shape + word, for scanning the whole crew at once. */
 function ZoneGrid({ members, day, onOpen, onRemove }: { members: CrewCard[]; day: number; onOpen: (id: string) => void; onRemove: (m: CrewCard) => void }) {
   return (
-    <div className={`${t.weekWrap} ${t.weekScroll}`}>
+    <div className={`${t.weekWrap} ${t.weekScroll} ${c.matrixWrap}`}>
       <table className={`${t.week} ${c.matrix}`}>
         <thead>
           <tr>

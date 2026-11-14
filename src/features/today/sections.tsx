@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { actionFor } from '../../data/guidance'
 import { RangeBar, Sparkline } from './Charts'
 import { GuidancePanel } from './GuidancePanel'
@@ -40,6 +40,7 @@ export function NextActionCard({ data, flagged, onStart, onWhy, onNoteForEarth, 
   const level: Level = target?.level ?? 'ok'
   const then = flagged.filter((r) => r.id !== target?.id)
   const first = data.person.name.split(' ')[0]
+  const [started, setStarted] = useState<string>() // visible answer to "Start", which otherwise only emits onStart
 
   return (
     <article className={`${s.next} ${s[level]}`} aria-labelledby="today-next">
@@ -58,8 +59,16 @@ export function NextActionCard({ data, flagged, onStart, onWhy, onNoteForEarth, 
           </h2>
           <p className={s.nextText}>{actionFor(target.id, target.level)}</p>
           <div className={s.nextFoot}>
-            <button type="button" className={s.primaryBtn} onClick={() => onStart?.(target.id)}>
-              Start
+            <button
+              type="button"
+              className={s.primaryBtn}
+              aria-pressed={started === target.id}
+              onClick={() => {
+                setStarted(target.id)
+                onStart?.(target.id)
+              }}
+            >
+              {started === target.id ? '✓ Started' : 'Start'}
             </button>
             <button type="button" className={s.why} onClick={() => onWhy?.(target.id)}>
               Why am I seeing this?

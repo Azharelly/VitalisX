@@ -3,7 +3,9 @@ import type { CheckInMetricId } from '../../data/checkin'
 import type { MetricId } from '../../data/types'
 import { useCrew } from '../crew/useCrew.ts'
 import type { TodayApi } from '../today/api.ts'
+import t from '../today/today.module.css'
 import { CheckInScreen, type CheckInScreenProps } from './CheckInScreen'
+import { useCheckInWhy } from './useCheckInWhy'
 import { METRIC_LABEL, type CheckInAnswers, type Outcome } from './model'
 
 type Bands = Partial<Record<MetricId, [number, number]>>
@@ -19,6 +21,7 @@ export function CheckInPreview({ api, crewId, day, ...actions }: { api: TodayApi
 >) {
   const { selected } = useCrew()
   const [usual, setUsual] = useState<Bands>({})
+  const why = useCheckInWhy(api, crewId, day)
 
   useEffect(() => {
     let live = true
@@ -32,14 +35,26 @@ export function CheckInPreview({ api, crewId, day, ...actions }: { api: TodayApi
   }, [api, crewId, day])
 
   return (
-    <CheckInScreen
-      key={crewId}
-      name={selected?.name ?? 'Crew member'}
-      day={day}
-      usual={usual}
-      onSave={async (a) => previewOutcomes(a, usual)}
-      {...actions}
-    />
+    <>
+      <CheckInScreen
+        key={crewId}
+        name={selected?.name ?? 'Crew member'}
+        day={day}
+        usual={usual}
+        onSave={async (a) => previewOutcomes(a, usual)}
+        {...actions}
+        onWhy={(m) => {
+          actions.onWhy?.(m)
+          void why.open(m)
+        }}
+      />
+      {why.error && (
+        <p className={t.fine} role="alert">
+          {why.error}
+        </p>
+      )}
+      {why.modal}
+    </>
   )
 }
 

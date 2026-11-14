@@ -20,6 +20,10 @@ export interface ReportActions {
   onSendSummary?: (crewId: string, days: number) => void
   /** Open the Why? modal for a metric (F-05). */
   onWhy?: (metricId: string) => void
+  /** Open the Earth summary straight away (arriving from "Note for Earth" on another tab). Needs `outbox`. */
+  openSummary?: boolean
+  /** The Earth summary was closed. */
+  onSummaryClosed?: () => void
 }
 
 /** Where SBAR summaries go. Without `outbox` the button only emits `onSendSummary`. */
@@ -36,7 +40,7 @@ const ZONE_ORDER = ZONES.map((z) => z.id)
 /** Week or month in review for one crew member. Presentational: data in, callbacks out. */
 export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }: { report: ReportView } & ReportActions & ReportOutbox) {
   const [whyId, setWhyId] = useState<string | null>(null)
-  const [sbarOpen, setSbarOpen] = useState(false)
+  const [sbarOpen, setSbarOpen] = useState(Boolean(actions.openSummary && outbox))
   const onWhy = (metricId: string) => {
     setWhyId(metricId)
     actions.onWhy?.(metricId)
@@ -62,22 +66,13 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
 
   return (
     <section className={s.root} aria-labelledby="report-title">
-      <div className={s.topBar}>
-        {actions.onBack ? (
+      {actions.onBack && (
+        <div className={s.topBar}>
           <button type="button" className={s.backBtn} onClick={actions.onBack}>
             <span aria-hidden="true">←</span> Today
           </button>
-        ) : (
-          <span />
-        )}
-        <div className={s.toggle} role="group" aria-label="Report period">
-          {([7, 28] as const).map((d) => (
-            <button key={d} type="button" aria-pressed={report.days === d} onClick={() => actions.onPeriodChange?.(d)}>
-              {d === 7 ? 'Week' : 'Month'}
-            </button>
-          ))}
         </div>
-      </div>
+      )}
 
       <header className={s.header}>
         <div>
@@ -92,9 +87,19 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
             {report.isSimulated && <span className={s.sim}>Simulated data</span>}
           </p>
         </div>
-        <button type="button" className={s.sendBtn} onClick={sendSummary}>
-          Send summary to Earth
-        </button>
+        {/* The period switch lives in the card it changes; alone on its own row it left an empty strip. */}
+        <div className={s.headerActions}>
+          <div className={s.toggle} role="group" aria-label="Report period">
+            {([7, 28] as const).map((d) => (
+              <button key={d} type="button" aria-pressed={report.days === d} onClick={() => actions.onPeriodChange?.(d)}>
+                {d === 7 ? 'Week' : 'Month'}
+              </button>
+            ))}
+          </div>
+          <button type="button" className={s.sendBtn} onClick={sendSummary}>
+            Send summary to Earth
+          </button>
+        </div>
       </header>
 
       <div className={s.kpis}>
@@ -161,7 +166,7 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
 
       <section aria-labelledby="report-trends">
         <h2 id="report-trends" className={s.h2}>
-          Trends <span className={s.hint}>Shaded band = your usual range · hover a point for its value</span>
+          Trends <span className={s.hint}>Shaded band = your usual range · tap or hover a chart to read a day</span>
         </h2>
         <div className={s.trends}>
           {sorted.map((m) => (
@@ -198,7 +203,11 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
         <p className={s.fine}>The app records dosimeter readings; it does not measure radiation. Limit: NASA-STD-3001 Vol. 1.</p>
       </section>
       {sbarOpen && outbox && (
-        <SbarDialog report={report} outbox={outbox} send={send} commsDelaySec={commsDelaySec} onClose={() => setSbarOpen(false)} />
+        <SbarDialog report={report} outbox={outbox} send={send} commsDelaySec={commsDelaySec} onClose={() => {
+            setSbarOpen(false)
+            actions.onSummaryClosed?.()
+          }}
+        />
       )}
       {why && <WhyModal e={why} onClose={() => setWhyId(null)} />}
     </section>

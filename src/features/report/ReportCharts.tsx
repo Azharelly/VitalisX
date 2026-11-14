@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { LEVEL_WORD, ZONES, isFlagged, type Level, type ReportMetric, type ReportView } from '../today/model.ts'
 import { StatusIcon } from '../today/StatusIcon'
 import { ZoneIcon } from '../today/ZoneIcon'
@@ -10,6 +10,7 @@ const dayLabel = (day: number, last: number) => (day === last ? 'Today' : `D${da
 
 /** A metric over the period: usual band, one point per day coloured by status, gaps for missing days. */
 export function TrendChart({ m, lastDay }: { m: ReportMetric; lastDay: number }) {
+  const [active, setActive] = useState<number | null>(null) // the day being read: phones cannot hover a <title>
   const W = 320
   const H = 150
   const L = 38
@@ -39,7 +40,11 @@ export function TrendChart({ m, lastDay }: { m: ReportMetric; lastDay: number })
   const ticks = m.usual ? m.usual : [Math.min(...vals), Math.max(...vals)]
   const xTicks = n > 10 ? [0, Math.floor((n - 1) / 2), n - 1] : [0, n - 1]
 
+  const step = n > 1 ? (W - L - R) / (n - 1) : W - L - R
+  const shown = active === null ? null : m.points[active]
+
   return (
+    <>
     <svg className={s.trend} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${m.label} over ${n} days: ${vals.map(fmt).join(', ')} ${m.unit}`}>
       {m.usual && (
         <rect className={s.band} x={L} width={W - L - R} y={y(m.usual[1])} height={Math.max(2, y(m.usual[0]) - y(m.usual[1]))} rx="3" />
@@ -71,7 +76,31 @@ export function TrendChart({ m, lastDay }: { m: ReportMetric; lastDay: number })
           </circle>
         ),
       )}
+      {shown && shown.value !== null && (
+        <circle className={s.dotActive} cx={x(active!)} cy={y(shown.value)} r="7" aria-hidden="true" />
+      )}
+      {/* One invisible column per day: tap (phones) or hover (mouse) reads that day below the chart. */}
+      {m.points.map((p, i) =>
+        p.value === null ? null : (
+          <rect
+            key={`hit-${p.day}`}
+            className={s.hit}
+            x={x(i) - step / 2}
+            width={step}
+            y={0}
+            height={H}
+            onPointerEnter={() => setActive(i)}
+            onClick={() => setActive(i)}
+          />
+        ),
+      )}
     </svg>
+    <p className={s.readout} aria-hidden="true">
+      {shown && shown.value !== null
+        ? `${shown.day === lastDay ? 'Today' : `Day ${shown.day}`} · ${fmt(shown.value)} ${m.unit} · ${LEVEL_WORD[shown.level]}`
+        : 'Tap the chart to read a day'}
+    </p>
+    </>
   )
 }
 

@@ -5,6 +5,7 @@ import t from '../today/today.module.css'
 import { CheckInScreen, type CheckInScreenProps } from './CheckInScreen'
 import s from './checkin.module.css'
 import { loadCheckIn, saveAndExplain, type CheckInData } from './connect'
+import { useCheckInWhy } from './useCheckInWhy'
 
 export interface CheckInConnectedProps extends Pick<CheckInScreenProps, 'onDone' | 'onEmergency' | 'onWhy' | 'onNoteForEarth'> {
   /** The database Today API (dexieTodayApi): gives the name, the mission day and the personal bands. */
@@ -24,6 +25,7 @@ export function CheckInConnected({ todayApi, crewId, day, launchDate, database, 
   const [attempt, setAttempt] = useState(0)
   const key = `${crewId}@${day ?? 'now'}#${attempt}`
   const [result, setResult] = useState<{ key: string; state: State }>()
+  const why = useCheckInWhy(todayApi, crewId, day)
 
   useEffect(() => {
     let live = true // ignore answers that arrive after the person or day changed
@@ -59,14 +61,26 @@ export function CheckInConnected({ todayApi, crewId, day, launchDate, database, 
 
   const { data } = state
   return (
-    <CheckInScreen
-      key={key}
-      name={data.name}
-      day={data.day}
-      existing={data.existing}
-      usual={data.usual}
-      onSave={(answers) => saveAndExplain(crewId, data, answers, database)}
-      {...actions}
-    />
+    <>
+      <CheckInScreen
+        key={key}
+        name={data.name}
+        day={data.day}
+        existing={data.existing}
+        usual={data.usual}
+        onSave={(answers) => saveAndExplain(crewId, data, answers, database)}
+        {...actions}
+        onWhy={(m) => {
+          actions.onWhy?.(m)
+          void why.open(m)
+        }}
+      />
+      {why.error && (
+        <p className={t.fine} role="alert">
+          {why.error}
+        </p>
+      )}
+      {why.modal}
+    </>
   )
 }

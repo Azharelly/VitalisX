@@ -145,6 +145,11 @@
   .navWide .mark { background: none; }
   .navBottom { display: none; }
 }
+/* 1024–1279 px (iPad landscape): brand, Demo chip, five tabs and Emergency only fit with slimmer tabs. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .navWide { margin-left: 8px; }
+  .navWide .tab { padding: 0 10px; }
+}
 
 /* Phones and tablets: a bottom bar within thumb reach. */
 .navBottom {
@@ -173,7 +178,7 @@
 .navBottom .tab[aria-current='page'] .tabIcon { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
 
 /* ── Content ── */
-.content { display: block; min-width: 0; }
+.content { display: block; min-width: 0; overflow-x: clip; } /* safety net: a too-wide element is cut, never makes the page drag sideways */
 .content:focus { outline: none; }
 @media (max-width: 1023px) {
   .content { padding-bottom: calc(80px + env(safe-area-inset-bottom)); } /* room for the bottom bar */
@@ -190,31 +195,37 @@
   .logo { width: 24px; height: 24px; }
 }
 
+/* Small phones (iPhone SE / mini 375 px, many Androids 360 px): brand, Demo chip and Emergency must share one row.
+   Emergency keeps its word and red outline; only the icon goes. */
+@media (max-width: 400px) {
+  .topRow { gap: 8px; padding-left: 12px; padding-right: 12px; }
+  .emergency { padding: 0 12px; }
+  .emergency svg { display: none; }
+}
+@media (max-width: 340px) {
+  .brandText { display: none; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tab, .emergency, .navBottom .tabIcon { transition: none; }
 }
 
-/* ── Demo panel (AppPreview only) ── */
+/* ── Demo controls (AppPreview only): a chip in the header; floating over the page they covered content ── */
 .demo {
-  position: fixed;
-  left: 16px;
-  bottom: calc(92px + env(safe-area-inset-bottom));
+  position: relative;
   z-index: 25;
   color: #e6edf3;
   font: 14px/1.5 Inter, system-ui, sans-serif;
 }
-@media (min-width: 1024px) { .demo { bottom: 20px; } }
 .demo > summary {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 44px;
-  padding: 0 16px 0 10px;
+  padding: 0 12px 0 10px;
   border: 1px solid rgba(230, 237, 243, 0.18);
   border-radius: 999px;
   background: rgba(16, 22, 29, 0.92);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   cursor: pointer;
   list-style: none;
   font-variant-numeric: tabular-nums;
@@ -229,10 +240,12 @@
   font-size: 11px;
   font-weight: 600;
 }
+.demo[open] > summary svg { transform: rotate(180deg); }
 .demoPanel {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
+  box-sizing: border-box;
+  position: fixed; /* below the sticky header, inside the screen even on a phone */
+  top: 72px;
+  left: 16px;
   display: grid;
   gap: 12px;
   width: min(340px, calc(100vw - 32px));

@@ -33,9 +33,12 @@ export function AvatarRow({ onAdd }: { onAdd?: () => void }) {
               <Avatar initials={m.initials} status={m.status} small />
               {on ? (
                 <span className={c.avatarText}>
-                  <span className={c.avatarName}>{m.name}</span>
+                  <span className={c.avatarName}>
+                    <span className={c.nameFull}>{m.name}</span>
+                    <span className={c.nameShort}>{m.name.split(' ')[0]}</span>
+                  </span>
                   <span className={c.avatarMeta}>
-                    {m.role && <span>{m.role} · </span>}
+                    {m.role && <span className={c.avatarRole}>{m.role} · </span>}
                     <span className={`${c.avatarWord} ${t[m.status]}`}>{LEVEL_WORD[m.status]}</span>
                   </span>
                 </span>

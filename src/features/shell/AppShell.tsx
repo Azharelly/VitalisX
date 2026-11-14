@@ -16,7 +16,13 @@ import s from './shell.module.css'
 import { TABS, onHashChange, readTab, type TabId } from './tabs.ts'
 
 /** A teammate's screen. It receives the chosen person and mission day, and can switch tabs. */
-export type ScreenSlot = (ctx: { crewId: string; day?: number; go: (tab: TabId) => void }) => ReactNode
+export type ScreenSlot = (ctx: {
+  crewId: string
+  day?: number
+  go: (tab: TabId) => void
+  /** Opens the Earth summary on Report (or only emits onNoteForEarth when there is no outbox). */
+  noteForEarth: (metricId?: string) => void
+}) => ReactNode
 
 export interface AppShellProps extends ReportOutbox {
   crewApi: CrewApi
@@ -31,6 +37,8 @@ export interface AppShellProps extends ReportOutbox {
   onStart?: (crewId: string, metricId: string) => void
   onNoteForEarth?: (crewId: string, metricId?: string) => void
   onSendSummary?: (crewId: string, days: number) => void
+  /** Demo controls (AppPreview only), shown in the header next to the brand so they never cover the page. */
+  demo?: ReactNode
 }
 
 /**
@@ -48,7 +56,7 @@ export function AppShell({ crewApi, day, ...rest }: AppShellProps) {
 
 const CONTENT_ID = 'vx-content'
 
-function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNoteForEarth, onSendSummary, outbox, send, commsDelaySec }: Omit<AppShellProps, 'crewApi'>) {
+function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNoteForEarth, onSendSummary, outbox, send, commsDelaySec, demo }: Omit<AppShellProps, 'crewApi'>) {
   const { board, selected, addMember } = useCrew()
   const tab = useSyncExternalStore(onHashChange, readTab, () => 'crew' as TabId)
   const [adding, setAdding] = useState(false)
@@ -57,6 +65,15 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
     if (next !== tab) window.location.assign(`#${next}`)
     window.scrollTo({ top: 0 })
     focusContent() // screen readers land on the new page, not on the tab bar
+  }
+
+  // "Note for Earth" anywhere opens the Earth summary on Report, the one place that writes and queues it.
+  const [summaryFor, setSummaryFor] = useState<string>()
+  const noteForEarth = (crewId: string, metricId?: string) => {
+    onNoteForEarth?.(crewId, metricId)
+    if (!outbox) return
+    setSummaryFor(crewId)
+    go('report')
   }
 
   const members = board.status === 'ready' ? board.board.members : []
@@ -99,7 +116,7 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
     )
   const slot = (key: 'checkin' | 'radiation', label: string) => {
     const render = screens[key]
-    return needsPerson(render ? render({ crewId: id!, day, go }) : <Note title={label} text="This screen is being built by the team." />)
+    return needsPerson(render ? render({ crewId: id!, day, go, noteForEarth: (m) => noteForEarth(id!, m) }) : <Note title={label} text="This screen is being built by the team." />)
   }
 
   return (
@@ -122,6 +139,7 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
               <strong>VitalisX</strong>
               {missionDay !== undefined && <span>Day {missionDay}</span>}
             </span>
+            {demo}
           </div>
           <nav className={s.navWide} aria-label="Main">
             {tabs}
@@ -148,12 +166,12 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
               day={day}
               onWhy={onWhy}
               onStart={onStart}
-              onNoteForEarth={onNoteForEarth}
+              onNoteForEarth={noteForEarth}
               onStartCheckIn={() => go('checkin')}
               onOpenReport={() => go('report')}
             />,
           )}
-        {tab === 'report' && needsPerson(<Report key={id} api={todayApi} crewId={id!} day={day} onSendSummary={onSendSummary} onWhy={onWhy} outbox={outbox} send={send} commsDelaySec={commsDelaySec} />)}
+        {tab === 'report' && needsPerson(<Report key={id} api={todayApi} crewId={id!} day={day} onSendSummary={onSendSummary} onWhy={onWhy} outbox={outbox} send={send} commsDelaySec={commsDelaySec} openSummary={summaryFor === id} onSummaryClosed={() => setSummaryFor(undefined)} />)}
         {tab === 'checkin' && slot('checkin', 'Check-in')}
         {tab === 'radiation' && slot('radiation', 'Radiation')}
       </main>
