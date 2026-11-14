@@ -1,5 +1,6 @@
 /* SBAR editor + outbox. Tokens come from the Today `.theme` class on the dialog. */
 .dialog {
+  box-sizing: border-box; /* the 24px padding sits inside the width: it was ~50px too wide on a 390px phone */
   width: min(640px, calc(100vw - 32px));
   max-height: calc(100vh - 32px);
   overflow: auto;
