@@ -112,12 +112,12 @@ export const DEMO_FORM: FormState = {
 
 // ---------- after saving: what changed, most urgent first ----------
 
-/** One alert change from saveCheckIn(), in the words the result screen needs. */
+/** One alert touched by saveCheckIn(), in the words the result screen needs. */
 export interface Outcome {
   metric: CheckInMetricId
   label: string
   level: 'ok' | 'watch' | 'alert' // ok = an alert was resolved
-  change: 'opened' | 'escalated' | 'resolved'
+  change: 'opened' | 'escalated' | 'resolved' | 'ongoing' // ongoing = still open, same level (recompute's 'updated')
   value: number | null
   median: number | null // null for rule-only metrics (symptoms, vision) or while learning
   rule: string | null // the engine's plain-language reason
@@ -132,18 +132,24 @@ export const METRIC_LABEL: Record<CheckInMetricId, string> = {
 const PRIORITY: Partial<Record<CheckInMetricId, number>> = { spo2: 1, glucose: 2, hr: 3, sys: 3, dia: 3, temp: 4, symptoms: 5, vision: 6 }
 const RANK = { alert: 2, watch: 1, ok: 0 }
 
-export function toOutcomes(res: Pick<CheckInResult, 'changed'>): Outcome[] {
-  return res.changed
+/**
+ * Every alert the saved readings touched, most urgent first. Uses `results`, not `changed`: an alert that stays open
+ * at the same level is not a change, but a person who just logged a fever must still see it (not "nothing new").
+ */
+export function toOutcomes(res: Pick<CheckInResult, 'results'>): Outcome[] {
+  return res.results
+    .filter(({ result: r }) => r.change !== 'unchanged' && (r.change === 'resolved' || r.alert !== null))
     .map(({ metric_id, result }): Outcome => ({
       metric: metric_id,
       label: METRIC_LABEL[metric_id],
       level: result.change === 'resolved' ? 'ok' : result.alert?.level ?? 'ok',
-      change: result.change as Outcome['change'],
+      change: result.change === 'updated' ? 'ongoing' : (result.change as Outcome['change']),
       value: result.eval.value,
       median: result.eval.baseline?.median ?? null,
       rule: result.eval.rule,
     }))
     .sort((a, b) => RANK[b.level] - RANK[a.level] || (PRIORITY[a.metric] ?? 8) - (PRIORITY[b.metric] ?? 8))
+    .filter((o, i, all) => all.findIndex((x) => x.label === o.label) === i) // systolic + diastolic = one "Blood pressure" line
 }
 
 /** "Temperature is far above your usual", "Heart rate is back to normal for you", or the engine's rule. */
