@@ -18,7 +18,7 @@ describe('3-step ladder (#22)', () => {
     expect(h).toContain('What to do, in 3 steps')
     const steps = h.match(/class="[^"]*rungTitle[^"]*"/g) ?? []
     expect(steps.length).toBe(3)
-    for (const title of ['Do now', 'Measure again', 'Tell the flight surgeon']) expect(h).toContain(title)
+    for (const title of ['Self-care', 'Crew check-in', 'Note for Earth']) expect(h).toContain(title)
   })
   it('uses the Alert step for Alert, the plain step for Watch', () => {
     const a = html({ ...base, id: 'symptoms', label: 'Symptoms', unit: '/3', decimals: 0, level: 'alert' })

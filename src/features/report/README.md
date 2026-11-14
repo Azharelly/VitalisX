@@ -50,6 +50,9 @@ Press **Send summary to Earth**: a dialog opens with four editable boxes, **S**i
 - **Send to Earth** saves the message first (`kind: 'sbar_outbox'`, `status: 'queued'`, `delay_sec` = comms delay in `action_log`), then tries `send`. If the link is down it stays queued, survives a reload, and the Outbox list shows **Send now** / **Discard**. A message is marked `sent` only after `send` resolves; sent messages stay in the log.
 - `flushOutbox()` sends oldest first and stops at the first failure, so Earth receives messages in the order they were written.
 - The Send button is disabled for a text that was just queued (no double-queue on a double click).
+- **Not ready yet**: with fewer than 3 check-in days (`report.logged < MIN_CHECKIN_DAYS`) the dialog says so and Send is disabled.
+- **Countdown**: each outbox item shows "Reaches Earth in m:ss", computed from the stored `created_at + delay_sec` (`arrivalLeftSec`), so it survives a reload.
+- **Draft kept**: edits are saved to `localStorage` per person, period and day, restored on the next open, and cleared once queued.
 
 Storage and sending live in [`../../data/outbox.ts`](../../data/outbox.ts): `OutboxPort` (`queue`, `list`, `markSent`, `discard`), `dexieOutbox(db, resolveCrew)`, `flushOutbox`, and `simulatedEarthLink` (demo transport).
 `action_log.crew_id` is a number while the simulated crew ids are words ("amara"), so `dexieOutbox` takes a `resolveCrew` lookup; `AppPreview` maps the four founders to 1–4.
@@ -86,6 +89,5 @@ Types: `ReportView`, `ReportMetric`, `DayPoint`, `ReportEvent` in [`../today/mod
 
 1. Replace `simulatedEarthLink` with the real Earth link when it lands (same `SendToEarth` signature).
 2. Read the comms delay from `mission_config.json` instead of the 750 s default.
-3. Keep the SBAR draft if the dialog is closed with Escape (today it is rebuilt on the next open).
 4. Real data: implement `getReport` over Dexie or the server.
 5. Charts: a "Why?" on any point (open F-05 for that day), if time allows.

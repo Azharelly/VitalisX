@@ -20,8 +20,8 @@ describe('Radiation tab (#21)', () => {
     }
   });
 
-  it('says 250 mSv is a design target, not a personal limit (exact wording)', () => {
-    expect(html).toContain('250 mSv is a spacecraft shielding design target, not a personal dose limit.');
+  it('says 250 mSv is the NASA short-term limit (exact wording)', () => {
+    expect(html).toContain('250 mSv is NASA&#x27;s short-term (30-day) dose limit for blood-forming organs, not a career limit.');
     expect(html).not.toContain('shielding design target for one solar storm');
   });
 

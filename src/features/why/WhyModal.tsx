@@ -92,7 +92,7 @@ export function WhyModal({ e, onClose }: { e: WhyEvidence; onClose: () => void }
             <li>
               <span className={s.rung} aria-hidden="true">1</span>
               <div>
-                <p className={s.rungTitle}>Do now</p>
+                <p className={s.rungTitle}>Self-care</p>
                 {step1 && <p>{step1}</p>}
                 {g.helps.length > 0 && (
                   <ul className={s.helps}>
@@ -106,7 +106,7 @@ export function WhyModal({ e, onClose }: { e: WhyEvidence; onClose: () => void }
             <li>
               <span className={s.rung} aria-hidden="true">2</span>
               <div>
-                <p className={s.rungTitle}>Measure again</p>
+                <p className={s.rungTitle}>Crew check-in</p>
                 <ol className={s.helps}>
                   {g.measure.map((m) => (
                     <li key={m}>{m}</li>
@@ -117,7 +117,7 @@ export function WhyModal({ e, onClose }: { e: WhyEvidence; onClose: () => void }
             <li>
               <span className={s.rung} aria-hidden="true">3</span>
               <div>
-                <p className={s.rungTitle}>Tell the flight surgeon</p>
+                <p className={s.rungTitle}>Note for Earth</p>
                 <p>When: {g.tell}</p>
               </div>
             </li>
