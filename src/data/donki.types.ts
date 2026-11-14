@@ -128,6 +128,17 @@ export interface DonkiSep extends DonkiBase {
     instruments: DonkiInstrument[]; // e.g. "GOES-P: SEISS >10 MeV", "GOES-P: SEISS >100 MeV", "SOHO: COSTEP ...", "MODEL: ..."
 }
 
+// ---------- slim shapes: what the shipped snapshot really holds (issue #17) ----------
+// scripts/merge_donki.mjs keeps only the fields the app reads. Full NASA records (live calls)
+// are assignable to these types, because they have at least these fields.
+export type SlimFlare = Pick<DonkiFlare, 'flrID' | 'classType' | 'peakTime' | 'activeRegionNum' | 'linkedEvents' | 'link'>;
+export type SlimCmeAnalysis = Pick<DonkiCmeAnalysis, 'isMostAccurate' | 'speed' | 'halfAngle'>;
+export type SlimCme = Pick<DonkiCme, 'activityID' | 'startTime' | 'sourceLocation' | 'link'> & {
+    cmeAnalyses: SlimCmeAnalysis[];   // only the analyses NASA marks as most accurate
+};
+export type SlimGeomagneticStorm = Pick<DonkiGeomagneticStorm, 'gstID' | 'startTime' | 'allKpIndex' | 'link'>;
+export type SlimSep = Pick<DonkiSep, 'sepID' | 'eventTime' | 'instruments' | 'linkedEvents' | 'link'>;
+
 // ---------- the file we ship: public/data/donki_snapshot.json ----------
 export interface DonkiSnapshot {
     source: string;                // where the data came from
@@ -138,8 +149,8 @@ export interface DonkiSnapshot {
         gst: string;
         sep: string;
     };
-    flares: DonkiFlare[];
-    cme: DonkiCme[];
-    gst: DonkiGeomagneticStorm[];
-    sep: DonkiSep[];
+    flares: SlimFlare[];
+    cme: SlimCme[];
+    gst: SlimGeomagneticStorm[];
+    sep: SlimSep[];
 }
