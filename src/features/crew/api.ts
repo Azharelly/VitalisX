@@ -1,6 +1,6 @@
 import { parseReading, type CrewSummary } from '../today/api.ts'
-import type { Level, ZoneId } from '../today/model.ts'
-import { NAME_MAX, ROLE_MAX, SHARED_ZONES, type CrewBoard, type CrewCard, type NewMember } from './model.ts'
+import { ZONES, type Level, type ZoneId } from '../today/model.ts'
+import { NAME_MAX, ROLE_MAX, type CrewBoard, type CrewCard, type NewMember } from './model.ts'
 
 /**
  * The data contract for the Crew board. Any backend can implement it:
@@ -51,10 +51,8 @@ const day = (v: unknown, where: string) => (typeof v === 'number' && Number.isIn
 function parseCard(c: unknown, i: number): CrewCard {
   const at = `members[${i}]`
   if (!isObj(c) || !isObj(c.zones) || !isObj(c.checkIn) || !Array.isArray(c.attention)) return bad(at)
-  // Keep shared zones only: a private zone sent by mistake is dropped, never shown.
   const zones: Partial<Record<ZoneId, Level>> = {}
-  for (const z of SHARED_ZONES) if (c.zones[z.id] !== undefined) zones[z.id] = level(c.zones[z.id], `${at}.zones.${z.id}`)
-  const sharedIds = SHARED_ZONES.map((z) => z.id)
+  for (const z of ZONES) if (c.zones[z.id] !== undefined) zones[z.id] = level(c.zones[z.id], `${at}.zones.${z.id}`)
   return {
     id: str(c.id, `${at}.id`),
     name: str(c.name, `${at}.name`, NAME_MAX),
@@ -67,7 +65,7 @@ function parseCard(c: unknown, i: number): CrewCard {
       doneAt: c.checkIn.doneAt === undefined || c.checkIn.doneAt === null ? undefined : str(c.checkIn.doneAt, `${at}.checkIn.doneAt`, 20),
       lastDay: c.checkIn.lastDay === null ? null : day(c.checkIn.lastDay, `${at}.checkIn.lastDay`),
     },
-    attention: c.attention.map(parseReading).filter((r) => sharedIds.includes(r.zone)),
+    attention: c.attention.map(parseReading),
   }
 }
 

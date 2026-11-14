@@ -20,25 +20,20 @@ assert.ok(checkNewMember({ ...ok, sex: '' }, names).sex, 'body drawing must be c
 assert.equal(initialsOf('Lucía  Fernández'), 'LF')
 assert.equal(initialsOf('Kai'), 'K')
 
-// ── Board on day 142: the dossier stories, with Mind private ──
+// ── Board on day 142: the dossier stories. Open data (D2): Mind counts like any zone ──
 const board = await crew.getBoard()
 const by = (id) => board.members.find((m) => m.id === id)
 assert.equal(board.members.length, 4)
 assert.equal(by('ravi').status, 'alert')
 assert.equal(by('kenji').status, 'watch')
-assert.equal(by('amara').status, 'ok', "Amara's sleep Watch is in Mind, which is private")
-assert.equal(by('amara').zones.mind, undefined, 'private zone never sent')
-assert.ok(board.members.every((m) => m.attention.every((r) => r.zone !== 'mind')))
+assert.equal(by('amara').status, 'watch', "Amara's sleep Watch shows on the board")
+assert.equal(by('amara').zones.mind, 'watch')
+assert.equal(by('amara').attention[0].id, 'sleep')
 assert.equal(by('ravi').attention[0].id, 'temp', 'most urgent first')
 const wire = JSON.parse(JSON.stringify(board)) // what a server would send
 assert.deepEqual(JSON.parse(JSON.stringify(parseCrewBoard(wire))), wire, 'board survives the HTTP parser')
 const s = summarize(board.members)
 assert.equal(s.alert + s.watch + s.ok + s.learn + s.none, 4)
-
-// A leaked private zone is dropped by the parser, not shown.
-const leaky = JSON.parse(JSON.stringify(board))
-leaky.members[0].zones.mind = 'watch'
-assert.equal(parseCrewBoard(leaky).members[0].zones.mind, undefined)
 
 // ── Add, then remove: removed is hidden, data is kept ──
 await assert.rejects(crew.addMember({ name: 'Ravi Menon', role: '', sex: 'M' }), 'backend refuses duplicates too')

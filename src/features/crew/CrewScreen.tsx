@@ -6,7 +6,7 @@ import t from '../today/today.module.css'
 import { Avatar } from './Avatar'
 import c from './crew.module.css'
 import { AddMemberDialog, RemoveMemberDialog } from './dialogs'
-import { checkInText, isPrivateZone, summarize, type CrewCard } from './model.ts'
+import { checkInText, summarize, type CrewCard } from './model.ts'
 import { useCrew } from './useCrew.ts'
 
 export interface CrewActions {
@@ -126,7 +126,6 @@ export function CrewScreen({ onOpenPerson }: CrewActions) {
               <ZoneGrid members={members} day={missionDay} onOpen={open} onRemove={setRemoving} />
             )}
           </section>
-          <p className={t.fine}>Mind & sleep stays private to each person and is not part of their crew status.</p>
         </>
       )}
 
@@ -303,15 +302,13 @@ function PersonCard({ m, i, day, viewing, onOpen, onRemove }: CardProps) {
 
       <ul className={c.zones} aria-label={`${m.name}'s zones`}>
         {ZONES.map((z) => {
-          const priv = isPrivateZone(z.id)
-          const level = priv ? 'none' : (m.zones[z.id] ?? 'none')
-          const word = priv ? 'Private' : LEVEL_WORD[level]
+          const level = m.zones[z.id] ?? 'none'
           return (
-            <li key={z.id} className={`${c.zone} ${t[level]} ${priv ? c.zonePrivate : ''}`} title={`${z.label}: ${word}`}>
+            <li key={z.id} className={`${c.zone} ${t[level]}`} title={`${z.label}: ${LEVEL_WORD[level]}`}>
               <ZoneIcon zone={z.id} className={c.zoneIcon} />
-              {priv ? <span className={c.lock}>Private</span> : <StatusIcon level={level} />}
+              <StatusIcon level={level} />
               <span className={t.srOnly}>
-                {z.label}: {word}
+                {z.label}: {LEVEL_WORD[level]}
               </span>
             </li>
           )
@@ -362,7 +359,9 @@ function ZoneGrid({ members, day, onOpen, onRemove }: { members: CrewCard[]; day
                 </button>
               </th>
               {ZONES.map((z) => (
-                <td key={z.id}>{isPrivateZone(z.id) ? <span className={c.private}>Private</span> : <LevelTag level={m.zones[z.id] ?? 'none'} />}</td>
+                <td key={z.id}>
+                  <LevelTag level={m.zones[z.id] ?? 'none'} />
+                </td>
               ))}
               <td>
                 <button type="button" className={c.removeBtn} onClick={() => onRemove(m)} aria-label={`Remove ${m.name}`}>

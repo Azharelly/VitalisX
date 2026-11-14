@@ -273,9 +273,6 @@
 }
 .zoneIcon { width: 18px; height: 18px; color: color-mix(in srgb, var(--c) 70%, var(--text)); }
 .zone svg:last-of-type { width: 11px; height: 11px; }
-.zonePrivate { background: transparent; border: 1px dashed var(--line-strong); color: var(--muted); }
-.zonePrivate .zoneIcon { color: var(--muted); }
-.lock { font-size: 9px; letter-spacing: 0.04em; text-transform: uppercase; }
 
 .personFoot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .openBtn {
@@ -316,7 +313,6 @@
 .personBtn:hover { background: var(--surface-2); }
 .personText { display: grid; font-size: 13px; line-height: 1.35; }
 .personText strong { font-size: 15px; }
-.private { color: var(--muted); font-size: 12px; font-style: italic; }
 .removeBtn {
   min-height: 44px;
   padding: 0 14px;

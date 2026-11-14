@@ -1,14 +1,9 @@
 // View-model for the Crew board: one card per current crew member, plus the add-member rules.
 // Reuses the Today words (Level, Reading, ZONES) so a state means the same thing on every tab.
-import { PRIVATE_ZONES, type Zone } from '../../data/types.ts'
-import { ZONES, isFlagged, type Level, type Reading, type Sex, type ZoneId } from '../today/model.ts'
+import { isFlagged, type Level, type Reading, type Sex, type ZoneId } from '../today/model.ts'
 
 export const NAME_MAX = 40
 export const ROLE_MAX = 30
-
-/** Zones the rest of the crew may see. Mind & sleep is private (src/data/types.ts PRIVATE_ZONES). */
-export const SHARED_ZONES = ZONES.filter((z) => !PRIVATE_ZONES.includes(z.id as Zone))
-export const isPrivateZone = (id: ZoneId) => PRIVATE_ZONES.includes(id as Zone)
 
 export interface CrewCard {
   id: string
@@ -16,13 +11,13 @@ export interface CrewCard {
   role: string
   initials: string
   sex: Sex
-  /** Ring state: worst shared zone; 'none' before the first check-in. Private zones never count. */
+  /** Ring state: worst zone; 'none' before the first check-in. All zones count (open data, dossier D2). */
   status: Level
-  /** Worst level per shared zone. Private zones are never sent. */
+  /** Worst level per zone. */
   zones: Partial<Record<ZoneId, Level>>
   /** doneAt = today's check-in time; lastDay = mission day of the last check-in (null = none yet). */
   checkIn: { doneAt?: string; lastDay: number | null }
-  /** Watch / Alert readings in shared zones, most urgent first. */
+  /** Watch / Alert readings, most urgent first. */
   attention: Reading[]
 }
 

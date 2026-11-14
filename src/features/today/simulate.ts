@@ -1,6 +1,6 @@
 import type { CrewSummary, TodayApi } from './api.ts'
 import type { CrewApi } from '../crew/api.ts'
-import { SHARED_ZONES, checkNewMember, initialsOf, isPrivateZone, type CrewBoard, type CrewCard } from '../crew/model.ts'
+import { checkNewMember, initialsOf, type CrewBoard, type CrewCard } from '../crew/model.ts'
 import {
   ZONES,
   average,
@@ -340,10 +340,10 @@ function buildReport(c: Crew, asOf: number, days: number): ReportView {
   }
 }
 
-/** Crew board card: shared zones only, so private data never leaves this function. */
+/** Crew board card: every zone is visible to the whole crew (open data, dossier D2). */
 function buildCard(c: Crew, asOf: number): CrewCard {
-  const readings = readingsFor(c, asOf).filter((r) => !isPrivateZone(r.zone))
-  const zones = Object.fromEntries(SHARED_ZONES.map((z) => [z.id, worst(readings.filter((r) => r.zone === z.id).map((r) => r.level))]))
+  const readings = readingsFor(c, asOf)
+  const zones = zoneLevels(readings)
   let lastDay: number | null = null
   for (let day = asOf; day >= 1 && lastDay === null; day--) if (!missed(c, day)) lastDay = day
   return {
