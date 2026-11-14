@@ -7,6 +7,8 @@ import { StatusIcon } from './StatusIcon'
 import { ZoneIcon } from './ZoneIcon'
 import { LEVEL_WORD, ZONES, byAttention, isFlagged, worst, type Level, type Reading, type TodayView, type ZoneId } from './model'
 import s from './today.module.css'
+import { WhyModal } from '../why/WhyModal'
+import { fromReading } from '../why/evidence.ts'
 
 /** Everything the Today page can ask the app to do. All optional; the app wires the ones it supports. */
 export interface TodayActions {
@@ -34,6 +36,12 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
   const [zone, setZone] = useState<ZoneId | null>(null)
   const toggle = (z: ZoneId) => setZone((cur) => (cur === z ? null : z))
   const id = data.person.id
+  const [whyId, setWhyId] = useState<string | null>(null)
+  const why = data.readings.find((r) => r.id === whyId)
+  const onWhy = (metricId: string) => {
+    setWhyId(metricId)
+    actions.onWhy?.(metricId)
+  }
 
   const ranked = [...data.readings].sort(byAttention)
   const levels = {} as Record<ZoneId, Level>
@@ -137,7 +145,7 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
               data={data}
               flagged={allFlagged}
               onStart={(m) => actions.onStart?.(id, m)}
-              onWhy={actions.onWhy}
+              onWhy={onWhy}
               onNoteForEarth={(m) => actions.onNoteForEarth?.(id, m)}
               onStartCheckIn={() => actions.onStartCheckIn?.(id)}
             />
@@ -172,7 +180,7 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
               </h2>
               <div className={s.cards}>
                 {flagged.map((r) => (
-                  <AttentionCard key={r.id} r={r} onWhy={actions.onWhy} />
+                  <AttentionCard key={r.id} r={r} onWhy={onWhy} />
                 ))}
               </div>
             </section>
@@ -183,6 +191,7 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
           {!zone && <MyWeek data={data} onOpenReport={actions.onOpenReport && (() => actions.onOpenReport!(id))} />}
         </div>
       </div>
+      {why && <WhyModal e={fromReading(why)} onClose={() => setWhyId(null)} />}
     </section>
   )
 }

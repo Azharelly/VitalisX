@@ -1,7 +1,13 @@
+import { useState } from 'react'
+import { WhyModal } from '../why/WhyModal'
+import { fromReportMetric, fromReportRadiation } from '../why/evidence.ts'
 import { ZONES, LEVEL_WORD, changeText, isFlagged, type Level, type ReportMetric, type ReportView } from '../today/model.ts'
+import type { OutboxPort, SendToEarth } from '../../data/outbox'
 import { StatusIcon } from '../today/StatusIcon'
 import { ZoneIcon } from '../today/ZoneIcon'
 import { BudgetBar, DoseChart, TrendChart, ZoneRibbon } from './ReportCharts'
+import { SbarDialog } from './SbarDialog'
+import { LEVEL_RANK as RANK, openItems as getOpenItems, percentOf, radiationLevel } from './summary.ts'
 import s from './report.module.css'
 
 /** Everything the Report page can ask the app to do. All optional. */
@@ -16,27 +22,43 @@ export interface ReportActions {
   onWhy?: (metricId: string) => void
 }
 
+/** Where SBAR summaries go. Without `outbox` the button only emits `onSendSummary`. */
+export interface ReportOutbox {
+  outbox?: OutboxPort
+  /** Delivery to Earth; omitted = messages stay queued until something sends them. */
+  send?: SendToEarth
+  /** One-way communication delay in seconds, shown to the crew. */
+  commsDelaySec?: number
+}
+
 const ZONE_ORDER = ZONES.map((z) => z.id)
-const RANK: Record<Level, number> = { alert: 0, watch: 1, learn: 2, ok: 3, none: 4 }
 
 /** Week or month in review for one crew member. Presentational: data in, callbacks out. */
-export function ReportScreen({ report, ...actions }: { report: ReportView } & ReportActions) {
+export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }: { report: ReportView } & ReportActions & ReportOutbox) {
+  const [whyId, setWhyId] = useState<string | null>(null)
+  const [sbarOpen, setSbarOpen] = useState(false)
+  const onWhy = (metricId: string) => {
+    setWhyId(metricId)
+    actions.onWhy?.(metricId)
+  }
   const period = report.days === 7 ? 'week' : 'month'
   const first = report.zones[0]?.day ?? report.missionDay
   const span = report.missionDay - first + 1 // shorter than the period early in the mission
-  const open = report.metrics.filter((m) => isFlagged(m.level)).sort((a, b) => RANK[a.level] - RANK[b.level] || a.priority - b.priority)
   const sorted = [...report.metrics].sort(
     (a, b) => RANK[a.level] - RANK[b.level] || ZONE_ORDER.indexOf(a.zone) - ZONE_ORDER.indexOf(b.zone) || a.priority - b.priority,
   )
   const rad = report.radiation
-  const radPct = Math.round((rad.careerMsv / rad.limitMsv) * 100)
-  const projPct = rad.projectedMsv === null ? null : Math.round((rad.projectedMsv / rad.limitMsv) * 100)
-  const radLevel: Level = rad.daily.at(-1)?.storm || (projPct ?? radPct) >= 100 ? 'alert' : (projPct ?? radPct) >= 80 ? 'watch' : 'ok'
+  const radPct = percentOf(rad.careerMsv, rad.limitMsv)
+  const projPct = rad.projectedMsv === null ? null : percentOf(rad.projectedMsv, rad.limitMsv)
+  const radLevel: Level = radiationLevel(rad)
   // Everything still Watch / Alert on the last day, radiation included (it is not in `metrics`).
-  const openItems = [
-    ...open.map((m) => ({ label: m.label, level: m.level })),
-    ...(isFlagged(radLevel) ? [{ label: 'Career dose', level: radLevel }] : []),
-  ].sort((a, b) => RANK[a.level] - RANK[b.level])
+  const openItems = getOpenItems(report)
+  const whyMetric = report.metrics.find((m) => m.id === whyId)
+  const why = whyId === 'rad' ? fromReportRadiation(report, radLevel) : whyMetric ? fromReportMetric(whyMetric) : null
+  const sendSummary = () => {
+    if (outbox) setSbarOpen(true)
+    actions.onSendSummary?.(report.person.id, report.days)
+  }
 
   return (
     <section className={s.root} aria-labelledby="report-title">
@@ -70,7 +92,7 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
             {report.isSimulated && <span className={s.sim}>Simulated data</span>}
           </p>
         </div>
-        <button type="button" className={s.sendBtn} onClick={() => actions.onSendSummary?.(report.person.id, report.days)}>
+        <button type="button" className={s.sendBtn} onClick={sendSummary}>
           Send summary to Earth
         </button>
       </header>
@@ -143,7 +165,7 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
         </h2>
         <div className={s.trends}>
           {sorted.map((m) => (
-            <TrendCard key={m.id} m={m} period={period} lastDay={report.missionDay} onWhy={actions.onWhy} />
+            <TrendCard key={m.id} m={m} period={period} lastDay={report.missionDay} onWhy={onWhy} />
           ))}
         </div>
       </section>
@@ -153,8 +175,15 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
           <h2 id="report-rad" className={s.h2}>
             <ZoneIcon zone="radiation" className={s.rowIcon} /> Radiation
           </h2>
-          <span className={`${s.badge} ${s[radLevel]}`}>
-            <StatusIcon level={radLevel} /> {LEVEL_WORD[radLevel]}
+          <span className={s.radStatus}>
+            <span className={`${s.badge} ${s[radLevel]}`}>
+              <StatusIcon level={radLevel} /> {LEVEL_WORD[radLevel]}
+            </span>
+            {isFlagged(radLevel) && (
+              <button type="button" className={s.why} onClick={() => onWhy('rad')}>
+                Why?
+              </button>
+            )}
           </span>
         </div>
         <p className={s.radBig}>
@@ -168,6 +197,10 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
         <DoseChart r={rad} lastDay={report.missionDay} />
         <p className={s.fine}>The app records dosimeter readings; it does not measure radiation. Limit: NASA-STD-3001 Vol. 1.</p>
       </section>
+      {sbarOpen && outbox && (
+        <SbarDialog report={report} outbox={outbox} send={send} commsDelaySec={commsDelaySec} onClose={() => setSbarOpen(false)} />
+      )}
+      {why && <WhyModal e={why} onClose={() => setWhyId(null)} />}
     </section>
   )
 }

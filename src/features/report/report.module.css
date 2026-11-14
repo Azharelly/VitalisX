@@ -225,3 +225,4 @@
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; }
 }
+.radStatus { display: inline-flex; align-items: center; gap: 8px; }
