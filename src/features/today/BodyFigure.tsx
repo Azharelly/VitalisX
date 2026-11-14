@@ -33,18 +33,13 @@ const MUSCLES =
   'M140 290 C140 316 134 340 126 358 C118 352 110 330 106 300 C112 290 126 284 140 290 Z ' + // quadriceps
   'M133 400 C134 418 131 432 127 446 C122 432 118 414 120 400 C124 394 130 394 133 400 Z' // calf
 
-// Zone regions in body coordinates; clipped to the silhouette, so rough shapes are enough.
-const REGIONS: Partial<Record<ZoneId, ReactNode>> = {
-  mind: <rect x="70" y="0" width="60" height="38" />,
-  eyes: <rect x="70" y="38" width="60" height="16" />,
-  heart: <circle cx="114" cy="134" r="26" />,
-  bone: (
-    <>
-      <rect x="0" y="272" width="200" height="210" />
-      <rect x="0" y="100" width="58" height="230" />
-      <rect x="142" y="100" width="58" height="230" />
-    </>
-  ),
+// Local auras (body coords): soft blurred glows over each zone, coloured by its status.
+const LOCAL_AURAS: Partial<Record<ZoneId, ReactNode>> = {
+  mind: <ellipse cx="100" cy="26" rx="26" ry="20" />,
+  eyes: <ellipse cx="100" cy="46" rx="20" ry="7" />,
+  heart: <circle cx="114" cy="134" r="18" />,
+  meta: <ellipse cx="100" cy="206" rx="26" ry="24" />,
+  bone: <path d="M78 290 L80 455 M122 290 L120 455 M45 125 Q37 205 40 300 M155 125 Q163 205 160 300" fill="none" strokeWidth="18" strokeLinecap="round" />,
 }
 
 // Marker point on the body (body coords) and the side its callout sits on.
@@ -68,8 +63,9 @@ interface Props {
 export function BodyFigure({ levels, headline, selected, onSelect }: Props) {
   const uid = useId()
   const half = `${uid}-half`
-  const clip = `${uid}-clip`
   const fill = `${uid}-fill`
+  const blur = `${uid}-blur`
+  const field = `${uid}-field`
   const mirror = 'translate(200 0) scale(-1 1)'
 
   return (
@@ -77,17 +73,31 @@ export function BodyFigure({ levels, headline, selected, onSelect }: Props) {
       <svg className={s.figureSvg} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
         <defs>
           <path id={half} d={HALF} />
-          <clipPath id={clip}>
-            <use href={`#${half}`} />
-            <use href={`#${half}`} transform={mirror} />
-          </clipPath>
           <linearGradient id={fill} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="480">
             <stop offset="0" stopColor="var(--body-top)" />
             <stop offset="1" stopColor="var(--body-bottom)" />
           </linearGradient>
+          <filter id={blur} x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="7" />
+          </filter>
         </defs>
 
         <g transform={`translate(${BX} ${BY})`}>
+          {/* Radiation: a field around the whole body (it is environmental, not one organ). */}
+          <g className={`${s.aura} ${s.auraField} ${s[levels.radiation]} ${selected === 'radiation' ? s.auraOn : ''}`}>
+            <radialGradient id={field} cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0.6" stopColor="currentColor" stopOpacity="0" />
+              <stop offset="0.86" stopColor="currentColor" stopOpacity="0.55" />
+              <stop offset="1" stopColor="currentColor" stopOpacity="0" />
+            </radialGradient>
+            <ellipse cx="100" cy="244" rx="138" ry="246" fill={`url(#${field})`} />
+            <ellipse className={s.fieldRing} cx="100" cy="244" rx="122" ry="226" fill="none" />
+          </g>
+          {/* Immune: a glow that hugs the silhouette (whole-body defence). */}
+          <g className={`${s.aura} ${s[levels.immune]} ${selected === 'immune' ? s.auraOn : ''}`} filter={`url(#${blur})`} fill="none" stroke="currentColor" strokeWidth="12">
+            <use href={`#${half}`} />
+            <use href={`#${half}`} transform={mirror} />
+          </g>
           {/* Rim: stroke both halves, then fill over them so the shared centre edge disappears. */}
           <g fill="none" stroke="var(--body-rim)" strokeWidth="2.5">
             <use href={`#${half}`} />
@@ -102,13 +112,10 @@ export function BodyFigure({ levels, headline, selected, onSelect }: Props) {
             <path d={MUSCLES} />
             <path d={MUSCLES} transform={mirror} />
           </g>
-          <g clipPath={`url(#${clip})`}>
-            {CALLOUTS.map(({ id }) => (
-              <g
-                key={id}
-                className={`${isFlagged(levels[id]) ? `${s.regionFlag} ${s[levels[id]]}` : s.region} ${selected === id ? s.regionSelected : ''}`}
-              >
-                {REGIONS[id]}
+          <g filter={`url(#${blur})`} fill="currentColor" stroke="currentColor">
+            {(Object.keys(LOCAL_AURAS) as ZoneId[]).map((id) => (
+              <g key={id} className={`${s.aura} ${s[levels[id]]} ${selected === id ? s.auraOn : ''}`}>
+                {LOCAL_AURAS[id]}
               </g>
             ))}
           </g>
@@ -140,7 +147,7 @@ export function BodyFigure({ levels, headline, selected, onSelect }: Props) {
             type="button"
             tabIndex={-1}
             aria-hidden="true"
-            className={`${s.marker} ${isFlagged(level) ? `${s.flag} ${s[level]}` : ''}`}
+            className={`${s.marker} ${s[level]} ${isFlagged(level) ? s.flag : ''}`}
             aria-pressed={selected === c.id}
             style={{ left: pct(c.ax + BX, W), top: pct(c.ay + BY, H) }}
             onClick={() => onSelect(c.id)}

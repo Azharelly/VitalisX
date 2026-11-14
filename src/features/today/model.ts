@@ -23,6 +23,7 @@ export interface Reading {
 export interface TodayView {
   person: { name: string; role: string }
   missionDay: number
+  isSimulated: boolean // drives the "Simulated data" label (PRD: is_simulated)
   nextAction: { text: string; metricId?: string } // the engine picks exactly one
   readings: Reading[]
 }

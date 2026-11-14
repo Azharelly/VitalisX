@@ -68,13 +68,16 @@ export function TodayScreen({ data, onWhy }: Props) {
             <span className={s.eyebrow}>Mission day</span>
             <span className={s.metaNum}>{data.missionDay}</span>
           </span>
-          <span className={s.sim}>Simulated data</span>
+          {data.isSimulated && <span className={s.sim}>Simulated data</span>}
         </div>
       </header>
 
       <div className={s.layout}>
         <div className={s.bodyPanel}>
           <BodyFigure levels={levels} headline={headline} selected={zone} onSelect={toggle} />
+          <p className={s.auraLegend}>
+            Glow colour = status. Outer field = Radiation · Body outline = Immune · Core = Metabolism
+          </p>
           <div className={s.offBody}>
             {OFF_BODY.map((z) => (
               <ZoneButton
