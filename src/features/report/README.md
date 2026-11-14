@@ -46,7 +46,7 @@ Every chart has a text alternative (`aria-label` / table caption).
 Press **Send summary to Earth**: a dialog opens with four editable boxes, **S**ituation, **B**ackground, **A**ssessment, **R**ecommendation, pre-filled from the report by `draftSbar()` (`sbar.ts`).
 
 - The draft has numbers, states and labels only. No advice text is generated; Recommendation is a request ("Requesting flight surgeon review of: …") the person can change.
-- **Mind & sleep is private by default** (`PRIVATE_ZONES`): left out of the draft; the dialog offers one button to add it to the Assessment.
+- **Every zone is in the draft, Mind & sleep included** (open data, dossier decision D2): it is treated like any other zone. The person can still edit every box before sending.
 - **Send to Earth** saves the message first (`kind: 'sbar_outbox'`, `status: 'queued'`, `delay_sec` = comms delay in `action_log`), then tries `send`. If the link is down it stays queued, survives a reload, and the Outbox list shows **Send now** / **Discard**. A message is marked `sent` only after `send` resolves; sent messages stay in the log.
 - `flushOutbox()` sends oldest first and stops at the first failure, so Earth receives messages in the order they were written.
 - The Send button is disabled for a text that was just queued (no double-queue on a double click).
@@ -75,7 +75,7 @@ Types: `ReportView`, `ReportMetric`, `DayPoint`, `ReportEvent` in [`../today/mod
 | `Report.tsx` | Connected page: fetches, loading / error / retry, Week/Month state |
 | `ReportScreen.tsx` | The page (presentational), `ReportActions`, `ReportOutbox` |
 | `SbarDialog.tsx` | SBAR editor + outbox list (native `<dialog>`) |
-| `sbar.ts` | `draftSbar`, `sbarToText`, `privateLine` (pure, tested) |
+| `sbar.ts` | `draftSbar`, `sbarToText` (pure, tested) |
 | `summary.ts` | `openItems`, `radiationLevel`: shared by the page and the draft |
 | `ReportCharts.tsx` | `TrendChart`, `DoseChart`, `BudgetBar`, `ZoneRibbon` (no chart library) |
 | `report.module.css` | Styles; shares tokens and controls with Today via CSS `composes` |
