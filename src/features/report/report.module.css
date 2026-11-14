@@ -1,13 +1,13 @@
 /* Report styles. Tokens, base resets and shared controls come from the Today module via `composes`,
    so the palette lives in one place. shortcut: move shared bits to src/ui once it exists. */
-.root { composes: root from '../today/today.module.css'; display: grid; gap: 20px; align-content: start; }
+.root { composes: root from '../today/today.module.css'; display: grid; gap: 24px; align-content: start; }
 .backBtn { composes: backBtn from '../today/today.module.css'; }
 .why { composes: why from '../today/today.module.css'; }
 .badge { composes: badge from '../today/today.module.css'; }
 .eyebrow { composes: eyebrow from '../today/today.module.css'; }
 .muted { composes: muted from '../today/today.module.css'; }
 .unit { composes: unit from '../today/today.module.css'; }
-.sim { composes: sim from '../today/today.module.css'; margin-left: 10px; }
+.sim { composes: sim from '../today/today.module.css'; margin-left: 8px; }
 .fine { composes: fine from '../today/today.module.css'; }
 .srOnly { composes: srOnly from '../today/today.module.css'; }
 .errorBox { composes: errorBox from '../today/today.module.css'; }
@@ -44,12 +44,12 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  padding: 22px 24px;
+  padding: 24px;
   border: 1px solid var(--line);
   border-radius: 24px;
   background: linear-gradient(100deg, rgba(88, 166, 255, 0.1), transparent 45%), var(--surface);
 }
-.title { margin: 4px 0 2px; font: 600 30px/1.15 var(--heading); }
+.title { margin: 4px 0; font: 600 30px/1.15 var(--heading); }
 
 .sendBtn {
   min-height: 48px;
@@ -66,8 +66,8 @@
 .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .kpi {
   display: grid;
-  gap: 4px;
-  padding: 16px 18px;
+  gap: 8px;
+  padding: 16px 20px;
   border: 1px solid var(--line);
   border-radius: 20px;
   background: var(--surface);
@@ -81,32 +81,32 @@
 
 /* Panels */
 .panel {
-  padding: 20px 22px;
+  padding: 24px;
   border: 1px solid var(--line);
   border-radius: 24px;
   background: var(--surface);
 }
-.h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; font: 600 16px var(--heading); }
-.h3 { margin: 18px 0 6px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; font: 600 16px var(--heading); }
+.h3 { margin: 24px 0 8px; color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 .hint { color: var(--muted); font: 400 12px var(--sans); }
 .rowIcon { width: 16px; height: 16px; flex: none; color: var(--muted); }
 
-.summary { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: color-mix(in srgb, var(--text) 85%, var(--muted)); }
+.summary { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: color-mix(in srgb, var(--text) 85%, var(--muted)); }
 
 .events { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
 .events li {
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr) auto auto auto;
   align-items: center;
-  gap: 10px;
-  padding: 8px 0;
+  gap: 12px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--line);
   font-size: 14px;
 }
 .events li:last-child { border-bottom: 0; }
 .eventDay { color: var(--muted); font-variant-numeric: tabular-nums; }
 .eventLabel { font-weight: 500; }
-.eventLevel { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 13px; }
+.eventLevel { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 13px; }
 .eventLevel.watch,
 .eventLevel.alert { color: var(--c); font-weight: 600; }
 
@@ -114,7 +114,7 @@
 .ribbonScroll { overflow-x: auto; }
 .ribbon { width: 100%; min-width: 520px; table-layout: fixed; border-collapse: separate; border-spacing: 3px; font-size: 13px; }
 .ribbon thead th:first-child { width: 150px; }
-.ribbon thead th { padding: 0 0 6px; overflow: visible; text-align: left; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+.ribbon thead th { padding: 0 0 8px; overflow: visible; text-align: left; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
 .ribbon tbody th { padding-right: 12px; text-align: left; font-weight: 500; white-space: nowrap; }
 .ribbon tbody th .rowIcon { vertical-align: -3px; margin-right: 8px; }
 .ribbon td { padding: 0; }
@@ -132,12 +132,12 @@
 .cell :global(svg) { width: 12px; height: 12px; }
 
 /* Trend cards */
-.trends { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.trends { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
 .trendCard {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   align-content: start;
-  padding: 16px 18px;
+  padding: 20px;
   border: 1px solid var(--line);
   border-radius: 20px;
   background: var(--surface);
@@ -151,7 +151,7 @@
 .trendValue .unit { font-size: 13px; }
 .change { color: var(--muted); font-size: 13px; }
 .trendFoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
-.noData { padding: 30px 0; color: var(--muted); text-align: center; font-size: 13px; }
+.noData { padding: 32px 0; color: var(--muted); text-align: center; font-size: 13px; }
 
 .trend { display: block; width: 100%; height: auto; overflow: visible; }
 .band { fill: rgba(63, 185, 80, 0.12); }
@@ -166,10 +166,10 @@
 /* Radiation */
 .radHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .radHead .h2 { margin: 0; }
-.radBig { margin: 10px 0 14px; font: 300 44px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.radBig { margin: 12px 0 16px; font: 300 44px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
 .radBig .unit { font-size: 14px; }
 
-.budget { display: grid; gap: 10px; }
+.budget { display: grid; gap: 12px; }
 .budgetTrack { position: relative; height: 26px; border-radius: 8px; background: var(--surface-2); overflow: hidden; }
 .budgetTrack > span { position: absolute; top: 0; bottom: 0; }
 .segPrior { background: #4a5563; }
@@ -177,11 +177,11 @@
 .segProjected { background: repeating-linear-gradient(135deg, var(--muted) 0 4px, transparent 4px 8px); }
 .tick { width: 2px; background: var(--watch); }
 .tickLimit { background: var(--alert); }
-.budgetLegend { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 12px; }
-.budgetLegend i { display: inline-block; position: static; width: 12px; height: 12px; margin-right: 6px; border-radius: 3px; vertical-align: -2px; }
+.budgetLegend { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--muted); font-size: 12px; }
+.budgetLegend i { display: inline-block; position: static; width: 12px; height: 12px; margin-right: 8px; border-radius: 3px; vertical-align: -2px; }
 .tickKey { background: linear-gradient(90deg, var(--watch) 50%, var(--alert) 50%); }
 
-.dose { display: grid; grid-template-columns: auto 1fr; grid-template-rows: 160px auto; gap: 6px 8px; }
+.dose { display: grid; grid-template-columns: auto 1fr; grid-template-rows: 160px auto; gap: 8px; }
 .doseAxis { display: flex; flex-direction: column; justify-content: space-between; color: var(--muted); font-size: 11px; text-align: right; }
 .doseBars {
   position: relative;

@@ -71,10 +71,12 @@
 
 .muted { color: var(--muted); }
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.fine { color: var(--muted); font-size: 12px; margin-top: 14px; }
+.fine { color: var(--muted); font-size: 12px; margin-top: 16px; }
 
 .eyebrow {
   display: block;
+  margin-bottom: 4px;
+  line-height: 16px;
   color: var(--muted);
   font-size: 11px;
   font-weight: 600;
@@ -97,8 +99,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px 24px;
-  padding: 18px 22px;
-  margin-bottom: 20px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
   background: linear-gradient(100deg, rgba(88, 166, 255, 0.1), transparent 45%), var(--surface);
   border: 1px solid var(--line);
   border-radius: 24px;
@@ -130,7 +132,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px 20px;
+  gap: 12px 24px;
 }
 
 .pill {
@@ -159,7 +161,7 @@
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 20px;
+  gap: 24px;
 }
 
 @media (min-width: 1024px) {
@@ -168,7 +170,7 @@
 }
 
 .bodyPanel {
-  padding: 16px 12px 14px;
+  padding: 20px 16px 16px;
   border: 1px solid var(--line);
   border-radius: 24px;
   background:
@@ -212,7 +214,7 @@
 }
 
 .auraLegend {
-  margin: 4px 8px 10px;
+  margin: 8px 8px 12px;
   color: var(--muted);
   font-size: 11px;
   text-align: center;
@@ -272,7 +274,7 @@
 .zoneBtn:hover { background: rgba(230, 237, 243, 0.04); }
 .zoneBtn[aria-pressed='true'] { background: var(--surface-2); border-color: var(--line-strong); }
 
-.zoneText { display: grid; gap: 1px; min-width: 0; }
+.zoneText { display: grid; gap: 2px; min-width: 0; }
 
 .zoneName {
   color: var(--muted);
@@ -317,7 +319,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .tileBtn {
@@ -348,12 +350,12 @@
 /* ── Right panel ── */
 .right {
   display: grid;
-  gap: 24px;
+  gap: 32px;
   min-width: 0;
 }
 
 .next {
-  padding: 22px 24px;
+  padding: 24px;
   border-radius: 24px;
   border: 1px solid color-mix(in srgb, var(--c) 35%, transparent);
   background: linear-gradient(135deg, color-mix(in srgb, var(--c) 14%, var(--surface)), var(--surface) 65%);
@@ -370,7 +372,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-top: 18px;
+  margin-top: 16px;
 }
 
 .nextLink {
@@ -442,12 +444,12 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   font: 600 15px var(--heading);
 }
 
 .count {
-  padding: 1px 9px;
+  padding: 2px 8px;
   border-radius: 999px;
   background: var(--surface-2);
   color: var(--muted);
@@ -463,9 +465,9 @@
 
 .card {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   align-content: start;
-  padding: 20px;
+  padding: 24px;
   border: 1px solid var(--line);
   border-radius: 24px;
   background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--c) 11%, transparent), transparent 60%), var(--surface);
@@ -512,19 +514,19 @@
 .sparkDot { fill: var(--c); stroke: var(--surface); stroke-width: 2; }
 
 .cardMeta { color: var(--muted); font-size: 13px; }
-.dev { display: block; margin-bottom: 2px; color: var(--c); font-size: 14px; }
+.dev { display: block; margin-bottom: 4px; color: var(--c); font-size: 14px; }
 
 .step {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding-top: 14px;
+  padding-top: 16px;
   border-top: 1px solid var(--line);
   font-size: 14px;
 }
 
-.step .eyebrow { margin-bottom: 2px; }
+.step .eyebrow { margin-bottom: 4px; }
 
 /* Normal readings: small and quiet. */
 .tiles {
@@ -538,9 +540,9 @@
 
 .tile {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   align-content: start;
-  padding: 14px 16px;
+  padding: 16px;
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--surface);
@@ -569,7 +571,7 @@
   position: relative;
   display: block;
   height: 6px;
-  margin: 4px 0 2px;
+  margin: 4px 0;
   border-radius: 999px;
   background: rgba(230, 237, 243, 0.06);
 }
@@ -598,7 +600,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .backBtn {
@@ -644,9 +646,9 @@
 }
 
 /* ── Next action extras ── */
-.nextTitle { margin: 10px 0 4px; font: 600 26px/1.25 var(--heading); }
+.nextTitle { margin: 12px 0 8px; font: 600 26px/1.25 var(--heading); }
 .next .badge { margin-top: 8px; }
-.then { margin-top: 12px; color: var(--muted); font-size: 14px; }
+.then { margin-top: 16px; color: var(--muted); font-size: 14px; }
 
 .primaryBtn {
   min-height: 44px;
@@ -669,7 +671,7 @@
 }
 .ghostBtn:hover { background: var(--surface-2); }
 
-.nextGuide { margin-top: 14px; border-top: 1px solid var(--line); }
+.nextGuide { margin-top: 16px; border-top: 1px solid var(--line); }
 .nextGuide > summary {
   display: flex;
   align-items: center;
@@ -700,11 +702,11 @@
 .guide details[open] summary::after { content: '−'; }
 .guide ul,
 .guide ol,
-.guide details > p { margin: 0 0 14px; padding-left: 20px; color: var(--muted); }
+.guide details > p { margin: 0 0 16px; padding-left: 20px; color: var(--muted); }
 .guide details > p { padding-left: 0; }
 .guide li + li { margin-top: 4px; }
 
-.sources { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.sources { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
 .source {
   padding: 3px 10px;
   border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
@@ -717,7 +719,7 @@
 .zoneDetail {
   display: grid;
   gap: 8px;
-  padding: 18px 20px;
+  padding: 24px;
   border: 1px solid var(--line-strong);
   border-radius: 24px;
   background: var(--surface);
@@ -727,13 +729,13 @@
 /* ── Good news ── */
 .goodWrap {
   display: grid;
-  gap: 14px;
-  padding: 20px;
+  gap: 16px;
+  padding: 24px;
   border: 1px solid color-mix(in srgb, var(--ok) 28%, transparent);
   border-radius: 24px;
   background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--ok) 12%, transparent), transparent 55%), var(--surface);
 }
-.goodHead { display: flex; align-items: center; gap: 14px; }
+.goodHead { display: flex; align-items: center; gap: 16px; }
 .goodCheck {
   display: grid;
   place-items: center;
@@ -784,7 +786,7 @@
 
 /* ── My week ── */
 .weekWrap {
-  padding: 18px 20px;
+  padding: 24px;
   border: 1px solid var(--line);
   border-radius: 24px;
   background: var(--surface);
@@ -795,7 +797,7 @@
 .weekScroll { overflow-x: auto; }
 .week { width: 100%; border-collapse: collapse; font-size: 13px; }
 .week th,
-.week td { padding: 9px 6px; border-bottom: 1px solid var(--line); text-align: center; }
+.week td { padding: 10px 8px; border-bottom: 1px solid var(--line); text-align: center; }
 .week thead th { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .week tbody th { text-align: left; font-weight: 500; white-space: nowrap; }
 .week tbody th .tileIcon { vertical-align: -3px; margin-right: 8px; color: var(--muted); }
@@ -823,7 +825,7 @@
   background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%) 0 0 / 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
-.skeletonBanner { height: 96px; margin-bottom: 20px; }
+.skeletonBanner { height: 96px; margin-bottom: 24px; }
 .skeletonBody { height: 560px; }
 .skeletonCard { height: 220px; }
 
