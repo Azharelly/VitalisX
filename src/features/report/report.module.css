@@ -172,10 +172,13 @@
 .budget { display: grid; gap: 12px; }
 .budgetTrack { position: relative; height: 26px; border-radius: 8px; background: var(--surface-2); overflow: hidden; }
 .budgetTrack > span { position: absolute; top: 0; bottom: 0; }
-.segPrior { background: #4a5563; }
-.segMission { background: var(--text); }
-.segProjected { background: repeating-linear-gradient(135deg, var(--muted) 0 4px, transparent 4px 8px); }
-.tick { width: 2px; background: var(--watch); }
+/* Segments take the status colour (--c from .ok / .watch / .alert): earlier missions darker, projection striped. */
+.segPrior { background: color-mix(in srgb, var(--c) 42%, var(--bg)); }
+.segMission { background: var(--c); }
+.segProjected { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--c) 75%, transparent) 0 4px, transparent 4px 8px); }
+.budgetTrack .segMission,
+.budgetTrack .segProjected { box-shadow: inset 2px 0 0 var(--surface-2); } /* hairline gap between segments */
+.tick { z-index: 1; width: 3px; margin-left: -1px; background: var(--watch); box-shadow: 0 0 0 1.5px var(--bg); } /* outlined so it shows on a coloured bar */
 .tickLimit { background: var(--alert); }
 .budgetLegend { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--muted); font-size: 12px; }
 .budgetLegend i { display: inline-block; position: static; width: 12px; height: 12px; margin-right: 8px; border-radius: 3px; vertical-align: -2px; }

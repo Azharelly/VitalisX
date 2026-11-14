@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { LEVEL_WORD, ZONES, isFlagged, type ReportMetric, type ReportView } from '../today/model.ts'
+import { LEVEL_WORD, ZONES, isFlagged, type Level, type ReportMetric, type ReportView } from '../today/model.ts'
 import { StatusIcon } from '../today/StatusIcon'
 import { ZoneIcon } from '../today/ZoneIcon'
 import s from './report.module.css'
@@ -111,19 +111,31 @@ export function BudgetBar({ r }: { r: ReportView['radiation'] }) {
   const scale = Math.max(r.limitMsv * 1.2, (r.projectedMsv ?? r.careerMsv) * 1.05)
   const pc = (v: number) => `${(v / scale) * 100}%`
   const mission = r.careerMsv - r.priorMsv
+  // Same thresholds as the radiation rule: Watch from 80% of the limit, Alert at the limit.
+  const levelOf = (msv: number): Level => (msv >= r.limitMsv ? 'alert' : msv >= 0.8 * r.limitMsv ? 'watch' : 'ok')
+  const now = levelOf(r.careerMsv) // colours earlier missions (darker) and this mission
+  const ahead = r.projectedMsv === null ? null : levelOf(r.projectedMsv) // colours the projection
   return (
     <div className={s.budget}>
-      <div className={s.budgetTrack} role="img" aria-label={`${r.careerMsv} of ${r.limitMsv} mSv career limit${r.projectedMsv === null ? '' : `, ${r.projectedMsv} projected at arrival`}`}>
-        <span className={s.segPrior} style={{ left: 0, width: pc(r.priorMsv) }} />
-        <span className={s.segMission} style={{ left: pc(r.priorMsv), width: pc(mission) }} />
-        {r.projectedMsv !== null && <span className={s.segProjected} style={{ left: pc(r.careerMsv), width: pc(r.projectedMsv - r.careerMsv) }} />}
+      <div
+        className={s.budgetTrack}
+        role="img"
+        aria-label={`${r.careerMsv} of ${r.limitMsv} mSv career limit, ${LEVEL_WORD[now]}${r.projectedMsv === null ? '' : `; ${r.projectedMsv} projected at arrival, ${LEVEL_WORD[ahead!]}`}`}
+      >
+        <span className={`${s.segPrior} ${s[now]}`} style={{ left: 0, width: pc(r.priorMsv) }} />
+        <span className={`${s.segMission} ${s[now]}`} style={{ left: pc(r.priorMsv), width: pc(mission) }} />
+        {r.projectedMsv !== null && (
+          <span className={`${s.segProjected} ${s[ahead!]}`} style={{ left: pc(r.careerMsv), width: pc(r.projectedMsv - r.careerMsv) }} />
+        )}
         <span className={s.tick} style={{ left: pc(r.limitMsv * 0.8) }} />
         <span className={`${s.tick} ${s.tickLimit}`} style={{ left: pc(r.limitMsv) }} />
       </div>
       <div className={s.budgetLegend}>
-        <span><i className={s.segPrior} /> Earlier missions {r.priorMsv} mSv</span>
-        <span><i className={s.segMission} /> This mission {mission} mSv</span>
-        {r.projectedMsv !== null && <span><i className={s.segProjected} /> Projected {r.projectedMsv} mSv by day {r.arrivalDay}</span>}
+        <span><i className={`${s.segPrior} ${s[now]}`} /> Earlier missions {r.priorMsv} mSv</span>
+        <span><i className={`${s.segMission} ${s[now]}`} /> This mission {mission} mSv · {LEVEL_WORD[now]}</span>
+        {r.projectedMsv !== null && (
+          <span><i className={`${s.segProjected} ${s[ahead!]}`} /> Projected {r.projectedMsv} mSv by day {r.arrivalDay} · {LEVEL_WORD[ahead!]}</span>
+        )}
         <span><i className={s.tickKey} /> Marks: 80% and {r.limitMsv} mSv limit</span>
       </div>
     </div>
