@@ -116,18 +116,6 @@
   gap: 16px;
 }
 
-.avatar {
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--surface-2);
-  font: 600 18px var(--heading);
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--c);
-}
-
 .name {
   font: 600 28px/1.15 var(--heading);
 }

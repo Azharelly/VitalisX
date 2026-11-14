@@ -1,3 +1,4 @@
+import { Avatar } from '../crew/Avatar'
 import { useState } from 'react'
 import { BodyFigure, ZoneButton } from './BodyFigure'
 import { GuidancePanel } from './GuidancePanel'
@@ -69,9 +70,7 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
 
       <header className={s.banner}>
         <div className={s.who}>
-          <span className={`${s.avatar} ${s[overall]}`} aria-hidden="true">
-            {initials}
-          </span>
+          <Avatar initials={initials} status={overall} />
           <div>
             <p className={s.eyebrow}>Viewing</p>
             <h1 id="today-viewing" className={s.name}>
