@@ -80,4 +80,3 @@ The simulated backend is `simulatedCrewApi` in `features/today/simulate.ts`, nex
 ## Open
 
 - `CrewMember` in `src/data/types.ts` needs `removed_at: number | null` (task 5a, Azharelly).
-- `PRIVATE_ZONES` in `src/data/types.ts` is outdated (D2 says remove it). Crew does not use it.

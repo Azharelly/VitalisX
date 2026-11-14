@@ -45,4 +45,14 @@ describe('saveCheckIn', () => {
     await saveCheckIn(3, { hr: { value: 66 } }, at(23), 143, db);
     expect(await db.measurement.count()).toBe(count);
   });
+
+  it('reuses the existing daily check-in time when a caller supplies a different time', async () => {
+    await saveCheckIn(3, { hr: { value: 64 } }, at(23), 143, db);
+    await saveCheckIn(3, { temp: { value: 36.9 } }, '2031-06-23T09:30:00Z', 143, db);
+
+    const readings = await db.measurement.where('crew_id').equals(3)
+      .filter((m) => m.mission_day === 143 && m.source === 'checkin').toArray();
+    expect(readings).toHaveLength(2);
+    expect(new Set(readings.map((reading) => reading.taken_at))).toEqual(new Set([at(23)]));
+  });
 });
