@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { DEFAULT_COMMS_DELAY_SEC, flushOutbox, type OutboxMessage, type OutboxPort, type SendToEarth } from '../../data/outbox'
+import { arrivalLeftSec, DEFAULT_COMMS_DELAY_SEC, flushOutbox, type OutboxMessage, type OutboxPort, type SendToEarth } from '../../data/outbox'
 import type { ReportView } from '../today/model.ts'
 import t from '../today/today.module.css'
 import { SBAR_FIELDS, draftSbar, isSendable, privateLine, sbarToText, type Sbar } from './sbar.ts'
@@ -29,11 +29,6 @@ function loadDraft(r: ReportView): Sbar {
   return draftSbar(r)
 }
 
-/** Seconds until a message reaches Earth: created_at + delay_sec - now. 0 = arrived. Derived from stored fields only. */
-export function arrivalLeftSec(m: Pick<OutboxMessage, 'createdAt' | 'delaySec'>, now: number, fallbackDelaySec = DEFAULT_COMMS_DELAY_SEC) {
-  const at = Date.parse(m.createdAt) + (m.delaySec ?? fallbackDelaySec) * 1000
-  return Math.max(0, Math.ceil((at - now) / 1000))
-}
 const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
 
 const minutes = (sec: number) => (sec < 90 ? `${Math.round(sec)} s` : `${Math.round(sec / 60)} min`)
