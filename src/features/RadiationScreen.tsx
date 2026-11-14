@@ -1,7 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { RadiationDose } from '../data/types';
 import { activeSepEpisode } from '../engine/donkiRadiation';
 import { evaluateRadiation } from '../engine/radiation';
+import { WhyModal } from './why/WhyModal';
+import { radiationEvidence } from './why/radiationEvidence';
 import { MOCK } from './mock';
 import { useDonki } from './useDonki';
 import { StateBadge } from './StateBadge';
@@ -28,16 +30,25 @@ export function RadiationScreen({
   // The episode itself, not just yes/no, so the warning can name it. asOf is the real clock for live data.
   const activeStormEpisode = donki.status === 'ready' ? activeSepEpisode(donki.snapshot, donki.asOf) : null;
 
-  const result = useMemo(
-    () => evaluateRadiation({ doses, priorDoseMsv, currentDay, arrivalDay, activeStormEpisode }),
+  const input = useMemo(
+    () => ({ doses, priorDoseMsv, currentDay, arrivalDay, activeStormEpisode }),
     [doses, priorDoseMsv, currentDay, arrivalDay, activeStormEpisode],
   );
+  const result = useMemo(() => evaluateRadiation(input), [input]);
+  // F-05: Why? for a Watch / Alert, with the evidence frozen at the day it started.
+  const evidence = useMemo(() => radiationEvidence(input, result), [input, result]);
+  const [whyOpen, setWhyOpen] = useState(false);
 
   return (
     <main className="rad-screen">
       <header className="rad-head">
         <h1>Radiation</h1>
         <StateBadge state={result.state} />
+        {evidence && (
+          <button type="button" className="rad-why" onClick={() => setWhyOpen(true)}>
+            Why?
+          </button>
+        )}
         <span className="rad-sim">Simulated data</span>
       </header>
 
@@ -51,6 +62,7 @@ export function RadiationScreen({
       )}
       <DonkiPanel donki={donki} />
       <ShelterSteps />
+      {whyOpen && evidence && <WhyModal e={evidence} onClose={() => setWhyOpen(false)} />}
     </main>
   );
 }

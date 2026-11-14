@@ -7,6 +7,7 @@ import {
   byAttention,
   isFlagged,
   worst,
+  type FrozenEvidence,
   type Level,
   type NextAction,
   type Reading,
@@ -240,21 +241,37 @@ function evalRadiation(c: Crew, asOf: number): Reading {
   })
 }
 
-function readingsFor(c: Crew, asOf: number): Reading[] {
+/**
+ * The day the current Watch / Alert run started (scanning back from `asOf`), and the reading as it was that day.
+ * This is the snapshot a stored alert would hold; it is computed once per view and never redrawn from newer data.
+ */
+function frozenFor(c: Crew, id: string, asOf: number): FrozenEvidence | undefined {
+  let day = asOf
+  while (day > 1 && asOf - day < 90) {
+    const before = readingsFor(c, day - 1).find((r) => r.id === id)
+    if (!before || !isFlagged(before.level)) break
+    day--
+  }
+  const r = readingsFor(c, day).find((x) => x.id === id)
+  if (!r || !isFlagged(r.level)) return undefined
+  return { raisedDay: day, value: r.value, usual: r.usual, points: r.trend ?? (r.value === null ? [] : [r.value]) }
+}
+
+function readingsFor(c: Crew, asOf: number, withAlerts = false): Reading[] {
   return [
     ...Z_METRICS.map((d) => evalZ(c, d, asOf)),
     evalSeverity(c, 'symptoms', asOf),
     evalSeverity(c, 'vision', asOf),
     evalExercise(c, asOf),
     evalRadiation(c, asOf),
-  ]
+  ].map((r) => (withAlerts && isFlagged(r.level) ? { ...r, alert: frozenFor(c, r.id, asOf) } : r))
 }
 
 const zoneLevels = (readings: Reading[]) =>
   Object.fromEntries(ZONES.map((z) => [z.id, worst(readings.filter((r) => r.zone === z.id).map((r) => r.level))])) as Record<ZoneId, Level>
 
 function buildToday(c: Crew, asOf: number): TodayView {
-  const readings = readingsFor(c, asOf)
+  const readings = readingsFor(c, asOf, true)
   const top = [...readings].sort(byAttention)[0]
   const checkIns = pointsUpTo(series(c, Z_METRICS[0]), asOf).length
   const nextAction: NextAction =
@@ -304,6 +321,7 @@ function buildReport(c: Crew, asOf: number, days: number): ReportView {
     points: period.map((day) => ({ day, value: valueOn(r.id, day), level: readingsAt(day).find((x) => x.id === r.id)!.level })),
     avg: average(period.map((day) => valueOn(r.id, day))),
     prevAvg: prev.length ? average(prev.map((day) => valueOn(r.id, day))) : null,
+    alert: isFlagged(r.level) ? frozenFor(c, r.id, asOf) : undefined,
   }))
 
   // Status changes that involve Watch/Alert, compared with the day before each day in the period.
@@ -335,6 +353,7 @@ function buildReport(c: Crew, asOf: number, days: number): ReportView {
       limitMsv: MISSION.careerLimitMsv,
       arrivalDay: MISSION.arrivalDay,
       daily: period.map((day) => ({ day, msv: Number(dailyDose(c, day).toFixed(2)), storm: STORM_DAYS.includes(day) })),
+      alert: isFlagged(readingsAt(asOf).find((r) => r.id === 'rad')!.level) ? frozenFor(c, 'rad', asOf) : undefined,
     },
     events,
   }

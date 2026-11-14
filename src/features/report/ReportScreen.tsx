@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { WhyModal } from '../why/WhyModal'
-import { fromReportMetric } from '../why/evidence.ts'
+import { fromReportMetric, fromReportRadiation } from '../why/evidence.ts'
 import { ZONES, LEVEL_WORD, changeText, isFlagged, type Level, type ReportMetric, type ReportView } from '../today/model.ts'
 import type { OutboxPort, SendToEarth } from '../../data/outbox'
 import { StatusIcon } from '../today/StatusIcon'
@@ -37,7 +37,6 @@ const ZONE_ORDER = ZONES.map((z) => z.id)
 export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }: { report: ReportView } & ReportActions & ReportOutbox) {
   const [whyId, setWhyId] = useState<string | null>(null)
   const [sbarOpen, setSbarOpen] = useState(false)
-  const why = report.metrics.find((m) => m.id === whyId)
   const onWhy = (metricId: string) => {
     setWhyId(metricId)
     actions.onWhy?.(metricId)
@@ -54,6 +53,8 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
   const radLevel: Level = radiationLevel(rad)
   // Everything still Watch / Alert on the last day, radiation included (it is not in `metrics`).
   const openItems = getOpenItems(report)
+  const whyMetric = report.metrics.find((m) => m.id === whyId)
+  const why = whyId === 'rad' ? fromReportRadiation(report, radLevel) : whyMetric ? fromReportMetric(whyMetric) : null
   const sendSummary = () => {
     if (outbox) setSbarOpen(true)
     actions.onSendSummary?.(report.person.id, report.days)
@@ -174,8 +175,15 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
           <h2 id="report-rad" className={s.h2}>
             <ZoneIcon zone="radiation" className={s.rowIcon} /> Radiation
           </h2>
-          <span className={`${s.badge} ${s[radLevel]}`}>
-            <StatusIcon level={radLevel} /> {LEVEL_WORD[radLevel]}
+          <span className={s.radStatus}>
+            <span className={`${s.badge} ${s[radLevel]}`}>
+              <StatusIcon level={radLevel} /> {LEVEL_WORD[radLevel]}
+            </span>
+            {isFlagged(radLevel) && (
+              <button type="button" className={s.why} onClick={() => onWhy('rad')}>
+                Why?
+              </button>
+            )}
           </span>
         </div>
         <p className={s.radBig}>
@@ -192,7 +200,7 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
       {sbarOpen && outbox && (
         <SbarDialog report={report} outbox={outbox} send={send} commsDelaySec={commsDelaySec} onClose={() => setSbarOpen(false)} />
       )}
-      {why && <WhyModal e={fromReportMetric(why)} onClose={() => setWhyId(null)} />}
+      {why && <WhyModal e={why} onClose={() => setWhyId(null)} />}
     </section>
   )
 }

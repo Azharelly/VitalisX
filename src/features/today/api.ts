@@ -1,4 +1,4 @@
-import { ZONES, type Level, type NextAction, type Reading, type ReportView, type TodayView, type WeekDay, type ZoneId } from './model.ts'
+import { ZONES, type FrozenEvidence, type Level, type NextAction, type Reading, type ReportView, type TodayView, type WeekDay, type ZoneId } from './model.ts'
 
 export interface CrewSummary {
   id: string
@@ -68,6 +68,20 @@ export function parseCrew(json: unknown): CrewSummary[] {
   })
 }
 
+/** Optional frozen evidence of an alert. Absent or null = the server stores none. */
+export function parseFrozen(v: unknown, at: string): FrozenEvidence | undefined {
+  if (v === undefined || v === null) return undefined
+  if (!isObj(v) || !Array.isArray(v.points) || v.points.length > 60) throw new BadData(at)
+  const usual = v.usual === undefined || v.usual === null ? undefined : v.usual
+  if (usual !== undefined && !(Array.isArray(usual) && usual.length === 2)) throw new BadData(`${at}.usual`)
+  return {
+    raisedDay: num(v.raisedDay, `${at}.raisedDay`),
+    value: v.value === null || v.value === undefined ? null : num(v.value, `${at}.value`),
+    usual: usual && [num(usual[0], `${at}.usual[0]`), num(usual[1], `${at}.usual[1]`)],
+    points: v.points.map((p, k) => num(p, `${at}.points[${k}]`)),
+  }
+}
+
 export function parseReading(r: unknown, i: number): Reading {
   const at = `readings[${i}]`
   if (!isObj(r)) throw new BadData(at)
@@ -91,6 +105,7 @@ export function parseReading(r: unknown, i: number): Reading {
     context: optStr(r.context, `${at}.context`),
     measured: optStr(r.measured, `${at}.measured`),
     note: optStr(r.note, `${at}.note`),
+    alert: parseFrozen(r.alert, `${at}.alert`),
   }
 }
 
@@ -174,6 +189,7 @@ export function parseReportView(json: unknown): ReportView {
         }),
         avg: numOrNull(m.avg, `${at}.avg`),
         prevAvg: numOrNull(m.prevAvg, `${at}.prevAvg`),
+        alert: parseFrozen(m.alert, `${at}.alert`),
       }
     }),
     zones: parseWeek(json.zones),
@@ -187,6 +203,7 @@ export function parseReportView(json: unknown): ReportView {
         if (!isObj(d)) throw new BadData(`radiation.daily[${k}]`)
         return { day: num(d.day, `radiation.daily[${k}].day`), msv: num(d.msv, `radiation.daily[${k}].msv`), storm: d.storm === true }
       }),
+      alert: parseFrozen(rad.alert, 'radiation.alert'),
     },
     events: json.events.map((e, i) => {
       if (!isObj(e)) throw new BadData(`events[${i}]`)

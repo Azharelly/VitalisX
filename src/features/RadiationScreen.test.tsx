@@ -20,9 +20,9 @@ describe('Radiation tab (#21)', () => {
     }
   });
 
-  it('says 250 mSv is a design target, not a personal limit', () => {
-    expect(html).toContain('250 mSv is the shielding design target for one solar storm');
-    expect(html).toContain('not a personal dose limit');
+  it('says 250 mSv is a design target, not a personal limit (exact wording)', () => {
+    expect(html).toContain('250 mSv is a spacecraft shielding design target, not a personal dose limit.');
+    expect(html).not.toContain('shielding design target for one solar storm');
   });
 
   it('draws one bar per daily dose and marks storm days', () => {

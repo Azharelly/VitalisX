@@ -1,6 +1,6 @@
 import { latestFlares, lastSep, strongestEvents, summary } from '../data/donki';
 import { activeSepEpisode, DONKI_NOTE, gScale, sepDataCoversNow, type DonkiLoad } from '../engine/donkiRadiation';
-import { LIST_NAMES, STORM_TARGET_WORDING, windowText } from './donkiText';
+import { DESIGN_TARGET_SOURCE, LIST_NAMES, STORM_TARGET_WORDING, windowText } from './donkiText';
 import type { DonkiState } from './useDonki';
 
 const day = (iso: string) => iso.slice(0, 10);
@@ -99,7 +99,7 @@ function Ready({ load }: { load: DonkiLoad }) {
       </p>
       <p className="rad-small rad-dim">{DONKI_NOTE}</p>
       <p className="rad-small rad-dim">
-        {STORM_TARGET_WORDING}
+        <span data-testid="storm-target">{STORM_TARGET_WORDING}</span> {DESIGN_TARGET_SOURCE}
       </p>
     </>
   );
