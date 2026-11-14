@@ -44,7 +44,7 @@
 /* ── Avatar row (in the app header). Others: ring + word stacked; the selected one: a pill with name and role ── */
 .avatars {
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* every ring starts 6px from the top, so all circles share one line */
   gap: 4px;
   margin: 0;
   padding: 4px 2px;
@@ -76,6 +76,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  min-height: 0; /* hug the ring, so it sits on the same line as the others */
   padding: 6px 18px 6px 6px;
   border-color: var(--line-strong);
   border-radius: 999px;
@@ -93,7 +94,7 @@
   place-items: center;
   width: 44px;
   height: 44px;
-  margin: 0 8px;
+  margin: 4px 8px 0; /* centres the 44px "+" on the 40px rings (6px padding + 20px radius) */
   border: 1px dashed var(--line-strong);
   border-radius: 50%;
   background: transparent;
