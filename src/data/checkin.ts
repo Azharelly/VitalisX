@@ -29,7 +29,8 @@ export interface CheckInResult {
 
 /**
  * Saves a check-in.
- * @param takenAt ISO date-time of the check-in. Saving again with the same time corrects those readings.
+ * @param takenAt ISO date-time of the check-in. If the person already checked in on the mission day,
+ * the existing check-in timestamp is reused so a second timestamp cannot create another check-in.
  * @param missionDay mission day of the check-in.
  */
 export async function saveCheckIn(
@@ -40,11 +41,18 @@ export async function saveCheckIn(
   database: VitalisDB = defaultDb,
 ): Promise<CheckInResult> {
   const out: CheckInResult = { results: [], changed: [], skipped: [] };
+  const existingCheckIn = await database.measurement.where('crew_id').equals(crewId)
+    .filter((m) => m.mission_day === missionDay && m.source === 'checkin').toArray();
+  const existingTakenAt = existingCheckIn.reduce<string | undefined>(
+    (latest, measurement) => latest === undefined || measurement.taken_at > latest ? measurement.taken_at : latest,
+    undefined,
+  );
+  const checkInTakenAt = existingTakenAt ?? takenAt;
   for (const [metric, answer] of Object.entries(answers) as [CheckInMetricId, CheckInAnswer | undefined][]) {
     if (!answer) continue;
     if (!Number.isFinite(answer.value)) { out.skipped.push(metric); continue; }
     const result = await recompute(crewId, metric, [{
-      mission_day: missionDay, taken_at: takenAt, context: answer.context ?? null,
+      mission_day: missionDay, taken_at: checkInTakenAt, context: answer.context ?? null,
       value: answer.value, source: 'checkin', is_simulated: false,
     }], database);
     const entry = { metric_id: metric, result };
