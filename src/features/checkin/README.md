@@ -64,7 +64,8 @@ const takenAt = rows[0]?.taken_at // reuse it when saving an edit
 
 **Personal band (`usual`).** `{ [metricId]: [low, high] }` with `low/high = median ∓ 1.5 × scale` from the engine's
 baseline (`computeBaseline`, same context, last 28 days). It is the same band Today shows as "your usual range", so
-taking it from `TodayView.readings[].usual` is enough. Leave a metric out while it is still learning. The form uses it
+taking it from `TodayView.readings[].usual` is enough (map `bp_sys` → `sys` and `bp_dia` → `dia`: Today's
+readings still use the old blood-pressure ids; `CheckInPreview` shows the mapping). Leave a metric out while it is still learning. The form uses it
 for the "Your usual …" hint and for the "Please double-check" step; with `{}` both simply do not appear.
 
 ## Data contract (what `onSave` receives)
