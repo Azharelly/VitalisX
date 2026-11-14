@@ -2,7 +2,8 @@ import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { VitalisDB } from './db';
 import { DATASET_VERSION, ensureSeeded, isSeeded, resetDemo, seedDatabase, type SeedData } from './seed';
-import { getCrew, getMeasurements, getOpenAlerts, getRadiationDoses } from './queries';
+import Dexie from 'dexie';
+import { getActiveCrew, getCrew, getMeasurements, getOpenAlerts, getRadiationDoses, removeCrewMember } from './queries';
 
 // minimal in-memory localStorage for the node test environment
 const store = new Map<string, string>();
@@ -17,8 +18,8 @@ Object.defineProperty(globalThis, 'localStorage', {
 
 const fixture = (): SeedData => ({
   crew_member: [
-    { id: 1, name: 'Amara Okafor', role: 'Commander', sex: 'F', initials: 'AO', prior_dose_msv: 25, joined_mission_day: 0, is_simulated: true },
-    { id: 2, name: 'Kenji Tanaka', role: 'Flight engineer', sex: 'M', initials: 'KT', prior_dose_msv: 130, joined_mission_day: 0, is_simulated: true },
+    { id: 1, name: 'Amara Okafor', role: 'Commander', sex: 'F', initials: 'AO', prior_dose_msv: 25, joined_mission_day: 0, removed_at: null, is_simulated: true },
+    { id: 2, name: 'Kenji Tanaka', role: 'Flight engineer', sex: 'M', initials: 'KT', prior_dose_msv: 130, joined_mission_day: 0, removed_at: null, is_simulated: true },
   ],
   metric: [{
     id: 'temp', label: 'Temperature', unit: '°C', zone: 'immune', direction: 'high_is_bad', min_sd: 0.15,
@@ -155,5 +156,40 @@ describe('foreign keys (convention, not enforced by IndexedDB)', () => {
     }
     for (const r of await db.radiation_dose_log.toArray()) expect(crewIds.has(r.crew_id)).toBe(true);
     for (const a of await db.alert.toArray()) expect(crewIds.has(a.crew_id)).toBe(true);
+  });
+});
+
+describe('CrewMember.removed_at (issue #5)', () => {
+  it('seeded crew keep removed_at = null', async () => {
+    await seedDatabase(fixture(), db);
+    expect((await db.crew_member.toArray()).every((c) => c.removed_at === null)).toBe(true);
+  });
+
+  it('removeCrewMember sets removed_at, hides the person from getActiveCrew, keeps their data', async () => {
+    await seedDatabase(fixture(), db);
+    expect(await removeCrewMember(2, '2031-03-01T00:00:00Z', db)).toBe(true);
+    expect((await getActiveCrew(db)).map((c) => c.id)).toEqual([1]);
+    expect((await getCrew(db)).map((c) => c.id)).toEqual([1, 2]);       // still in the full list
+    expect((await db.crew_member.get(2))?.removed_at).toBe('2031-03-01T00:00:00Z');
+    expect(await db.radiation_dose_log.where('crew_id').equals(2).count()).toBe(1);   // history stays
+  });
+
+  it('removeCrewMember returns false for an unknown id', async () => {
+    await seedDatabase(fixture(), db);
+    expect(await removeCrewMember(99, undefined, db)).toBe(false);
+  });
+
+  it('upgrading an existing v1 database backfills removed_at = null', async () => {
+    const name = `upgrade-${n++}`;
+    const v1 = new Dexie(name);                         // what an old browser already has
+    v1.version(1).stores({ crew_member: '++id' });
+    await v1.table('crew_member').add({ name: 'Old Row', role: 'Pilot', sex: 'F', initials: 'OR', prior_dose_msv: 0, joined_mission_day: 0, is_simulated: true });
+    v1.close();
+
+    const upgraded = new VitalisDB(name);               // opens at v2 and runs the upgrade
+    const rows = await upgraded.crew_member.toArray();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].removed_at).toBeNull();
+    expect((await getActiveCrew(upgraded)).map((c) => c.name)).toEqual(['Old Row']);
   });
 });
