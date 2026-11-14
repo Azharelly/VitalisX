@@ -145,6 +145,11 @@
   .navWide .mark { background: none; }
   .navBottom { display: none; }
 }
+/* 1024–1279 px (iPad landscape): brand, Demo chip, five tabs and Emergency only fit with slimmer tabs. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .navWide { margin-left: 8px; }
+  .navWide .tab { padding: 0 10px; }
+}
 
 /* Phones and tablets: a bottom bar within thumb reach. */
 .navBottom {
@@ -188,6 +193,17 @@
   .crewRow { padding: 0 14px 6px; }
   .emergency { min-height: 44px; padding: 0 14px; font-size: 13px; letter-spacing: 0.06em; }
   .logo { width: 24px; height: 24px; }
+}
+
+/* Small phones (iPhone SE / mini 375 px, many Androids 360 px): brand, Demo chip and Emergency must share one row.
+   Emergency keeps its word and red outline; only the icon goes. */
+@media (max-width: 400px) {
+  .topRow { gap: 8px; padding-left: 12px; padding-right: 12px; }
+  .emergency { padding: 0 12px; }
+  .emergency svg { display: none; }
+}
+@media (max-width: 340px) {
+  .brandText { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
