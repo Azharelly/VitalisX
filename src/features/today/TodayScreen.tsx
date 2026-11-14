@@ -21,6 +21,8 @@ export interface TodayActions {
   onNoteForEarth?: (crewId: string, metricId?: string) => void
   /** Go to Check-in (F-03) for this person. */
   onStartCheckIn?: (crewId: string) => void
+  /** Open the full week/month Report for this person (shows a link under "My week" when set). */
+  onOpenReport?: (crewId: string) => void
 }
 
 const OFF_BODY: ZoneId[] = ['immune', 'meta', 'radiation'] // no single spot on the figure, so they also get tiles
@@ -170,7 +172,7 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
 
           <GoodNews data={data} normal={normal} zoneLevels={levels} />
 
-          {!zone && <MyWeek data={data} />}
+          {!zone && <MyWeek data={data} onOpenReport={actions.onOpenReport && (() => actions.onOpenReport!(id))} />}
         </div>
       </div>
     </section>

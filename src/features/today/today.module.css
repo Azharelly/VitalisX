@@ -790,7 +790,7 @@
   background: var(--surface);
 }
 .weekHead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
-.weekStats { display: flex; gap: 16px; color: var(--muted); font-size: 13px; }
+.weekStats { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; color: var(--muted); font-size: 13px; }
 .weekStats strong { color: var(--text); font: 300 20px var(--sans); }
 .weekScroll { overflow-x: auto; }
 .week { width: 100%; border-collapse: collapse; font-size: 13px; }

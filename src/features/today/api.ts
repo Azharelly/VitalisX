@@ -1,4 +1,4 @@
-import { ZONES, type Level, type NextAction, type Reading, type TodayView, type WeekDay, type ZoneId } from './model.ts'
+import { ZONES, type Level, type NextAction, type Reading, type ReportView, type TodayView, type WeekDay, type ZoneId } from './model.ts'
 
 export interface CrewSummary {
   id: string
@@ -10,12 +10,14 @@ export interface CrewSummary {
  * The data contract for the Today screen. Any backend can implement it:
  *   GET /crew                      -> CrewSummary[]
  *   GET /crew/:crewId/today?day=N  -> TodayView   (day omitted = current mission day)
+ *   GET /crew/:crewId/report?day=N&days=7|28 -> ReportView (week or month ending on day N)
  * Implementations today: simulatedTodayApi (in-browser, simulated data) and httpTodayApi (a real server).
  * A Dexie/IndexedDB implementation can slot in the same way.
  */
 export interface TodayApi {
   listCrew(): Promise<CrewSummary[]>
   getToday(crewId: string, day?: number): Promise<TodayView>
+  getReport(crewId: string, opts?: { day?: number; days?: 7 | 28 }): Promise<ReportView>
 }
 
 export function httpTodayApi(baseUrl: string, fetchImpl: typeof fetch = fetch): TodayApi {
@@ -28,6 +30,8 @@ export function httpTodayApi(baseUrl: string, fetchImpl: typeof fetch = fetch): 
     listCrew: async () => parseCrew(await get('/crew')),
     getToday: async (crewId, day) =>
       parseTodayView(await get(`/crew/${encodeURIComponent(crewId)}/today${day === undefined ? '' : `?day=${day}`}`)),
+    getReport: async (crewId, { day, days = 7 } = {}) =>
+      parseReportView(await get(`/crew/${encodeURIComponent(crewId)}/report?days=${days}${day === undefined ? '' : `&day=${day}`}`)),
   }
 }
 
@@ -121,5 +125,64 @@ export function parseTodayView(json: unknown): TodayView {
     nextAction: parseNextAction(json.nextAction),
     readings: json.readings.map(parseReading),
     week: parseWeek(json.week),
+  }
+}
+
+const level = (v: unknown, where: string): Level => {
+  if (!LEVELS.includes(v as Level)) throw new BadData(where)
+  return v as Level
+}
+const numOrNull = (v: unknown, where: string) => (v === null ? null : num(v, where))
+
+export function parseReportView(json: unknown): ReportView {
+  if (!isObj(json) || !isObj(json.person) || !isObj(json.radiation) || !Array.isArray(json.metrics) || !Array.isArray(json.events)) throw new BadData('report')
+  const rad = json.radiation
+  if (!Array.isArray(rad.daily) || rad.daily.length > 31) throw new BadData('radiation.daily')
+  return {
+    person: { id: str(json.person.id, 'person.id'), name: str(json.person.name, 'person.name', 40), role: str(json.person.role, 'person.role', 40) },
+    missionDay: num(json.missionDay, 'missionDay'),
+    days: num(json.days, 'days'),
+    isSimulated: json.isSimulated === true,
+    logged: num(json.logged, 'logged'),
+    streakDays: num(json.streakDays, 'streakDays'),
+    metrics: json.metrics.map((m, i) => {
+      const at = `metrics[${i}]`
+      if (!isObj(m) || !Array.isArray(m.points) || m.points.length > 31) throw new BadData(at)
+      if (!ZONE_IDS.includes(m.zone as ZoneId)) throw new BadData(`${at}.zone`)
+      const usual = m.usual === undefined || m.usual === null ? undefined : m.usual
+      if (usual !== undefined && !(Array.isArray(usual) && usual.length === 2)) throw new BadData(`${at}.usual`)
+      return {
+        id: str(m.id, `${at}.id`),
+        label: str(m.label, `${at}.label`),
+        zone: m.zone as ZoneId,
+        unit: str(m.unit, `${at}.unit`, 40),
+        decimals: Math.min(3, Math.max(0, Math.round(num(m.decimals, `${at}.decimals`)))),
+        priority: num(m.priority, `${at}.priority`),
+        level: level(m.level, `${at}.level`),
+        usual: usual && [num(usual[0], `${at}.usual[0]`), num(usual[1], `${at}.usual[1]`)],
+        points: m.points.map((p, k) => {
+          if (!isObj(p)) throw new BadData(`${at}.points[${k}]`)
+          return { day: num(p.day, `${at}.points[${k}].day`), value: numOrNull(p.value, `${at}.points[${k}].value`), level: level(p.level, `${at}.points[${k}].level`) }
+        }),
+        avg: numOrNull(m.avg, `${at}.avg`),
+        prevAvg: numOrNull(m.prevAvg, `${at}.prevAvg`),
+      }
+    }),
+    zones: parseWeek(json.zones),
+    radiation: {
+      priorMsv: num(rad.priorMsv, 'radiation.priorMsv'),
+      careerMsv: num(rad.careerMsv, 'radiation.careerMsv'),
+      projectedMsv: numOrNull(rad.projectedMsv, 'radiation.projectedMsv'),
+      limitMsv: num(rad.limitMsv, 'radiation.limitMsv'),
+      arrivalDay: num(rad.arrivalDay, 'radiation.arrivalDay'),
+      daily: rad.daily.map((d, k) => {
+        if (!isObj(d)) throw new BadData(`radiation.daily[${k}]`)
+        return { day: num(d.day, `radiation.daily[${k}].day`), msv: num(d.msv, `radiation.daily[${k}].msv`), storm: d.storm === true }
+      }),
+    },
+    events: json.events.map((e, i) => {
+      if (!isObj(e)) throw new BadData(`events[${i}]`)
+      return { day: num(e.day, `events[${i}].day`), metricId: str(e.metricId, `events[${i}].metricId`), label: str(e.label, `events[${i}].label`), from: level(e.from, `events[${i}].from`), to: level(e.to, `events[${i}].to`) }
+    }),
   }
 }

@@ -1,5 +1,20 @@
 import type { CrewSummary, TodayApi } from './api.ts'
-import { ZONES, byAttention, isFlagged, worst, type Level, type NextAction, type Reading, type TodayView, type WeekDay, type ZoneId } from './model.ts'
+import {
+  ZONES,
+  average,
+  byAttention,
+  isFlagged,
+  worst,
+  type Level,
+  type NextAction,
+  type Reading,
+  type ReportEvent,
+  type ReportMetric,
+  type ReportView,
+  type TodayView,
+  type WeekDay,
+  type ZoneId,
+} from './model.ts'
 
 // Simulated backend for the Today screen. Everything here is made up (is_simulated = true), calibrated to the
 // dossier's stories and orders of magnitude, and evaluated with the PRD §5 rules.
@@ -188,13 +203,21 @@ function evalExercise(c: Crew, asOf: number): Reading {
 }
 
 /** PRD §5.3: career dose vs 600 mSv, projection at arrival, solar storm. Watch at ≥ 80% projected (PRD: OPEN, proposed). */
+/** Dosimeter reading for one day (mSv): transit rate ± noise, plus a spike on storm days. */
+const dailyDose = (c: Crew, day: number) => c.doseRate + (rng(`${c.id}:dose:${day}`)() - 0.5) * 0.2 + (STORM_DAYS.includes(day) ? 2.6 : 0)
+const careerDose = (c: Crew, day: number) => c.priorDoseMsv + Array.from({ length: day }, (_, i) => dailyDose(c, i + 1)).reduce((a, b) => a + b, 0)
+/** PRD §5.3: rate = mean of the last 7 daily doses; projection hidden once arrived. */
+function projectedDose(c: Crew, asOf: number) {
+  const n = Math.min(7, asOf)
+  const rate = Array.from({ length: n }, (_, i) => dailyDose(c, asOf - i)).reduce((a, b) => a + b, 0) / n
+  return asOf < MISSION.arrivalDay ? careerDose(c, asOf) + rate * (MISSION.arrivalDay - asOf) : null
+}
+
 function evalRadiation(c: Crew, asOf: number): Reading {
   const def = { id: 'rad', label: 'Career dose', zone: 'radiation' as ZoneId, unit: 'mSv', decimals: 0, priority: 7 }
-  const daily = (day: number) => c.doseRate + (rng(`${c.id}:dose:${day}`)() - 0.5) * 0.2 + (STORM_DAYS.includes(day) ? 2.6 : 0)
-  const career = (day: number) => c.priorDoseMsv + Array.from({ length: day }, (_, i) => daily(i + 1)).reduce((a, b) => a + b, 0)
+  const career = (day: number) => careerDose(c, day)
   const now = career(asOf)
-  const rate = Array.from({ length: Math.min(7, asOf) }, (_, i) => daily(asOf - i)).reduce((a, b) => a + b, 0) / Math.min(7, asOf)
-  const projected = asOf < MISSION.arrivalDay ? now + rate * (MISSION.arrivalDay - asOf) : null
+  const projected = projectedDose(c, asOf)
   const pct = (v: number) => Math.round((v / MISSION.careerLimitMsv) * 100)
   const storm = STORM_DAYS.includes(asOf)
   const level: Level =
@@ -252,13 +275,78 @@ function buildToday(c: Crew, asOf: number): TodayView {
   }
 }
 
+/** Week or month in review: every metric per day, status changes, zone ribbon and radiation. */
+function buildReport(c: Crew, asOf: number, days: number): ReportView {
+  const start = Math.max(1, asOf - days + 1)
+  const span = (from: number, to: number) => Array.from({ length: Math.max(0, to - from + 1) }, (_, i) => from + i)
+  const period = span(start, asOf)
+  const prev = span(Math.max(1, start - days), start - 1)
+  const at = new Map<number, Reading[]>()
+  const readingsAt = (day: number) => at.get(day) ?? at.set(day, readingsFor(c, day)).get(day)!
+  const valueOn = (id: string, day: number) => (missed(c, day) ? null : readingsAt(day).find((r) => r.id === id)!.value)
+
+  const last = readingsAt(asOf).filter((r) => r.id !== 'rad')
+  const metrics: ReportMetric[] = last.map((r) => ({
+    id: r.id,
+    label: r.label,
+    zone: r.zone,
+    unit: r.unit,
+    decimals: r.decimals,
+    priority: r.priority,
+    level: r.level,
+    usual: r.usual,
+    points: period.map((day) => ({ day, value: valueOn(r.id, day), level: readingsAt(day).find((x) => x.id === r.id)!.level })),
+    avg: average(period.map((day) => valueOn(r.id, day))),
+    prevAvg: prev.length ? average(prev.map((day) => valueOn(r.id, day))) : null,
+  }))
+
+  // Status changes that involve Watch/Alert, compared with the day before each day in the period.
+  const events: ReportEvent[] = []
+  for (const day of period) {
+    if (day < 2) continue
+    for (const r of readingsAt(day)) {
+      const before = readingsAt(day - 1).find((x) => x.id === r.id)!.level
+      if (before !== r.level && (isFlagged(before) || isFlagged(r.level))) events.push({ day, metricId: r.id, label: r.label, from: before, to: r.level })
+    }
+  }
+
+  let streakDays = 0
+  for (let day = asOf; day >= 1 && !missed(c, day); day--) streakDays++
+
+  return {
+    person: { id: c.id, name: c.name, role: c.role },
+    missionDay: asOf,
+    days,
+    isSimulated: true,
+    logged: period.filter((day) => !missed(c, day)).length,
+    streakDays,
+    metrics,
+    zones: period.map((day) => ({ day, zones: missed(c, day) ? null : zoneLevels(readingsAt(day)) })),
+    radiation: {
+      priorMsv: c.priorDoseMsv,
+      careerMsv: Math.round(careerDose(c, asOf)),
+      projectedMsv: projectedDose(c, asOf) === null ? null : Math.round(projectedDose(c, asOf)!),
+      limitMsv: MISSION.careerLimitMsv,
+      arrivalDay: MISSION.arrivalDay,
+      daily: period.map((day) => ({ day, msv: Number(dailyDose(c, day).toFixed(2)), storm: STORM_DAYS.includes(day) })),
+    },
+    events,
+  }
+}
+
+const findCrew = (crewId: string, day: number) => {
+  const c = CREW.find((x) => x.id === crewId)
+  if (!c) throw new Error(`Unknown crew member: ${crewId}`)
+  if (!Number.isInteger(day) || day < 1 || day > MISSION.arrivalDay) throw new Error(`Mission day out of range: ${day}`)
+  return c
+}
+
 /** In-browser implementation of the TodayApi contract, returning simulated data. Async like a real backend. */
 export const simulatedTodayApi: TodayApi = {
   listCrew: async () => CREW.map(({ id, name, role }) => ({ id, name, role })),
-  getToday: async (crewId, day = MISSION.currentDay) => {
-    const c = CREW.find((x) => x.id === crewId)
-    if (!c) throw new Error(`Unknown crew member: ${crewId}`)
-    if (!Number.isInteger(day) || day < 1 || day > MISSION.arrivalDay) throw new Error(`Mission day out of range: ${day}`)
-    return buildToday(c, day)
+  getToday: async (crewId, day = MISSION.currentDay) => buildToday(findCrew(crewId, day), day),
+  getReport: async (crewId, { day = MISSION.currentDay, days = 7 } = {}) => {
+    if (days !== 7 && days !== 28) throw new Error(`Report period must be 7 or 28 days, got ${days}`)
+    return buildReport(findCrew(crewId, day), day, days)
   },
 }

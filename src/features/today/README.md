@@ -23,11 +23,12 @@ import { Today, simulatedTodayApi } from './features/today'
   onStart={(crewId, metricId) => logAction(crewId, metricId)}
   onNoteForEarth={(crewId, metricId) => openEarthLink(crewId, metricId)} // F-07
   onStartCheckIn={(crewId) => goTo('checkin', crewId)}      // F-03
+  onOpenReport={(crewId) => goTo('report', crewId)}          // week / month report (features/report)
 />
 ```
 
 Every callback is optional, so you can wire them one feature at a time.
-To try it with no wiring: render `<TodayPreview />`. It has a crew picker and a mission-day slider, and it prints each action the page emits.
+To try it with no wiring: render `<TodayPreview />`. It has a Today / Report switch, a crew picker and a mission-day slider, and it prints each action the page emits.
 
 Good days to try in the preview:
 
@@ -51,17 +52,18 @@ Good days to try in the preview:
 | Zone detail | Picked zone + What helps / Tell the flight surgeon when / How to measure / Why space changes this + sources | `GuidancePanel` |
 | Needs attention | Watch/Alert readings: value, distance from the usual band, 7-day trend, next step, Why? | `AttentionCard` |
 | Good news | Count in range, zones all normal, check-in streak, quiet tiles with mini trend and range bar | `GoodNews` |
-| My week | Zone × last 7 days grid, days logged, streak | `MyWeek` |
+| My week | Zone × last 7 days grid, days logged, streak, link to the full **Report** (charts) | `MyWeek` |
 
 Colour always comes with a shape and a word: ● Normal, ▲ Watch, ◆ Alert, dashed ○ Learning.
 
 ## Data contract
 
-The page needs two endpoints. Any backend can implement them; the UI does not care which.
+Today and Report need three endpoints. Any backend can implement them; the UI does not care which.
 
 ```
-GET /crew                         -> CrewSummary[]
-GET /crew/:crewId/today?day=142   -> TodayView      (day omitted = current mission day)
+GET /crew                                  -> CrewSummary[]
+GET /crew/:crewId/today?day=142            -> TodayView   (day omitted = current mission day)
+GET /crew/:crewId/report?day=142&days=7    -> ReportView  (days = 7 or 28; see ../report/README.md)
 ```
 
 Types are in [`model.ts`](./model.ts) (`TodayView`, `Reading`, `NextAction`, `WeekDay`) and [`api.ts`](./api.ts) (`TodayApi`, `CrewSummary`).

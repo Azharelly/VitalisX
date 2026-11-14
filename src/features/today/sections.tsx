@@ -209,7 +209,7 @@ export function GoodNews({ data, normal, zoneLevels }: { data: TodayView; normal
 
 /* ── My week: zone-by-day grid for the last 7 days ───────────────────────────── */
 
-export function MyWeek({ data }: { data: TodayView }) {
+export function MyWeek({ data, onOpenReport }: { data: TodayView; onOpenReport?: () => void }) {
   const logged = data.week.filter((d) => d.zones).length
   return (
     <section aria-labelledby="today-week" className={s.weekWrap}>
@@ -224,6 +224,11 @@ export function MyWeek({ data }: { data: TodayView }) {
           <span>
             <strong>{data.checkIn.streakDays}</strong>-day streak
           </span>
+          {onOpenReport && (
+            <button type="button" className={s.linkBtn} onClick={onOpenReport}>
+              Open full report →
+            </button>
+          )}
         </span>
       </div>
       <div className={s.weekScroll}>

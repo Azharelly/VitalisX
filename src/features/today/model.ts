@@ -102,3 +102,70 @@ export function usualText(r: Reading) {
   const [lo, hi] = r.usual
   return `Usual ${lo.toFixed(r.decimals)}–${hi.toFixed(r.decimals)}`
 }
+
+/* ── Report (week / month in review) ─────────────────────────────────────────── */
+
+/** One day of one metric. `value` is null when there was no reading that day. */
+export interface DayPoint {
+  day: number
+  value: number | null
+  level: Level
+}
+
+/** One metric over the report period, plus the same-length period before it for comparison. */
+export interface ReportMetric {
+  id: string // GUIDANCE id
+  label: string
+  zone: ZoneId
+  unit: string
+  decimals: number
+  priority: number
+  level: Level // on the last day
+  usual?: [number, number] // personal band on the last day
+  points: DayPoint[] // one per day, oldest first
+  avg: number | null
+  prevAvg: number | null
+}
+
+/** A status change inside the period, e.g. Temperature ok → alert on day 141. */
+export interface ReportEvent {
+  day: number
+  metricId: string
+  label: string
+  from: Level
+  to: Level
+}
+
+export interface ReportView {
+  person: { id: string; name: string; role: string }
+  missionDay: number // last day of the period
+  days: number // period length (7 = week, 28 = month)
+  isSimulated: boolean
+  logged: number // days with a check-in in the period
+  streakDays: number
+  metrics: ReportMetric[] // radiation is reported separately below
+  zones: WeekDay[] // status ribbon, one entry per day
+  radiation: {
+    priorMsv: number // earlier missions
+    careerMsv: number // total so far
+    projectedMsv: number | null // at arrival; null once arrived
+    limitMsv: number
+    arrivalDay: number
+    daily: { day: number; msv: number; storm: boolean }[] // one per day in the period
+  }
+  events: ReportEvent[] // oldest first
+}
+
+/** Mean of the non-null values, or null when there are none. */
+export function average(xs: (number | null)[]): number | null {
+  const v = xs.filter((x): x is number => x !== null)
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null
+}
+
+/** "Up 0.4 h vs previous week" / "Steady" / null when there is nothing to compare. */
+export function changeText(m: ReportMetric, period: string): string | null {
+  if (m.avg === null || m.prevAvg === null) return null
+  const d = m.avg - m.prevAvg
+  if (Math.abs(d) < 10 ** -m.decimals) return `Steady vs previous ${period}` // under one display step
+  return `${d > 0 ? 'Up' : 'Down'} ${Math.abs(d).toFixed(Math.max(1, m.decimals))} ${m.unit} vs previous ${period}`
+}
