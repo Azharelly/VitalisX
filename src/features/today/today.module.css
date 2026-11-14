@@ -311,7 +311,8 @@
 
 .callout {
   position: absolute;
-  width: 27%;
+  width: max-content; /* grows to fit "Bones & muscle", never narrower than the others */
+  min-width: 27%;
   transform: translateY(-50%);
   border-color: var(--line);
   background: rgba(14, 19, 26, 0.62);
@@ -319,8 +320,7 @@
 }
 .callout .zoneName { white-space: nowrap; letter-spacing: 0.06em; }
 
-.callout.left { left: 0; justify-content: flex-end; text-align: right; }
-.callout.left .zoneText { justify-items: end; }
+.callout.left { left: 0; } /* text stays left-aligned in every box, so long names like "Bones & muscle" line up */
 .callout.right { right: 0; }
 
 .offBody {
@@ -878,6 +878,8 @@
   .nextTitle { font-size: 21px; }
   .emergency { padding: 0 14px; }
   .zoneValue { font-size: 20px; }
+  .callout { padding: 6px 8px; }
+  .callout .zoneName { font-size: 10px; letter-spacing: 0.03em; }
   .step { flex-direction: column; align-items: flex-start; }
 }
 
