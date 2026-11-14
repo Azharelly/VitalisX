@@ -14,6 +14,14 @@ import type {
   ActionLog, Alert, CrewMember, Measurement, Metric, RadiationDose, ReferenceSource,
 } from './types';
 
+/**
+ * Why Dexie/IndexedDB:
+ * - Near-zero latency: local reads and writes avoid network round trips.
+ * - Generous storage: IndexedDB supports much more data than localStorage and
+ *   stores structured objects, arrays, and Blobs.
+ * - JSON backup and restore can be added with dexie-export-import.
+ * - Browser DevTools can inspect live data under Application > IndexedDB.
+ */
 export class VitalisDB extends Dexie {
   crew_member!: Table<CrewMember, number>;
   metric!: Table<Metric, string>;
