@@ -7,6 +7,7 @@ import { useDonki } from './useDonki';
 import { StateBadge } from './StateBadge';
 import { DosePanel } from './DosePanel';
 import { DonkiPanel } from './DonkiPanel';
+import { DailyDoseChart } from './DailyDoseChart';
 import { ShelterSteps } from './ShelterSteps';
 import './radiation.css';
 
@@ -43,7 +44,10 @@ export function RadiationScreen({
       {doses.length === 0 ? (
         <section className="rad-card"><p>No dose data yet. Doses appear after the first dosimeter reading.</p></section>
       ) : (
-        <DosePanel r={result} arrivalDay={arrivalDay} currentDay={currentDay} />
+        <>
+          <DosePanel r={result} arrivalDay={arrivalDay} currentDay={currentDay} />
+          <DailyDoseChart doses={doses} />
+        </>
       )}
       <DonkiPanel donki={donki} />
       <ShelterSteps />

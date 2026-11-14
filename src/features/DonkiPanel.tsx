@@ -1,9 +1,11 @@
 import { latestFlares, lastSep, strongestEvents, summary } from '../data/donki';
 import { activeSepEpisode, DONKI_NOTE, gScale, sepDataCoversNow, type DonkiLoad } from '../engine/donkiRadiation';
-import { STORM_DESIGN_TARGET_MSV } from '../engine/radiation';
+import { LIST_NAMES, STORM_TARGET_WORDING, windowText } from './donkiText';
 import type { DonkiState } from './useDonki';
 
 const day = (iso: string) => iso.slice(0, 10);
+
+
 
 export function DonkiPanel({ donki }: { donki: DonkiState }) {
   return (
@@ -61,6 +63,14 @@ function Ready({ load }: { load: DonkiLoad }) {
         </p>
       )}
 
+      <h3 className="rad-sub">Data window for each list</h3>
+      <ul className="rad-windows rad-small">
+        {(Object.keys(LIST_NAMES) as (keyof typeof LIST_NAMES)[]).map((k) => (
+          <li key={k}>{LIST_NAMES[k]}: <span className="rad-mono">{windowText(s.ranges[k])}</span></li>
+        ))}
+      </ul>
+      <p className="rad-small rad-dim">The lists cover different dates, so compare them with care.</p>
+
       <dl className="rad-stats">
         <div><dt>Strongest flare</dt><dd className="rad-mono">{ev.flare ? `${ev.flare.classType} · ${day(ev.flare.peakTime)}` : '—'}</dd></div>
         <div><dt>Fastest CME</dt><dd className="rad-mono">{ev.cme ? `${Math.round(ev.cme.speedKmS)} km/s` : '—'}</dd></div>
@@ -89,8 +99,7 @@ function Ready({ load }: { load: DonkiLoad }) {
       </p>
       <p className="rad-small rad-dim">{DONKI_NOTE}</p>
       <p className="rad-small rad-dim">
-        Reference: shielding is designed for a storm of about {STORM_DESIGN_TARGET_MSV} mSv (NASA-STD-3001).
-        That is a design target for the spacecraft, not a personal limit.
+        {STORM_TARGET_WORDING}
       </p>
     </>
   );
