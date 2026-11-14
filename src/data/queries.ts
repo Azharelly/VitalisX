@@ -3,8 +3,9 @@
 // Screens call these; the engine (src/engine) never imports from here.
 
 import Dexie from 'dexie';
+import { byTime, contextOf } from '../engine/baseline';
 import { db as defaultDb, type VitalisDB } from './db';
-import type { ActionLog, Alert, CrewMember, Measurement, MetricId, RadiationDose } from './types';
+import type { ActionLog, Alert, Context, CrewMember, Measurement, MetricId, RadiationDose } from './types';
 
 /** Everyone ever on the crew, including people who were removed (their history stays). */
 export function getCrew(database: VitalisDB = defaultDb): Promise<CrewMember[]> {
@@ -29,13 +30,31 @@ export function getRadiationDoses(crewId: number, database: VitalisDB = defaultD
     .where('[crew_id+mission_day]').between([crewId, Dexie.minKey], [crewId, Dexie.maxKey]).toArray();
 }
 
-/** Readings of one metric for one person, oldest first. */
-export function getMeasurements(
-  crewId: number, metricId: MetricId, database: VitalisDB = defaultDb,
+/**
+ * Readings of one metric for one person, oldest first.
+ * Pass `context` to keep only readings that count under it (a reading without its own context
+ * counts under the metric's default, the same rule the engine uses). No readings = empty list.
+ */
+export async function getMeasurements(
+  crewId: number, metricId: MetricId, database: VitalisDB = defaultDb, context?: Context,
 ): Promise<Measurement[]> {
-  return database.measurement
+  const rows = await database.measurement
     .where('[crew_id+metric_id+mission_day]')
     .between([crewId, metricId, Dexie.minKey], [crewId, metricId, Dexie.maxKey]).toArray();
+  if (context === undefined) return rows;
+  const metric = (await database.metric.get(metricId)) ?? { default_context: null };
+  return rows.filter((m) => contextOf(m, metric) === context);
+}
+
+/**
+ * The most recent reading of one metric for one person (by mission day, then time taken),
+ * or null when there is none. Pass `context` to look only at readings of that context.
+ */
+export async function getLatestMeasurement(
+  crewId: number, metricId: MetricId, database: VitalisDB = defaultDb, context?: Context,
+): Promise<Measurement | null> {
+  const rows = await getMeasurements(crewId, metricId, database, context);
+  return rows.sort(byTime)[rows.length - 1] ?? null;
 }
 
 /** Open alerts of one person (level, priority and |z| ordering is done by the caller). */
