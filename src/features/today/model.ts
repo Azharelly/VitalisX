@@ -8,6 +8,17 @@ export type Level = 'ok' | 'watch' | 'alert' | 'learn' | 'none'
 /** Body zones. Radiation, Immune and Metabolism are whole-body (shown as auras / tiles). */
 export type ZoneId = 'mind' | 'eyes' | 'heart' | 'bone' | 'immune' | 'meta' | 'radiation'
 
+/**
+ * What the app saw on the day an alert was raised (types.ts Alert.evidence). It is stored once and never changes,
+ * so the Why? modal can show the reason as it was, not as today's readings would redraw it.
+ */
+export interface FrozenEvidence {
+  raisedDay: number
+  value: number | null // the reading that raised it
+  usual?: [number, number] // personal band on that day
+  points: number[] // the last readings up to that day, oldest first
+}
+
 /** One metric's latest state for this person. `id` is the metric id used by GUIDANCE[id]. */
 export interface Reading {
   id: string
@@ -23,6 +34,7 @@ export interface Reading {
   context?: string // resting, fasting, morning…
   measured?: string // already formatted with the mission clock
   note?: string // short data note (e.g. "Headache, chills", "49% of the 600 mSv limit")
+  alert?: FrozenEvidence // present while Watch / Alert; absent = no stored snapshot
 }
 
 /** What the page should lead with. The UI turns it into text with GUIDANCE. */
@@ -127,6 +139,7 @@ export interface ReportMetric {
   level: Level // on the last day
   usual?: [number, number] // personal band on the last day
   points: DayPoint[] // one per day, oldest first
+  alert?: FrozenEvidence // present while Watch / Alert on the last day
   avg: number | null
   prevAvg: number | null
 }
@@ -156,6 +169,7 @@ export interface ReportView {
     limitMsv: number
     arrivalDay: number
     daily: { day: number; msv: number; storm: boolean }[] // one per day in the period
+    alert?: FrozenEvidence // present while radiation is Watch / Alert
   }
   events: ReportEvent[] // oldest first
 }

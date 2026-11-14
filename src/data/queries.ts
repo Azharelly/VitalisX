@@ -6,8 +6,21 @@ import Dexie from 'dexie';
 import { db as defaultDb, type VitalisDB } from './db';
 import type { ActionLog, Alert, CrewMember, Measurement, MetricId, RadiationDose } from './types';
 
+/** Everyone ever on the crew, including people who were removed (their history stays). */
 export function getCrew(database: VitalisDB = defaultDb): Promise<CrewMember[]> {
   return database.crew_member.orderBy('id').toArray();
+}
+
+/** Crew who have not been removed (removed_at is null; undefined from an old row counts as active). */
+export function getActiveCrew(database: VitalisDB = defaultDb): Promise<CrewMember[]> {
+  return database.crew_member.orderBy('id').filter((c) => c.removed_at == null).toArray();
+}
+
+/** Marks a person as removed without deleting their measurements, doses or alerts. */
+export async function removeCrewMember(
+  id: number, at: string = new Date().toISOString(), database: VitalisDB = defaultDb,
+): Promise<boolean> {
+  return (await database.crew_member.update(id, { removed_at: at })) === 1;
 }
 
 /** Daily doses of ONE person, oldest first. This is what evaluateRadiation() needs. */

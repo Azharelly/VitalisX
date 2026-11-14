@@ -44,6 +44,13 @@ export class VitalisDB extends Dexie {
       action_log: '++id, crew_id, kind, status, alert_id',
       reference_source: 'id',
     });
+    // v2 (issue #5): CrewMember.removed_at. A new field needs no index (null is not a valid IndexedDB key,
+    // so an index would skip active crew); we only backfill old rows so every row has the field.
+    this.version(2).stores({}).upgrade((tx) =>
+      tx.table('crew_member').toCollection().modify((c: Partial<CrewMember>) => {
+        if (c.removed_at === undefined) c.removed_at = null;
+      }),
+    );
   }
 }
 

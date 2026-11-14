@@ -1,8 +1,16 @@
 import { useState } from 'react'
+import { db } from '../../data/db'
+import { dexieOutbox, simulatedEarthLink } from '../../data/outbox'
 import { RadiationScreen } from '../RadiationScreen'
 import { MISSION, simulatedCrewApi, simulatedTodayApi } from '../today/simulate.ts'
 import { AppShell } from './AppShell'
 import s from './shell.module.css'
+
+// The demo's simulated crew ids are words, the action_log table wants numbers: the four founders keep fixed numbers
+// (so their outbox survives a reload); anyone added during the session gets a number from 100 up (session only).
+const DEMO_CREW: Record<string, number> = { amara: 1, kenji: 2, lucia: 3, ravi: 4 }
+let nextExtra = 100
+const demoOutbox = dexieOutbox(db, (id) => (DEMO_CREW[id] ??= nextExtra++))
 
 /**
  * Demo: the full app on simulated data, plus a small floating "Demo" panel (mission-day slider and a log of
@@ -26,6 +34,8 @@ export function AppPreview() {
         onStart={(id, m) => log('onStart', id, m)}
         onNoteForEarth={(id, m) => log('onNoteForEarth', id, m)}
         onSendSummary={(id, d) => log('onSendSummary', id, d)}
+        outbox={demoOutbox}
+        send={simulatedEarthLink} // no real Earth link yet
       />
       <details className={s.demo}>
         <summary>

@@ -2,10 +2,10 @@
 // No React, no fetch, no IndexedDB. The UI calls these and only draws what they return.
 
 import type {
-    DonkiCme,
-    DonkiFlare,
-    DonkiGeomagneticStorm,
-    DonkiSep,
+    SlimCme,
+    SlimFlare,
+    SlimGeomagneticStorm,
+    SlimSep,
     DonkiSnapshot,
 } from './donki.types';
 
@@ -55,7 +55,7 @@ export interface FlareView {
     link: string;                        // page on the DONKI site
 }
 
-function toFlareView(f: DonkiFlare): FlareView {
+function toFlareView(f: SlimFlare): FlareView {
     return {
         id: f.flrID,
         classType: f.classType,
@@ -98,9 +98,9 @@ const isModel = (name: string) => name.startsWith('MODEL:');   // model output, 
 const OVER_10 = />\s*10\s*MeV/i;       // does not match ">100 MeV": after "10" comes "0", not a space
 const OVER_100 = />\s*100\s*MeV/i;
 
-const timeOf = (r: DonkiSep) => parseDonkiTime(r.eventTime).getTime();
+const timeOf = (r: SlimSep) => parseDonkiTime(r.eventTime).getTime();
 
-function buildEpisode(records: DonkiSep[]): SepEpisode {
+function buildEpisode(records: SlimSep[]): SepEpisode {
     const sorted = [...records].sort((a, b) => timeOf(a) - timeOf(b) || a.sepID.localeCompare(b.sepID));
     const names = sorted.flatMap((r) => r.instruments.map((i) => i.displayName));
     const observed = names.filter((n) => !isModel(n));
@@ -132,7 +132,7 @@ export function sepEpisodes(snap: DonkiSnapshot): SepEpisode[] {
             else parent[find(i)] = find(seen);
         }
     });
-    const groups = new Map<number, DonkiSep[]>();
+    const groups = new Map<number, SlimSep[]>();
     recs.forEach((r, i) => {
         const root = find(i);
         groups.set(root, [...(groups.get(root) ?? []), r]);
@@ -186,7 +186,7 @@ function flareStrength(classType: string): number | null {
 
 /** Highest-class flare. If two tie, the more recent one wins. */
 export function strongestFlare(snap: DonkiSnapshot): FlareView | null {
-    let best: { f: DonkiFlare; s: number; t: number } | null = null;
+    let best: { f: SlimFlare; s: number; t: number } | null = null;
     for (const f of snap.flares) {
         const s = flareStrength(f.classType);
         if (s === null) continue;
@@ -198,7 +198,7 @@ export function strongestFlare(snap: DonkiSnapshot): FlareView | null {
 
 /** Fastest CME, using only analyses NASA marks as most accurate. A CME with none is skipped. If two tie, the more recent wins. */
 export function fastestCme(snap: DonkiSnapshot): CmeView | null {
-    let best: { c: DonkiCme; speed: number; angle: number; t: number } | null = null;
+    let best: { c: SlimCme; speed: number; angle: number; t: number } | null = null;
     for (const c of snap.cme) {
         const top = (c.cmeAnalyses ?? [])
             .filter((a) => a.isMostAccurate && Number.isFinite(a.speed))
@@ -223,7 +223,7 @@ export function fastestCme(snap: DonkiSnapshot): CmeView | null {
 
 /** Storm with the highest Kp reading. A storm with no Kp readings is skipped. If two tie, the more recent wins. */
 export function strongestStorm(snap: DonkiSnapshot): StormView | null {
-    let best: { g: DonkiGeomagneticStorm; kp: number; at: string; t: number } | null = null;
+    let best: { g: SlimGeomagneticStorm; kp: number; at: string; t: number } | null = null;
     for (const g of snap.gst) {
         const top = [...(g.allKpIndex ?? [])].sort((a, b) => b.kpIndex - a.kpIndex)[0];
         if (!top) continue;
@@ -241,61 +241,4 @@ export function strongestEvents(snap: DonkiSnapshot): StrongestEvents {
     return { flare: strongestFlare(snap), cme: fastestCme(snap), storm: strongestStorm(snap) };
 }
 
-// ---------- loading, "now" and the active-storm rule ----------
-// Added for the Radiation screen. Only loadDonkiSnapshot() is impure (it fetches the bundled JSON).
-
-/** Honest label for the UI: DONKI watches the Sun from near Earth. */
-export const DONKI_NOTE =
-    'DONKI reports solar events observed from near Earth. On Mars transit it is a proxy for what the Sun is doing, not a measurement of the dose on board.';
-
-/** Reads the snapshot bundled in public/data. Works offline. Throws if it cannot be read; the UI shows an error state. */
-export async function loadDonkiSnapshot(
-    url: string = `${import.meta.env.BASE_URL}data/donki_snapshot.json`,
-): Promise<DonkiSnapshot> {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`DONKI snapshot not available (${res.status})`);
-    return (await res.json()) as DonkiSnapshot;
-}
-
-const HOUR_MS = 3_600_000;
-const DAY_MS = 24 * HOUR_MS;
-
-/** "Now" for the demo: the end of the capture day, so the offline demo gives the same result for every judge. */
-export function snapshotAsOf(snap: DonkiSnapshot): Date {
-    return new Date(`${snap.generated_at}T23:59:59Z`);
-}
-
-/** NOAA G-scale from Kp (Kp 5 = G1 ... Kp 9 = G5). 0 = below storm level. */
-export function gScale(kp: number): number {
-    return Math.max(0, Math.min(5, Math.round(kp) - 4));
-}
-
-/** End of a "yyyy-mm-dd/yyyy-mm-dd" range, as the end of that UTC day. null if malformed. */
-export function rangeEnd(range: string): Date | null {
-    const end = range.split('/')[1];
-    if (!end || !/^\d{4}-\d{2}-\d{2}$/.test(end)) return null;
-    return new Date(`${end}T23:59:59Z`);
-}
-
-/**
- * Can this snapshot say anything about SEP events at `asOf`?
- * False when the saved SEP window ended more than a day earlier: then "no recent event"
- * would mean "no data", not "nothing happened".
- */
-export function sepDataCoversNow(snap: DonkiSnapshot, asOf: Date): boolean {
-    const end = rangeEnd(snap.ranges.sep);
-    return end !== null && asOf.getTime() - end.getTime() <= DAY_MS;
-}
-
-/**
- * Active solar storm = an SEP EPISODE (see sepEpisodes) whose last record is within the last
- * `windowHours` (default 24 h) before `asOf`. Geomagnetic storms do not count: SEP is the radiation hazard.
- * Own design rule [PROPOSED]: same 24 h window as sep_flag in PRD 5.3. Team to confirm.
- */
-export function isActiveSolarStorm(snap: DonkiSnapshot, asOf: Date, windowHours = 24): boolean {
-    const now = asOf.getTime();
-    return sepEpisodes(snap).some((e) => {
-        const age = now - parseDonkiTime(e.end).getTime();
-        return age >= 0 && age <= windowHours * HOUR_MS;
-    });
-}
+// Loading, "now" and the active-storm rule live in src/engine/donkiRadiation.ts (the only impure DONKI code).

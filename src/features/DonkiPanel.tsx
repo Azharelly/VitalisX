@@ -1,41 +1,51 @@
 import { latestFlares, lastSep, strongestEvents, summary } from '../data/donki';
-import type { DonkiSnapshot } from '../data/donki.types';
-import { DONKI_NOTE, gScale, isActiveSolarStorm, sepDataCoversNow, snapshotAsOf } from '../engine/donkiRadiation';
-import { STORM_DESIGN_TARGET_MSV } from '../engine/radiation';
+import { activeSepEpisode, DONKI_NOTE, gScale, sepDataCoversNow, type DonkiLoad } from '../engine/donkiRadiation';
+import { DESIGN_TARGET_SOURCE, LIST_NAMES, STORM_TARGET_WORDING, windowText } from './donkiText';
 import type { DonkiState } from './useDonki';
 
 const day = (iso: string) => iso.slice(0, 10);
+
+
 
 export function DonkiPanel({ donki }: { donki: DonkiState }) {
   return (
     <section className="rad-card" aria-labelledby="rad-donki-h">
       <h2 id="rad-donki-h">Space weather (NASA DONKI)</h2>
-      {donki.status === 'loading' && <p className="rad-dim">Loading saved space-weather data…</p>}
+      <p className="rad-dim rad-small">Real NASA data</p>
+      {donki.status === 'loading' && <p className="rad-dim">Checking NASA for live space-weather data…</p>}
       {donki.status === 'error' && (
-        <p role="alert">Space-weather data could not be loaded ({donki.message}). Dose figures above are not affected.</p>
+        <p role="alert">Space-weather data could not be loaded, live or saved ({donki.message}). Dose figures above are not affected.</p>
       )}
-      {donki.status === 'ready' && <Ready snap={donki.snapshot} />}
+      {donki.status === 'ready' && <Ready load={donki} />}
     </section>
   );
 }
 
-function Ready({ snap }: { snap: DonkiSnapshot }) {
-  const asOf = snapshotAsOf(snap);
+function Ready({ load }: { load: DonkiLoad }) {
+  const { snapshot: snap, asOf, origin, liveError } = load;
   const s = summary(snap);
   const ev = strongestEvents(snap);
   const sep = lastSep(snap);
   const flares = latestFlares(snap, 3);
   const covers = sepDataCoversNow(snap, asOf);
-  const active = isActiveSolarStorm(snap, asOf);
+  const episode = activeSepEpisode(snap, asOf);
+  const active = episode !== null;
 
   return (
     <>
-      <p className="rad-dim rad-small">Showing saved data from {s.generatedAt} · works offline</p>
+      {origin === 'live' ? (
+        <p className="rad-dim rad-small">Live from NASA · fetched {asOf.toISOString().slice(0, 16).replace('T', ' ')} UTC</p>
+      ) : (
+        <p className="rad-dim rad-small">
+          Showing saved data from {s.generatedAt} · works offline
+          {liveError ? ` · live update unavailable (${liveError})` : ''}
+        </p>
+      )}
 
       <p>
         <strong>
           {active
-            ? 'Solar particle event in the last 24 h'
+            ? `Solar particle event in the last 24 h (${episode.id})`
             : covers
               ? 'No solar particle event in the last 24 h'
               : 'Current particle events: unknown'}
@@ -53,6 +63,14 @@ function Ready({ snap }: { snap: DonkiSnapshot }) {
           {' '}· {sep.recordCount} NASA records for this one event.
         </p>
       )}
+
+      <h3 className="rad-sub">Data window for each list</h3>
+      <ul className="rad-windows rad-small">
+        {(Object.keys(LIST_NAMES) as (keyof typeof LIST_NAMES)[]).map((k) => (
+          <li key={k}>{LIST_NAMES[k]}: <span className="rad-mono">{windowText(s.ranges[k])}</span></li>
+        ))}
+      </ul>
+      <p className="rad-small rad-dim">The lists cover different dates, so compare them with care.</p>
 
       <dl className="rad-stats">
         <div><dt>Strongest flare</dt><dd className="rad-mono">{ev.flare ? `${ev.flare.classType} · ${day(ev.flare.peakTime)}` : '—'}</dd></div>
@@ -82,8 +100,7 @@ function Ready({ snap }: { snap: DonkiSnapshot }) {
       </p>
       <p className="rad-small rad-dim">{DONKI_NOTE}</p>
       <p className="rad-small rad-dim">
-        Reference: shielding is designed for a storm of about {STORM_DESIGN_TARGET_MSV} mSv (NASA-STD-3001).
-        That is a design target for the spacecraft, not a personal limit.
+        <span data-testid="storm-target">{STORM_TARGET_WORDING}</span> {DESIGN_TARGET_SOURCE}
       </p>
     </>
   );

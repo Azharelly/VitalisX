@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { TodayApi } from '../today/api.ts'
 import type { ReportView } from '../today/model.ts'
-import { ReportScreen, type ReportActions } from './ReportScreen'
+import { ReportScreen, type ReportActions, type ReportOutbox } from './ReportScreen'
 import s from './report.module.css'
 
-interface Props extends Omit<ReportActions, 'onPeriodChange'> {
+interface Props extends Omit<ReportActions, 'onPeriodChange'>, ReportOutbox {
   api: TodayApi
   crewId: string
   day?: number // last day of the period; omitted = current mission day
