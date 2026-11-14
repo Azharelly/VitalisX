@@ -1,5 +1,7 @@
-/* shortcut: "A · Flight deck (dark)" tokens scoped to this screen; switch to the src/ui tokens once they land. */
-.root {
+/* shortcut: "A · Flight deck (dark)" tokens scoped to this screen; switch to the src/ui tokens once they land.
+   `.theme` carries the same tokens for pieces outside a page (avatar row, dialogs). */
+.root,
+.theme {
   --bg: #0b0f14; /* ground */
   --surface: #141b23; /* card */
   --surface-2: #1a232e;
@@ -18,7 +20,9 @@
   --heading: 'Space Grotesk', system-ui, sans-serif;
   --sans: Inter, system-ui, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
 
+.root {
   background: var(--bg);
   color: var(--text);
   font: 15px/1.5 var(--sans);
@@ -35,21 +39,20 @@
   box-sizing: inherit;
 }
 
-.root h1,
-.root h2,
-.root p {
+/* Zero-specificity reset (only beats browser defaults), so every class below keeps its own margin and colour. */
+:where(.root, .theme) :where(h1, h2, h3, p) {
   margin: 0;
-  color: inherit;
   letter-spacing: normal;
 }
 
-:where(.root) button {
+:where(.root, .theme) button {
   font: inherit;
   color: inherit;
   cursor: pointer;
 }
 
-.root button:focus-visible {
+.root button:focus-visible,
+.theme button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -110,18 +113,6 @@
   display: flex;
   align-items: center;
   gap: 16px;
-}
-
-.avatar {
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--surface-2);
-  font: 600 18px var(--heading);
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--c);
 }
 
 .name {
@@ -217,11 +208,18 @@
 }
 
 .auraLegend {
-  margin: 8px 8px 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+  margin: 12px 4px 16px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: rgba(11, 15, 20, 0.35);
   color: var(--muted);
-  font-size: 11px;
-  text-align: center;
+  font-size: 12px;
+  list-style: none;
 }
+.auraLegend strong { margin-right: 6px; color: var(--text); font-weight: 500; }
 
 .leader {
   stroke: var(--line-strong);
@@ -313,12 +311,16 @@
 
 .callout {
   position: absolute;
-  width: 27%;
+  width: max-content; /* grows to fit "Bones & muscle", never narrower than the others */
+  min-width: 27%;
   transform: translateY(-50%);
+  border-color: var(--line);
+  background: rgba(14, 19, 26, 0.62);
+  backdrop-filter: blur(6px);
 }
+.callout .zoneName { white-space: nowrap; letter-spacing: 0.06em; }
 
-.callout.left { left: 0; justify-content: flex-end; text-align: right; }
-.callout.left .zoneText { justify-items: end; }
+.callout.left { left: 0; } /* text stays left-aligned in every box, so long names like "Bones & muscle" line up */
 .callout.right { right: 0; }
 
 .offBody {
@@ -356,6 +358,7 @@
 /* ── Right panel ── */
 .right {
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* without it the column grows to its widest child and the page scrolls sideways on phones */
   gap: 32px;
   min-width: 0;
 }
@@ -378,7 +381,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 24px;
 }
 
 .nextLink {
@@ -571,7 +574,8 @@
 }
 
 .tileValue .unit { font-size: 13px; }
-.tileMeta { color: var(--muted); font-size: 12px; }
+.tileMeta { display: grid; gap: 2px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.tileWhen { opacity: 0.75; }
 
 .range {
   position: relative;
@@ -652,9 +656,21 @@
 }
 
 /* ── Next action extras ── */
-.nextTitle { margin: 12px 0 8px; font: 600 26px/1.25 var(--heading); }
-.next .badge { margin-top: 8px; }
-.then { margin-top: 16px; color: var(--muted); font-size: 14px; }
+.nextHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; min-height: 30px; }
+.nextHead .eyebrow { margin: 0; }
+.nextTitle { margin: 16px 0 8px; font: 600 26px/1.25 var(--heading); text-wrap: balance; }
+.then { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 20px; color: var(--muted); font-size: 13px; }
+.then ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.then li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 12%, transparent);
+  color: color-mix(in srgb, var(--c) 75%, var(--text));
+}
+.then li .icon { width: 11px; height: 11px; }
 
 .primaryBtn {
   min-height: 44px;
@@ -678,6 +694,7 @@
 .ghostBtn:hover { background: var(--surface-2); }
 
 .nextGuide { margin-top: 16px; border-top: 1px solid var(--line); }
+.next .fine { margin-top: 12px; }
 .nextGuide > summary {
   display: flex;
   align-items: center;
@@ -804,6 +821,7 @@
 .week { width: 100%; border-collapse: collapse; font-size: 13px; }
 .week th,
 .week td { padding: 10px 8px; border-bottom: 1px solid var(--line); text-align: center; }
+.week thead th:first-child { text-align: left; }
 .week thead th { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .week tbody th { text-align: left; font-weight: 500; white-space: nowrap; }
 .week tbody th .tileIcon { vertical-align: -3px; margin-right: 8px; color: var(--muted); }
@@ -852,42 +870,6 @@
 }
 .errorTitle { font: 600 18px var(--heading); }
 
-/* Demo harness (TodayPreview) */
-.previewWrap { background: var(--bg); min-height: 100vh; }
-.previewBar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 16px;
-  padding: 12px 24px;
-  border-bottom: 1px dashed rgba(230, 237, 243, 0.18);
-  background: #10161d;
-  color: #e6edf3;
-  font: 14px Inter, system-ui, sans-serif;
-}
-.demoTag {
-  padding: 2px 10px;
-  border: 1px dashed #f2c94c;
-  border-radius: 999px;
-  color: #f2c94c;
-  font-size: 12px;
-  font-weight: 600;
-}
-.previewCrew { display: flex; flex-wrap: wrap; gap: 6px; }
-.previewBtn {
-  min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid rgba(230, 237, 243, 0.18);
-  border-radius: 999px;
-  background: transparent;
-  color: #e6edf3;
-  font: inherit;
-  cursor: pointer;
-}
-.previewBtn[aria-pressed='true'] { background: #58a6ff; border-color: #58a6ff; color: #0b0f14; font-weight: 600; }
-.previewDay { display: flex; align-items: center; gap: 10px; }
-.previewDay input { width: min(320px, 50vw); accent-color: #58a6ff; }
-
 @media (max-width: 640px) {
   .root { padding: 16px; }
   .banner { padding: 16px; }
@@ -896,6 +878,8 @@
   .nextTitle { font-size: 21px; }
   .emergency { padding: 0 14px; }
   .zoneValue { font-size: 20px; }
+  .callout { padding: 6px 8px; }
+  .callout .zoneName { font-size: 10px; letter-spacing: 0.03em; }
   .step { flex-direction: column; align-items: flex-start; }
 }
 
@@ -904,11 +888,3 @@
   .marker, .zoneBtn, .why { transition: none; }
 }
 
-.previewEvent {
-  margin-left: auto;
-  padding: 4px 10px;
-  border-radius: 8px;
-  background: rgba(88, 166, 255, 0.1);
-  color: #9fc8ff;
-  font: 12px ui-monospace, monospace;
-}

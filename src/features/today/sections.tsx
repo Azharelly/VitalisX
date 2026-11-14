@@ -43,12 +43,16 @@ export function NextActionCard({ data, flagged, onStart, onWhy, onNoteForEarth, 
 
   return (
     <article className={`${s.next} ${s[level]}`} aria-labelledby="today-next">
-      <p className={s.eyebrow}>Next best action · {first}</p>
-      {target ? (
-        <>
+      <div className={s.nextHead}>
+        <p className={s.eyebrow}>Next best action · {first}</p>
+        {target && (
           <span className={s.badge}>
             <StatusIcon level={target.level} /> {LEVEL_WORD[target.level]}
           </span>
+        )}
+      </div>
+      {target ? (
+        <>
           <h2 id="today-next" className={s.nextTitle}>
             {headline(target)}
           </h2>
@@ -64,7 +68,18 @@ export function NextActionCard({ data, flagged, onStart, onWhy, onNoteForEarth, 
               Note for Earth
             </button>
           </div>
-          {then.length > 0 && <p className={s.then}>Then: {then.map((r) => r.label).join(', ')}.</p>}
+          {then.length > 0 && (
+            <div className={s.then}>
+              <span>Then</span>
+              <ul>
+                {then.map((r) => (
+                  <li key={r.id} className={s[r.level]}>
+                    <StatusIcon level={r.level} /> {r.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <details className={s.nextGuide}>
             <summary>More about {target.label.toLowerCase()}</summary>
             <GuidancePanel metricId={target.id} />
@@ -76,7 +91,7 @@ export function NextActionCard({ data, flagged, onStart, onWhy, onNoteForEarth, 
             {na.kind === 'learning'
               ? 'Learning your normal'
               : data.checkIn.doneAt
-                ? 'All readings are in your usual range'
+                ? 'All readings are normal for you'
                 : "Today's check-in is due"}
           </h2>
           <p className={s.nextText}>
@@ -168,7 +183,7 @@ export function GoodNews({ data, normal, zoneLevels }: { data: TodayView; normal
             Good news
           </h2>
           <p className={s.muted}>
-            {inRange} of {total} readings are inside your usual range
+            {inRange} of {total} readings are normal for you
             {data.checkIn.streakDays > 1 && ` · ${data.checkIn.streakDays}-day check-in streak`}
           </p>
         </div>
@@ -199,7 +214,10 @@ export function GoodNews({ data, normal, zoneLevels }: { data: TodayView; normal
               <Sparkline r={r} small />
             </span>
             <RangeBar r={r} />
-            <span className={s.tileMeta}>{[usualText(r) || r.note, r.measured].filter(Boolean).join(' · ')}</span>
+            <span className={s.tileMeta}>
+              {usualText(r) || r.note}
+              {r.measured && <span className={s.tileWhen}>{r.measured}</span>}
+            </span>
           </li>
         ))}
       </ul>
@@ -221,9 +239,11 @@ export function MyWeek({ data, onOpenReport }: { data: TodayView; onOpenReport?:
           <span>
             <strong>{logged}</strong> of {data.week.length} days logged
           </span>
-          <span>
-            <strong>{data.checkIn.streakDays}</strong>-day streak
-          </span>
+          {data.checkIn.streakDays > 0 && (
+            <span>
+              <strong>{data.checkIn.streakDays}</strong>-day streak
+            </span>
+          )}
           {onOpenReport && (
             <button type="button" className={s.linkBtn} onClick={onOpenReport}>
               Open full report →
