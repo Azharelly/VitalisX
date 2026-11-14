@@ -54,7 +54,8 @@ assert.equal(actionFor('rad', 'watch'), GUIDANCE.rad.act)
 assert.deepEqual(flagged(await api.getToday('amara')), ['sleep'])
 assert.deepEqual(flagged(await api.getToday('kenji')), ['rad'])
 assert.deepEqual(flagged(await api.getToday('lucia')), [])
-for (const c of await api.listCrew()) assert.equal(lvl(await api.getToday(c.id, 150), 'rad'), 'alert') // storm day
+// Storm (SEP) on day 150: the engine's rule (PRD 5.3, sep_flag in the last 24 h) gives Watch that day and the next.
+for (const c of await api.listCrew()) for (const d of [150, 151]) assert.equal(lvl(await api.getToday(c.id, d), 'rad'), 'watch', `${c.id} day ${d}`)
 assert.equal(lvl(await api.getToday('lucia', 5), 'hr'), 'learn')
 await assert.rejects(api.getToday('nobody'))
 await assert.rejects(api.getToday('ravi', 0))

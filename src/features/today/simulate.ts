@@ -1,4 +1,5 @@
 import type { RadiationDose } from '../../data/types'
+import { evaluateRadiation } from '../../engine/radiation.ts'
 import type { CrewSummary, TodayApi } from './api.ts'
 import type { CrewApi } from '../crew/api.ts'
 import { checkNewMember, initialsOf, type CrewBoard, type CrewCard } from '../crew/model.ts'
@@ -221,32 +222,36 @@ function projectedDose(c: Crew, asOf: number) {
   return asOf < MISSION.arrivalDay ? careerDose(c, asOf) + rate * (MISSION.arrivalDay - asOf) : null
 }
 
-/** Demo: one person's dosimeter log up to `upTo`, shaped like the radiation_dose_log store, for the Radiation tab. */
+/** One person's dosimeter log up to `upTo`, shaped like the radiation_dose_log store. */
+const dosesOf = (c: Crew, upTo: number): RadiationDose[] =>
+  Array.from({ length: Math.max(0, upTo) }, (_, i) => i + 1)
+    .filter((day) => day > (c.joinedDay ?? 0))
+    .map((day) => {
+      const storm = STORM_DAYS.indexOf(day)
+      return {
+        id: day, crew_id: 0, mission_day: day, date: '', dose_msv: dailyDose(c, day), environment: 'mars_transit',
+        sep_flag: storm >= 0, event_id: storm >= 0 ? `SEP-${storm + 1}` : null, is_simulated: true,
+      }
+    })
+
+/** Demo: the same log for the Radiation tab, so it shows the person chosen in the shell. */
 export function simulatedDoses(crewId: string, upTo: number): { priorDoseMsv: number; doses: RadiationDose[] } {
   const c = CREW.find((x) => x.id === crewId)
-  if (!c) return { priorDoseMsv: 0, doses: [] }
-  const doses = Array.from({ length: Math.max(0, upTo) }, (_, i): RadiationDose => ({
-    id: i + 1, crew_id: 0, mission_day: i + 1, date: '', dose_msv: dailyDose(c, i + 1), environment: 'mars_transit',
-    sep_flag: STORM_DAYS.includes(i + 1), event_id: null, is_simulated: true,
-  })).filter((d) => d.mission_day > (c.joinedDay ?? 0))
-  return { priorDoseMsv: c.priorDoseMsv, doses }
+  return c ? { priorDoseMsv: c.priorDoseMsv, doses: dosesOf(c, upTo) } : { priorDoseMsv: 0, doses: [] }
 }
 
 function evalRadiation(c: Crew, asOf: number): Reading {
   const def = { id: 'rad', label: 'Career dose', zone: 'radiation' as ZoneId, unit: 'mSv', decimals: 0, priority: 7 }
   const career = (day: number) => careerDose(c, day)
-  const now = career(asOf)
-  const projected = projectedDose(c, asOf)
+  // The engine decides (PRD 5.3), so Today, Crew and the Radiation tab can never disagree.
+  const r = evaluateRadiation({ doses: dosesOf(c, asOf), priorDoseMsv: c.priorDoseMsv, currentDay: asOf, arrivalDay: MISSION.arrivalDay })
   const pct = (v: number) => Math.round((v / MISSION.careerLimitMsv) * 100)
-  const storm = STORM_DAYS.includes(asOf)
-  const level: Level =
-    storm || now >= MISSION.careerLimitMsv || (projected ?? 0) >= MISSION.careerLimitMsv ? 'alert' : (projected ?? now) >= 0.8 * MISSION.careerLimitMsv ? 'watch' : 'ok'
-  const note = storm
-    ? 'Solar particle event in progress'
-    : `${pct(now)}% of the 600 mSv limit${projected === null ? '' : ` · ${Math.round(projected)} mSv (${pct(projected)}%) at arrival`}`
+  const note = r.recentSep
+    ? 'Solar particle event in the last 24 hours'
+    : `${pct(r.careerMsv)}% of the 600 mSv limit${r.projectionMsv === null ? '' : ` · ${Math.round(r.projectionMsv)} mSv (${pct(r.projectionMsv)}%) at arrival`}`
   return reading(def, {
-    level,
-    value: Math.round(now),
+    level: r.state,
+    value: Math.round(r.careerMsv),
     trend: Array.from({ length: 7 }, (_, i) => Math.round(career(Math.max(1, asOf - 6 + i)))),
     note,
     measured: `Dosimeter, day ${asOf}`,
@@ -259,7 +264,7 @@ function evalRadiation(c: Crew, asOf: number): Reading {
  */
 function frozenFor(c: Crew, id: string, asOf: number): FrozenEvidence | undefined {
   let day = asOf
-  while (day > 1 && asOf - day < 90) {
+  while (day > 1) {
     const before = readingsFor(c, day - 1).find((r) => r.id === id)
     if (!before || !isFlagged(before.level)) break
     day--

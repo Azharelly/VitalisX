@@ -38,7 +38,7 @@ Good days to try in the preview:
 | Amara | 142 | Sleep **Watch** |
 | Kenji | 142 | Radiation projection **Watch** (yellow outer field) |
 | Lucía | 142 | All normal ("Good news") |
-| Anyone | 150 | Solar storm: radiation **Alert** (red outer field), "move to the storm shelter" |
+| Anyone | 150–151 | Solar particle event: radiation **Watch** that day and the next (engine rule: `sep_flag` in the last 24 h) |
 | Anyone | 1–15 | "Learning your normal" |
 
 ## What is on the page
