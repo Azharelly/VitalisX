@@ -246,12 +246,17 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone,
   )
 }
 
+// A labelled group with a plain heading, not <fieldset>/<legend>: browsers draw a legend on the card's border
+// differently (Safari kept it above the card), and a heading also lets screen-reader users jump between cards.
 function Section({ title, tone, children }: { title: string; tone: 'ok' | 'watch' | 'learn'; children: ReactNode }) {
+  const id = `ci-sec-${title.toLowerCase().replace(/\W+/g, '-')}`
   return (
-    <fieldset className={`${t.card} ${t[tone]} ${s.section}`}>
-      <legend className={s.sectionTitle}>{title}</legend>
+    <section role="group" aria-labelledby={id} className={`${t.card} ${t[tone]} ${s.section}`}>
+      <h2 id={id} className={s.sectionTitle}>
+        {title}
+      </h2>
       {children}
-    </fieldset>
+    </section>
   )
 }
 

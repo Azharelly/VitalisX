@@ -19,7 +19,6 @@
 /* ── Cards ── */
 .section {
   gap: 20px;
-  margin: 0;
   min-width: 0;
 }
 
@@ -28,10 +27,6 @@
   font: 600 15px var(--heading);
 }
 
-.section > .sectionTitle {
-  float: left; /* keeps the legend inside the card instead of on its border */
-  width: 100%;
-}
 
 /* ── One reading per row: the box, then how it was taken. Wraps under the box on phones. ── */
 .measure {
