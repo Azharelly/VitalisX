@@ -6,6 +6,7 @@ import { ensureSeeded, loadMissionConfig, resetDemo } from '../../data/seed'
 import type { MissionConfig, RadiationDose } from '../../data/types'
 import { RadiationScreen } from '../RadiationScreen'
 import { CheckInConnected } from '../checkin'
+import type { CrewApi } from '../crew/api.ts'
 import { dexieCrewApi } from '../crew/dexieCrewApi.ts'
 import { dexieTodayApi } from '../today/dexieTodayApi.ts'
 import { AppShell } from './AppShell'
@@ -58,7 +59,25 @@ export function AppLive() {
 }
 
 function Live({ mission }: { mission: MissionConfig }) {
-    const crewApi = useMemo(() => dexieCrewApi({ mission }), [mission])
+
+    const baseCrewApi = useMemo(() => dexieCrewApi({ mission }), [mission])
+    // The crew board (avatars, Crew tab) reloads whenever the CrewProvider gets a new api object. After a reading is
+    // written we hand it a fresh one, so the rings update right after a check-in without losing who is chosen.
+    const [crewApi, setCrewApi] = useState<CrewApi>(baseCrewApi)
+    useEffect(() => {
+        let timer: number | undefined
+        const bump = () => {
+            window.clearTimeout(timer)
+            timer = window.setTimeout(() => setCrewApi({ ...baseCrewApi }), 150) // one reload per check-in, not one per metric
+        }
+        db.measurement.hook('creating', bump)
+        db.measurement.hook('updating', bump)
+        return () => {
+            window.clearTimeout(timer)
+            db.measurement.hook('creating').unsubscribe(bump)
+            db.measurement.hook('updating').unsubscribe(bump)
+        }
+    }, [baseCrewApi])
     const todayApi = useMemo(() => dexieTodayApi({ mission }), [mission])
     const [day, setDay] = useState(mission.today_mission_day)
     const [event, setEvent] = useState('Actions you trigger appear here.')
