@@ -19,6 +19,7 @@
 .none { --c: var(--learn); }
 
 .topBar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.headerActions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 
 .toggle {
   display: inline-flex;

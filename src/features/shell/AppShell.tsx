@@ -31,6 +31,8 @@ export interface AppShellProps extends ReportOutbox {
   onStart?: (crewId: string, metricId: string) => void
   onNoteForEarth?: (crewId: string, metricId?: string) => void
   onSendSummary?: (crewId: string, days: number) => void
+  /** Demo controls (AppPreview only), shown in the header next to the brand so they never cover the page. */
+  demo?: ReactNode
 }
 
 /**
@@ -48,7 +50,7 @@ export function AppShell({ crewApi, day, ...rest }: AppShellProps) {
 
 const CONTENT_ID = 'vx-content'
 
-function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNoteForEarth, onSendSummary, outbox, send, commsDelaySec }: Omit<AppShellProps, 'crewApi'>) {
+function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNoteForEarth, onSendSummary, outbox, send, commsDelaySec, demo }: Omit<AppShellProps, 'crewApi'>) {
   const { board, selected, addMember } = useCrew()
   const tab = useSyncExternalStore(onHashChange, readTab, () => 'crew' as TabId)
   const [adding, setAdding] = useState(false)
@@ -122,6 +124,7 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
               <strong>VitalisX</strong>
               {missionDay !== undefined && <span>Day {missionDay}</span>}
             </span>
+            {demo}
           </div>
           <nav className={s.navWide} aria-label="Main">
             {tabs}

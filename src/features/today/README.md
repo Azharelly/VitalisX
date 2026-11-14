@@ -28,7 +28,7 @@ import { Today, simulatedTodayApi } from './features/today'
 ```
 
 Every callback is optional, so you can wire them one feature at a time.
-To try it with no wiring: render `<AppPreview />` from `features/shell` (the whole app on simulated data, with a floating Demo panel for the mission day and a log of every action the page emits).
+To try it with no wiring: render `<AppPreview />` from `features/shell` (the whole app on simulated data, with a "Demo" chip in the header for the mission day and a log of every action the page emits).
 
 Good days to try in the preview:
 

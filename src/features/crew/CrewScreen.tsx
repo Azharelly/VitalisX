@@ -203,12 +203,11 @@ function Attention({ members, onOpen }: { members: CrewCard[]; onOpen: (id: stri
   const people = members
     .filter((m) => m.attention.length)
     .sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status))
-  const total = people.reduce((n, m) => n + m.attention.length, 0)
 
   return (
     <section className={`${c.panel} ${c.attentionPanel}`} aria-labelledby="crew-attention">
       <h2 id="crew-attention" className={t.h2}>
-        Needs attention <span className={t.count}>{total}</span>
+        Needs attention <span className={t.count}>{people.length}</span>
       </h2>
       {people.length === 0 ? (
         <p className={c.allClear}>

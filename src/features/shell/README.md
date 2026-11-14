@@ -28,7 +28,7 @@ import { simulatedCrewApi, simulatedTodayApi } from './features/today'
 />
 ```
 
-To try it without wiring: `<AppPreview />` (simulated data, a floating Demo panel with the mission-day slider and a log of every action).
+To try it without wiring: `<AppPreview />` (simulated data, a "Demo" chip in the header with the mission-day slider and a log of every action).
 
 ## What it does
 

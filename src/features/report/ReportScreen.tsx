@@ -62,22 +62,13 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
 
   return (
     <section className={s.root} aria-labelledby="report-title">
-      <div className={s.topBar}>
-        {actions.onBack ? (
+      {actions.onBack && (
+        <div className={s.topBar}>
           <button type="button" className={s.backBtn} onClick={actions.onBack}>
             <span aria-hidden="true">←</span> Today
           </button>
-        ) : (
-          <span />
-        )}
-        <div className={s.toggle} role="group" aria-label="Report period">
-          {([7, 28] as const).map((d) => (
-            <button key={d} type="button" aria-pressed={report.days === d} onClick={() => actions.onPeriodChange?.(d)}>
-              {d === 7 ? 'Week' : 'Month'}
-            </button>
-          ))}
         </div>
-      </div>
+      )}
 
       <header className={s.header}>
         <div>
@@ -92,9 +83,19 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
             {report.isSimulated && <span className={s.sim}>Simulated data</span>}
           </p>
         </div>
-        <button type="button" className={s.sendBtn} onClick={sendSummary}>
-          Send summary to Earth
-        </button>
+        {/* The period switch lives in the card it changes; alone on its own row it left an empty strip. */}
+        <div className={s.headerActions}>
+          <div className={s.toggle} role="group" aria-label="Report period">
+            {([7, 28] as const).map((d) => (
+              <button key={d} type="button" aria-pressed={report.days === d} onClick={() => actions.onPeriodChange?.(d)}>
+                {d === 7 ? 'Week' : 'Month'}
+              </button>
+            ))}
+          </div>
+          <button type="button" className={s.sendBtn} onClick={sendSummary}>
+            Send summary to Earth
+          </button>
+        </div>
       </header>
 
       <div className={s.kpis}>
