@@ -23,6 +23,7 @@ const RANK: Record<Level, number> = { alert: 0, watch: 1, learn: 2, ok: 3, none:
 export function ReportScreen({ report, ...actions }: { report: ReportView } & ReportActions) {
   const period = report.days === 7 ? 'week' : 'month'
   const first = report.zones[0]?.day ?? report.missionDay
+  const span = report.missionDay - first + 1 // shorter than the period early in the mission
   const open = report.metrics.filter((m) => isFlagged(m.level)).sort((a, b) => RANK[a.level] - RANK[b.level] || a.priority - b.priority)
   const sorted = [...report.metrics].sort(
     (a, b) => RANK[a.level] - RANK[b.level] || ZONE_ORDER.indexOf(a.zone) - ZONE_ORDER.indexOf(b.zone) || a.priority - b.priority,
@@ -31,6 +32,11 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
   const radPct = Math.round((rad.careerMsv / rad.limitMsv) * 100)
   const projPct = rad.projectedMsv === null ? null : Math.round((rad.projectedMsv / rad.limitMsv) * 100)
   const radLevel: Level = rad.daily.at(-1)?.storm || (projPct ?? radPct) >= 100 ? 'alert' : (projPct ?? radPct) >= 80 ? 'watch' : 'ok'
+  // Everything still Watch / Alert on the last day, radiation included (it is not in `metrics`).
+  const openItems = [
+    ...open.map((m) => ({ label: m.label, level: m.level })),
+    ...(isFlagged(radLevel) ? [{ label: 'Career dose', level: radLevel }] : []),
+  ].sort((a, b) => RANK[a.level] - RANK[b.level])
 
   return (
     <section className={s.root} aria-labelledby="report-title">
@@ -60,7 +66,7 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
             Your {period} in review
           </h1>
           <p className={s.muted}>
-            Mission days {first}–{report.missionDay}
+            {first === report.missionDay ? `Mission day ${first}` : `Mission days ${first}–${report.missionDay}`}
             {report.isSimulated && <span className={s.sim}>Simulated data</span>}
           </p>
         </div>
@@ -70,9 +76,9 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
       </header>
 
       <div className={s.kpis}>
-        <Kpi label="Days logged" value={report.logged} suffix={`of ${report.days}`} />
-        <Kpi label="Check-in streak" value={report.streakDays} suffix="days" />
-        <Kpi label="Open now" value={open.length} suffix={open.length === 1 ? 'reading' : 'readings'} level={open[0]?.level} />
+        <Kpi label="Days logged" value={report.logged} suffix={`of ${span}`} />
+        <Kpi label="Check-in streak" value={report.streakDays} suffix={report.streakDays === 1 ? 'day' : 'days'} />
+        <Kpi label="Open now" value={openItems.length} suffix={openItems.length === 1 ? 'item' : 'items'} level={openItems[0]?.level} />
         <Kpi label="Career dose" value={radPct} suffix={`% of ${rad.limitMsv} mSv`} level={radLevel} />
       </div>
 
@@ -82,12 +88,12 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
         </h2>
         <ul className={s.summary}>
           <li>
-            {report.logged} of {report.days} days logged{report.streakDays > 1 ? `; ${report.streakDays}-day check-in streak.` : '.'}
+            {report.logged} of {span} days logged{report.streakDays > 1 ? `; ${report.streakDays}-day check-in streak.` : '.'}
           </li>
           <li>
-            {open.length
-              ? `Open now: ${open.map((m) => `${m.label} (${LEVEL_WORD[m.level]})`).join(', ')}.`
-              : `All body readings ended the ${period} inside your usual range.`}
+            {openItems.length
+              ? `Open now: ${openItems.map((m) => `${m.label} (${LEVEL_WORD[m.level]})`).join(', ')}.`
+              : `Every reading ended the ${period} normal for you.`}
           </li>
           <li>
             Radiation: {rad.careerMsv} mSv ({radPct}% of {rad.limitMsv})
@@ -118,7 +124,9 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
             ))}
           </ol>
         ) : (
-          <p className={s.muted}>No Watch or Alert this {period}. Steady.</p>
+          <p className={s.muted}>
+            No status changes this {period}.{openItems.length > 0 && ` Still open: ${openItems.map((m) => m.label).join(', ')}.`}
+          </p>
         )}
       </section>
 
@@ -198,7 +206,7 @@ function TrendCard({ m, period, lastDay, onWhy }: { m: ReportMetric; period: str
       {change && <p className={s.change}>{change}</p>}
       <TrendChart m={m} lastDay={lastDay} />
       <div className={s.trendFoot}>
-        <span className={s.muted}>{m.usual ? `Usual ${m.usual[0].toFixed(m.decimals)}–${m.usual[1].toFixed(m.decimals)} ${m.unit}` : 'Rule-based, no personal band'}</span>
+        <span className={s.muted}>{m.usual ? `Usual ${m.usual[0].toFixed(m.decimals)}–${m.usual[1].toFixed(m.decimals)} ${m.unit}` : m.level === 'learn' ? 'Learning your normal' : 'Rule-based, no personal band'}</span>
         {flagged && (
           <button type="button" className={s.why} onClick={() => onWhy?.(m.id)}>
             Why?

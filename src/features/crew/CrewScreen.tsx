@@ -175,7 +175,7 @@ function Overview({ members }: { members: CrewCard[] }) {
       </div>
       <div className={c.overviewText}>
         <p className={c.overviewTitle}>
-          {flagged === 0 ? 'Everyone is in their usual range' : `${flagged} of ${members.length} need${flagged === 1 ? 's' : ''} attention`}
+          {flagged === 0 ? 'Everyone is normal for them' : `${flagged} of ${members.length} need${flagged === 1 ? 's' : ''} attention`}
         </p>
         <ul className={c.legend}>
           {ORDER.filter((l) => sum[l] > 0 || l === 'alert' || l === 'watch').map((l) => (
@@ -212,7 +212,7 @@ function Attention({ members, onOpen }: { members: CrewCard[]; onOpen: (id: stri
       </h2>
       {people.length === 0 ? (
         <p className={c.allClear}>
-          <StatusIcon level="ok" /> Nothing needs attention. Every shared reading is in its usual range.
+          <StatusIcon level="ok" /> Nothing needs attention. Everyone's readings are normal for them.
         </p>
       ) : (
         <ul className={c.attention}>
@@ -256,7 +256,7 @@ interface CardProps {
 function PersonCard({ m, i, day, viewing, onOpen, onRemove }: CardProps) {
   const top = m.attention[0]
   const quiet =
-    m.status === 'none' ? 'Waiting for the first check-in' : m.status === 'learn' ? 'Learning their normal' : 'Shared readings in usual range'
+    m.status === 'none' ? 'Waiting for the first check-in' : m.status === 'learn' ? 'Learning their normal' : 'All readings normal for them'
   const due = !m.checkIn.doneAt
 
   return (
@@ -286,8 +286,10 @@ function PersonCard({ m, i, day, viewing, onOpen, onRemove }: CardProps) {
         {top ? (
           <>
             <span className={c.topLabel}>
-              {top.label}
-              {m.attention.length > 1 && <span className={t.muted}> · +{m.attention.length - 1} more</span>}
+              <span>
+                {top.label}
+                {m.attention.length > 1 && ` · +${m.attention.length - 1} more`}
+              </span>
             </span>
             <span className={c.topValue}>
               {valueText(top)} <LevelTag level={top.level} />

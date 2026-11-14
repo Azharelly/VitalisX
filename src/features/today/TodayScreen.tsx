@@ -104,7 +104,12 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
       <div className={s.layout}>
         <div className={s.bodyPanel}>
           <BodyFigure sex={data.person.sex} levels={levels} headline={headline} selected={zone} onSelect={toggle} />
-          <p className={s.auraLegend}>Glow colour = status. Outer field = Radiation · Body outline = Immune · Core = Metabolism</p>
+          <ul className={s.auraLegend} aria-label="How to read the body">
+            <li><strong>Glow colour</strong> status</li>
+            <li><strong>Outer field</strong> radiation</li>
+            <li><strong>Body outline</strong> immune</li>
+            <li><strong>Core</strong> metabolism</li>
+          </ul>
           <div className={s.offBody}>
             {OFF_BODY.map((z) => (
               <ZoneButton

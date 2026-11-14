@@ -227,7 +227,7 @@
 .person:hover { transform: translateY(-2px); border-color: var(--line-strong); }
 .flagged { border-color: color-mix(in srgb, var(--c) 35%, transparent); }
 .viewing { border-color: color-mix(in srgb, var(--accent) 55%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent); }
-.personHead { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; }
+.personHead { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; min-height: 64px; } /* room for a two-line name, so rows line up across cards */
 .personName { display: grid; min-width: 0; font-size: 13px; }
 .personName h3 { margin: 0; font: 600 18px/1.25 var(--heading); overflow-wrap: anywhere; }
 .statePill { padding: 6px 12px; font-size: 13px; }

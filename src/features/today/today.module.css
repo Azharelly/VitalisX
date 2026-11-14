@@ -39,11 +39,9 @@
   box-sizing: inherit;
 }
 
-.root h1,
-.root h2,
-.root p {
+/* Zero-specificity reset (only beats browser defaults), so every class below keeps its own margin and colour. */
+:where(.root, .theme) :where(h1, h2, h3, p) {
   margin: 0;
-  color: inherit;
   letter-spacing: normal;
 }
 
@@ -209,11 +207,18 @@
 }
 
 .auraLegend {
-  margin: 8px 8px 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+  margin: 12px 4px 16px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: rgba(11, 15, 20, 0.35);
   color: var(--muted);
-  font-size: 11px;
-  text-align: center;
+  font-size: 12px;
+  list-style: none;
 }
+.auraLegend strong { margin-right: 6px; color: var(--text); font-weight: 500; }
 
 .leader {
   stroke: var(--line-strong);
@@ -307,7 +312,11 @@
   position: absolute;
   width: 27%;
   transform: translateY(-50%);
+  border-color: var(--line);
+  background: rgba(14, 19, 26, 0.62);
+  backdrop-filter: blur(6px);
 }
+.callout .zoneName { white-space: nowrap; letter-spacing: 0.06em; }
 
 .callout.left { left: 0; justify-content: flex-end; text-align: right; }
 .callout.left .zoneText { justify-items: end; }
@@ -348,6 +357,7 @@
 /* ── Right panel ── */
 .right {
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* without it the column grows to its widest child and the page scrolls sideways on phones */
   gap: 32px;
   min-width: 0;
 }
@@ -370,7 +380,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 24px;
 }
 
 .nextLink {
@@ -563,7 +573,8 @@
 }
 
 .tileValue .unit { font-size: 13px; }
-.tileMeta { color: var(--muted); font-size: 12px; }
+.tileMeta { display: grid; gap: 2px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.tileWhen { opacity: 0.75; }
 
 .range {
   position: relative;
@@ -644,9 +655,21 @@
 }
 
 /* ── Next action extras ── */
-.nextTitle { margin: 12px 0 8px; font: 600 26px/1.25 var(--heading); }
-.next .badge { margin-top: 8px; }
-.then { margin-top: 16px; color: var(--muted); font-size: 14px; }
+.nextHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; min-height: 30px; }
+.nextHead .eyebrow { margin: 0; }
+.nextTitle { margin: 16px 0 8px; font: 600 26px/1.25 var(--heading); text-wrap: balance; }
+.then { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 20px; color: var(--muted); font-size: 13px; }
+.then ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.then li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 12%, transparent);
+  color: color-mix(in srgb, var(--c) 75%, var(--text));
+}
+.then li .icon { width: 11px; height: 11px; }
 
 .primaryBtn {
   min-height: 44px;
@@ -670,6 +693,7 @@
 .ghostBtn:hover { background: var(--surface-2); }
 
 .nextGuide { margin-top: 16px; border-top: 1px solid var(--line); }
+.next .fine { margin-top: 12px; }
 .nextGuide > summary {
   display: flex;
   align-items: center;
@@ -796,6 +820,7 @@
 .week { width: 100%; border-collapse: collapse; font-size: 13px; }
 .week th,
 .week td { padding: 10px 8px; border-bottom: 1px solid var(--line); text-align: center; }
+.week thead th:first-child { text-align: left; }
 .week thead th { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .week tbody th { text-align: left; font-weight: 500; white-space: nowrap; }
 .week tbody th .tileIcon { vertical-align: -3px; margin-right: 8px; color: var(--muted); }

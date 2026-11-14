@@ -1,6 +1,6 @@
 /* Report styles. Tokens, base resets and shared controls come from the Today module via `composes`,
    so the palette lives in one place. shortcut: move shared bits to src/ui once it exists. */
-.root { composes: root from '../today/today.module.css'; display: grid; gap: 24px; align-content: start; }
+.root { composes: root from '../today/today.module.css'; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-content: start; }
 .backBtn { composes: backBtn from '../today/today.module.css'; }
 .why { composes: why from '../today/today.module.css'; }
 .badge { composes: badge from '../today/today.module.css'; }
@@ -187,6 +187,7 @@
   position: relative;
   display: flex;
   align-items: flex-end;
+  justify-content: space-around; /* a week of bars spreads across the chart instead of bunching left */
   gap: 3px;
   border-bottom: 1px solid var(--line-strong);
 }
