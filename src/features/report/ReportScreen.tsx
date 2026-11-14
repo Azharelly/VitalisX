@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import { WhyModal } from '../why/WhyModal'
+import { fromReportMetric } from '../why/evidence.ts'
 import { ZONES, LEVEL_WORD, changeText, isFlagged, type Level, type ReportMetric, type ReportView } from '../today/model.ts'
 import { StatusIcon } from '../today/StatusIcon'
 import { ZoneIcon } from '../today/ZoneIcon'
@@ -21,6 +24,12 @@ const RANK: Record<Level, number> = { alert: 0, watch: 1, learn: 2, ok: 3, none:
 
 /** Week or month in review for one crew member. Presentational: data in, callbacks out. */
 export function ReportScreen({ report, ...actions }: { report: ReportView } & ReportActions) {
+  const [whyId, setWhyId] = useState<string | null>(null)
+  const why = report.metrics.find((m) => m.id === whyId)
+  const onWhy = (metricId: string) => {
+    setWhyId(metricId)
+    actions.onWhy?.(metricId)
+  }
   const period = report.days === 7 ? 'week' : 'month'
   const first = report.zones[0]?.day ?? report.missionDay
   const span = report.missionDay - first + 1 // shorter than the period early in the mission
@@ -143,7 +152,7 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
         </h2>
         <div className={s.trends}>
           {sorted.map((m) => (
-            <TrendCard key={m.id} m={m} period={period} lastDay={report.missionDay} onWhy={actions.onWhy} />
+            <TrendCard key={m.id} m={m} period={period} lastDay={report.missionDay} onWhy={onWhy} />
           ))}
         </div>
       </section>
@@ -168,6 +177,7 @@ export function ReportScreen({ report, ...actions }: { report: ReportView } & Re
         <DoseChart r={rad} lastDay={report.missionDay} />
         <p className={s.fine}>The app records dosimeter readings; it does not measure radiation. Limit: NASA-STD-3001 Vol. 1.</p>
       </section>
+      {why && <WhyModal e={fromReportMetric(why)} onClose={() => setWhyId(null)} />}
     </section>
   )
 }
