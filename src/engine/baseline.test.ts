@@ -1,13 +1,15 @@
+// src/engine/baseline.test.ts
 import { describe, expect, it } from 'vitest';
 import type { Measurement, Metric } from '../data/types';
 import {
-    MIN_BASELINE_DAYS,
-    Z_CLAMP,
+    BASELINE_DAYS,
+    MIN_BASELINE_POINTS,
+    Z_CAP,
+    baselineWindow,
     computeBaseline,
-    effectiveContext,
-    mad,
+    contextOf,
     median,
-    robustZ,
+    zScore,
 } from './baseline';
 
 const metric: Metric = {
@@ -30,98 +32,112 @@ function series(n: number, value: (day: number) => number, extra: Partial<Measur
     return Array.from({ length: n }, (_, i) => reading(i + 1, value(i + 1), extra));
 }
 
-describe('median and mad', () => {
+const flat = (n: number, v = 7) => Array.from({ length: n }, () => v);
+
+describe('median', () => {
     it('median of odd and even lists', () => {
         expect(median([1, 3, 2])).toBe(2);
         expect(median([1, 2, 3, 4])).toBe(2.5);
     });
-    it('mad ignores a big outlier', () => {
-        expect(mad([1, 2, 3, 4, 100])).toBe(1);
-    });
 });
 
-describe('computeBaseline', () => {
+describe('computeBaseline (values -> median and sd)', () => {
     it('computes median and sd = 1.4826 x MAD', () => {
-        // 7 days of 7 h and 7 days of 8 h: median 7.5, MAD 0.5
-        const b = computeBaseline(series(14, (d) => (d % 2 === 0 ? 8 : 7)), metric, null, 14);
-        expect(b).not.toBeNull();
-        expect(b!.median).toBe(7.5);
-        expect(b!.sd).toBeCloseTo(0.7413, 4);
-        expect(b!.n).toBe(14);
+        // 7 values of 7 and 7 values of 8: median 7.5, MAD 0.5
+        const values = Array.from({ length: 14 }, (_, i) => (i % 2 === 0 ? 8 : 7));
+        const b = computeBaseline(values, 0.2)!;
+        expect(b.median).toBe(7.5);
+        expect(b.sd).toBeCloseTo(0.7413, 4);
+        expect(b.n).toBe(14);
     });
 
     it('uses the min_sd floor when MAD = 0 (flat series)', () => {
-        const b = computeBaseline(series(14, () => 7), metric, null, 14)!;
+        const b = computeBaseline(flat(14), 0.2)!;
         expect(b.sd).toBe(0.2);
-        expect(Number.isFinite(robustZ(7.6, b))).toBe(true);
-        expect(robustZ(7.6, b)).toBeCloseTo(3);
+        expect(Number.isFinite(zScore(7.6, b))).toBe(true);
+        expect(zScore(7.6, b)).toBeCloseTo(3);
     });
 
-    it('is not robust-broken by one outlier', () => {
-        const readings = series(14, (d) => (d === 5 ? 20 : 7));
-        const b = computeBaseline(readings, metric, null, 14)!;
-        expect(b.median).toBe(7);
+    it('one outlier does not move the median', () => {
+        const values = flat(14);
+        values[4] = 20;
+        expect(computeBaseline(values, 0.2)!.median).toBe(7);
     });
 
-    it('returns null while learning (fewer than 14 distinct days)', () => {
-        expect(computeBaseline(series(MIN_BASELINE_DAYS - 1, () => 7), metric, null, 14)).toBeNull();
-        expect(computeBaseline(series(MIN_BASELINE_DAYS, () => 7), metric, null, 14)).not.toBeNull();
+    it('returns null while learning (fewer than 14 values)', () => {
+        expect(computeBaseline(flat(MIN_BASELINE_POINTS - 1), 0.2)).toBeNull();
+        expect(computeBaseline(flat(MIN_BASELINE_POINTS), 0.2)).not.toBeNull();
     });
 
-    it('only looks at the last 28 days', () => {
-        const readings = series(14, () => 7); // days 1..14
-        expect(computeBaseline(readings, metric, null, 28)).not.toBeNull(); // window 1..28
-        expect(computeBaseline(readings, metric, null, 29)).toBeNull(); // window 2..29, only 13 days
-        expect(computeBaseline(readings, metric, null, 14)).not.toBeNull();
+    it('without min_sd and a flat history, z is capped, never infinite', () => {
+        const b = computeBaseline(flat(14), null)!;
+        expect(b.sd).toBe(0);
+        expect(zScore(7, b)).toBe(0);
+        expect(zScore(8, b)).toBe(Z_CAP);
+        expect(zScore(6, b)).toBe(-Z_CAP);
+    });
+});
+
+describe('zScore', () => {
+    it('matches the PRD sleep example: (5.9 - 7.1) / 0.5 = -2.4', () => {
+        expect(zScore(5.9, { median: 7.1, sd: 0.5, n: 20 })).toBeCloseTo(-2.4);
     });
 
-    it('ignores readings after asOfDay', () => {
+    it('clamps to +-10', () => {
+        const b = { median: 7, sd: 0.2, n: 14 };
+        expect(zScore(100, b)).toBe(Z_CAP);
+        expect(zScore(-100, b)).toBe(-Z_CAP);
+    });
+});
+
+describe('contextOf', () => {
+    it('uses the reading context, or the metric default when it has none', () => {
+        expect(contextOf({ context: 'fasting' }, { default_context: 'resting' })).toBe('fasting');
+        expect(contextOf({ context: null }, { default_context: 'resting' })).toBe('resting');
+        expect(contextOf({ context: null }, { default_context: null })).toBeNull();
+    });
+});
+
+describe('baselineWindow', () => {
+    it('only uses readings taken before the one being judged', () => {
         const readings = series(20, () => 7);
-        expect(computeBaseline(readings, metric, null, 13)).toBeNull(); // only 13 days up to day 13
+        const current = readings[14]; // day 15
+        const w = baselineWindow(readings, metric, current);
+        expect(w).toHaveLength(14);
+        expect(w.every((m) => m.mission_day < 15)).toBe(true);
+        expect(w.some((m) => m.id === current.id)).toBe(false);
+    });
+
+    it('looks back at most 28 mission days', () => {
+        const readings = series(39, () => 7); // days 1..39
+        const current = reading(40, 7);
+        const w = baselineWindow([...readings, current], metric, current);
+        expect(w).toHaveLength(BASELINE_DAYS);
+        expect(Math.min(...w.map((m) => m.mission_day))).toBe(40 - BASELINE_DAYS);
     });
 
     it('keeps only readings of the same context', () => {
         const fasting = series(14, () => 7, { context: 'fasting' });
         const afterMeal = series(14, () => 9, { context: 'after_meal' });
-        const all = [...fasting, ...afterMeal];
-        expect(computeBaseline(all, metric, 'fasting', 14)!.median).toBe(7);
-        expect(computeBaseline(all, metric, 'after_meal', 14)!.median).toBe(9);
-        expect(computeBaseline(all, metric, 'resting', 14)).toBeNull();
+        const current = reading(15, 7, { context: 'fasting' });
+        const w = baselineWindow([...fasting, ...afterMeal, current], metric, current);
+        expect(w).toHaveLength(14);
+        expect(w.every((m) => m.value === 7)).toBe(true);
     });
 
     it('a reading without context counts as the metric default context', () => {
         const withDefault: Metric = { ...metric, default_context: 'resting' };
-        const readings = series(14, () => 7); // context null
-        expect(effectiveContext(readings[0], withDefault)).toBe('resting');
-        expect(computeBaseline(readings, withDefault, 'resting', 14)).not.toBeNull();
-        expect(computeBaseline(readings, withDefault, 'fasting', 14)).toBeNull();
+        const readings = series(14, () => 7); // context null -> resting
+        const resting = reading(15, 7, { context: 'resting' });
+        const fasting = reading(15, 7, { context: 'fasting' });
+        expect(baselineWindow([...readings, resting], withDefault, resting)).toHaveLength(14);
+        expect(baselineWindow([...readings, fasting], withDefault, fasting)).toHaveLength(0);
     });
 
-    it('counts one reading per day: the last one by taken_at', () => {
-        const readings = series(14, () => 7);
-        // day 1 gets an earlier outlier; the later reading is placed first in the array
-        const later = reading(1, 7, { taken_at: '2031-01-01T08:00:00' });
-        const earlier = reading(1, 100, { taken_at: '2031-01-01T06:00:00' });
-        const b = computeBaseline([later, earlier, ...readings.slice(1)], metric, null, 14)!;
-        expect(b.n).toBe(14);
-        expect(b.median).toBe(7);
-    });
-
-    it('returns null when the metric has no usable min_sd', () => {
-        const readings = series(14, () => 7);
-        expect(computeBaseline(readings, { ...metric, min_sd: null }, null, 14)).toBeNull();
-        expect(computeBaseline(readings, { ...metric, min_sd: 0 }, null, 14)).toBeNull();
-    });
-});
-
-describe('robustZ', () => {
-    it('matches the PRD sleep example: (5.9 - 7.1) / 0.5 = -2.4', () => {
-        expect(robustZ(5.9, { median: 7.1, sd: 0.5, n: 20 })).toBeCloseTo(-2.4);
-    });
-
-    it('clamps to +-10', () => {
-        const b = { median: 7, sd: 0.2, n: 14 };
-        expect(robustZ(100, b)).toBe(Z_CLAMP);
-        expect(robustZ(-100, b)).toBe(-Z_CLAMP);
+    it('skips readings that are not finite numbers', () => {
+        const bad = reading(1, NaN);
+        const good = reading(2, 7);
+        const current = reading(3, 7);
+        expect(baselineWindow([bad, good, current], metric, current)).toEqual([good]);
     });
 });

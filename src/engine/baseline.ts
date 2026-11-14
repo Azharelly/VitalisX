@@ -1,55 +1,96 @@
-// Personal baseline and robust z-score (PRD 5.1). Pure functions: no React, no Dexie.
-// Pass readings of ONE person and ONE metric.
+// src/engine/baseline.ts
+// "What is normal for THIS person?" (PRD 5.1). Pure functions: data in, numbers out.
+// No React, no IndexedDB, no network. The caller passes in the readings.
+
 import type { Baseline, Context, Measurement, Metric } from '../data/types';
 
-export const WINDOW_DAYS = 28;
-export const MIN_BASELINE_DAYS = 14;
-export const Z_CLAMP = 10;
-const MAD_TO_SD = 1.4826;
+// ---------- constants ----------
 
-export function median(values: number[]): number {
-    if (values.length === 0) return NaN;
-    const s = [...values].sort((a, b) => a - b);
-    const mid = Math.floor(s.length / 2);
-    return s.length % 2 === 0 ? (s[mid - 1] + s[mid]) / 2 : s[mid];
+/** The baseline looks back this many mission days from the reading being judged. */
+export const BASELINE_DAYS = 28;
+
+/** Fewer same-context readings than this = "learning your normal": no personal judgement yet. */
+export const MIN_BASELINE_POINTS = 14;
+
+/** Turns the median absolute deviation (MAD) into the same scale as a standard deviation. */
+export const MAD_TO_SD = 1.4826;
+
+/** z is clamped to this range, so a flat history can never give an infinite z. */
+export const Z_CAP = 10;
+
+// ---------- small helpers ----------
+
+/** Median of a NON-EMPTY list (an empty list gives NaN). Does not change its input. */
+export function median(xs: number[]): number {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
-export function mad(values: number[], center: number = median(values)): number {
-    return median(values.map((v) => Math.abs(v - center)));
+/**
+ * The context a reading counts under: its own, or the metric's default when it has none.
+ * Readings are only compared with readings of the same context (a temperature after exercise
+ * is not compared with resting temperatures).
+ */
+export function contextOf(
+  m: Pick<Measurement, 'context'>,
+  metric: Pick<Metric, 'default_context'>,
+): Context | null {
+  return m.context ?? metric.default_context;
 }
 
-// A reading without context uses the metric's default context.
-export function effectiveContext(m: Measurement, metric: Metric): Context | null {
-    return m.context ?? metric.default_context;
+const timeOf = (m: Measurement): number => {
+  const t = Date.parse(m.taken_at);
+  return Number.isNaN(t) ? 0 : t;
+};
+
+/** Oldest first: mission day, then time taken, then id. Use with Array.sort. */
+export function byTime(a: Measurement, b: Measurement): number {
+  return a.mission_day - b.mission_day || timeOf(a) - timeOf(b) || a.id - b.id;
 }
 
-// Baseline over the last 28 mission days (asOfDay included), same context only.
-// One reading per day (the last by taken_at). Returns null while learning
-// (< 14 distinct days) or when the metric has no min_sd (rule-only metrics).
-export function computeBaseline(
-    readings: Measurement[],
-    metric: Metric,
-    context: Context | null,
-    asOfDay: number,
-): Baseline | null {
-    if (metric.min_sd === null || !(metric.min_sd > 0)) return null;
-    const firstDay = asOfDay - WINDOW_DAYS + 1;
-    const lastPerDay = new Map<number, Measurement>();
-    for (const m of readings) {
-        if (m.mission_day < firstDay || m.mission_day > asOfDay) continue;
-        if (effectiveContext(m, metric) !== context) continue;
-        const prev = lastPerDay.get(m.mission_day);
-        if (!prev || m.taken_at > prev.taken_at) lastPerDay.set(m.mission_day, m);
-    }
-    if (lastPerDay.size < MIN_BASELINE_DAYS) return null;
-    const values = [...lastPerDay.values()].map((m) => m.value);
-    const med = median(values);
-    const sd = Math.max(MAD_TO_SD * mad(values, med), metric.min_sd);
-    return { median: med, sd, n: values.length };
+// ---------- the baseline ----------
+
+/**
+ * The readings that make up the baseline for `current`: same context, taken BEFORE it,
+ * within the last 28 mission days. `readings` must belong to one person and one metric.
+ * The reading being judged is never part of its own baseline.
+ */
+export function baselineWindow(
+  readings: Measurement[],
+  metric: Pick<Metric, 'default_context'>,
+  current: Measurement,
+): Measurement[] {
+  const ctx = contextOf(current, metric);
+  return readings.filter(
+    (m) =>
+      m.id !== current.id &&
+      Number.isFinite(m.value) &&
+      contextOf(m, metric) === ctx &&
+      byTime(m, current) < 0 &&
+      m.mission_day >= current.mission_day - BASELINE_DAYS,
+  );
 }
 
-// z = (value - median) / sd, clamped to +-10. sd is never 0 (floored by min_sd).
-export function robustZ(value: number, baseline: Baseline): number {
-    const z = (value - baseline.median) / baseline.sd;
-    return Math.max(-Z_CLAMP, Math.min(Z_CLAMP, z));
+/**
+ * Median and robust spread of a list of values.
+ *   median = middle value
+ *   sd     = 1.4826 x MAD, never below `minSd` (so a very steady person is not hypersensitive).
+ * Returns null while there are fewer than 14 values (still learning).
+ */
+export function computeBaseline(values: number[], minSd: number | null): Baseline | null {
+  if (values.length < MIN_BASELINE_POINTS) return null;
+  const med = median(values);
+  const mad = median(values.map((v) => Math.abs(v - med)));
+  return { median: med, sd: Math.max(MAD_TO_SD * mad, minSd ?? 0), n: values.length };
+}
+
+/**
+ * Robust z-score: how many usual-variations `value` is from the person's median (signed).
+ * If the spread is 0 (a perfectly flat history and no min_sd) any difference counts as the
+ * largest z instead of dividing by zero.
+ */
+export function zScore(value: number, baseline: Baseline): number {
+  if (baseline.sd <= 0) return value === baseline.median ? 0 : value > baseline.median ? Z_CAP : -Z_CAP;
+  return Math.min(Z_CAP, Math.max(-Z_CAP, (value - baseline.median) / baseline.sd));
 }
