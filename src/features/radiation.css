@@ -1,0 +1,30 @@
+@import '../../ui/tokens.css';
+
+.rad-screen { max-width: 720px; margin: 0 auto; padding: 16px; background: var(--vx-bg); color: var(--vx-text);
+  font-family: var(--vx-font-body); text-align: left; }
+.rad-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.rad-head h1 { font-family: var(--vx-font-head); font-size: 1.6rem; margin: 0; color: var(--vx-text); }
+.rad-card { background: var(--vx-surface); border: 1px solid var(--vx-border); border-radius: var(--vx-radius);
+  padding: 16px; margin-bottom: 14px; }
+.rad-card h2 { font-family: var(--vx-font-head); font-size: 1.05rem; margin: 0 0 10px; color: var(--vx-accent); }
+.rad-card p { margin: 6px 0; }
+.rad-mono { font-family: var(--vx-font-mono); }
+.rad-dim { color: var(--vx-text-dim); }
+.rad-small { font-size: 0.85rem; }
+.rad-big { font-size: 2rem; margin: 0 0 10px; }
+.rad-big .rad-dim { font-size: 1rem; }
+
+.rad-badge { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid; border-radius: 999px;
+  padding: 4px 12px; min-height: 28px; font-weight: 600; font-size: 0.9rem; }
+.rad-sim { font-size: 0.8rem; color: var(--vx-text-dim); border: 1px dashed var(--vx-border); border-radius: 6px; padding: 3px 8px; }
+
+.rad-bar { position: relative; height: 14px; background: var(--vx-surface-2); border-radius: 7px; overflow: visible; }
+.rad-bar-fill { height: 100%; background: var(--vx-accent); border-radius: 7px; }
+.rad-bar-mark { position: absolute; top: -4px; width: 3px; height: 22px; background: var(--vx-text); border-radius: 2px; transform: translateX(-1px); }
+
+.rad-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 14px 0 4px; }
+.rad-stats dt { font-size: 0.8rem; color: var(--vx-text-dim); }
+.rad-stats dd { margin: 2px 0 0; font-size: 1.1rem; }
+.rad-reasons { margin: 10px 0 0; padding-left: 20px; }
+.rad-steps { margin: 0 0 8px; padding-left: 22px; }
+.rad-steps li { margin-bottom: 8px; }

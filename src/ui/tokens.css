@@ -1,0 +1,21 @@
+/* src/ui/tokens.css — PRD section 7, palette B "Graphite and lavender".
+   Prefixed --vx- so it does not clash with the Vite template styles. */
+:root {
+  --vx-bg: #0f1013;
+  --vx-surface: #17181d;
+  --vx-surface-2: #1f2027;
+  --vx-border: #2a2c35;
+  --vx-text: #e8e9ee;
+  --vx-text-dim: #9fa2b3;
+  --vx-accent: #b4a7ff;
+
+  --vx-ok: #5fd3a5;
+  --vx-watch: #f5c04a;
+  --vx-alert: #ff7b86;
+  --vx-learn: #9094a8;
+
+  --vx-font-head: 'Space Grotesk', system-ui, sans-serif;
+  --vx-font-body: 'Inter', system-ui, sans-serif;
+  --vx-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --vx-radius: 14px;
+}
