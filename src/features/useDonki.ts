@@ -1,19 +1,18 @@
 import { useEffect, useState } from 'react';
-import { loadDonkiSnapshot } from '../engine/donkiRadiation';
-import type { DonkiSnapshot } from '../data/donki.types';
+import { loadDonki, type DonkiLoad } from '../engine/donkiRadiation';
 
 export type DonkiState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'ready'; snapshot: DonkiSnapshot };
+  | ({ status: 'ready' } & DonkiLoad);   // snapshot, origin ('live' | 'saved'), asOf, liveError
 
-/** Loads the bundled snapshot. Never blocks the screen: errors become a state. */
+/** Tries NASA live, falls back to the bundled snapshot. Never blocks the screen: errors become a state. */
 export function useDonki(): DonkiState {
   const [state, setState] = useState<DonkiState>({ status: 'loading' });
   useEffect(() => {
     let cancelled = false;
-    loadDonkiSnapshot()
-      .then((snapshot) => { if (!cancelled) setState({ status: 'ready', snapshot }); })
+    loadDonki()
+      .then((load) => { if (!cancelled) setState({ status: 'ready', ...load }); })
       .catch((e: unknown) => {
         if (!cancelled) setState({ status: 'error', message: e instanceof Error ? e.message : 'Unknown error' });
       });

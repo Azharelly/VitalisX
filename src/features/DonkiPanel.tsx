@@ -1,6 +1,5 @@
 import { latestFlares, lastSep, strongestEvents, summary } from '../data/donki';
-import type { DonkiSnapshot } from '../data/donki.types';
-import { DONKI_NOTE, gScale, isActiveSolarStorm, sepDataCoversNow, snapshotAsOf } from '../engine/donkiRadiation';
+import { activeSepEpisode, DONKI_NOTE, gScale, sepDataCoversNow, type DonkiLoad } from '../engine/donkiRadiation';
 import { STORM_DESIGN_TARGET_MSV } from '../engine/radiation';
 import type { DonkiState } from './useDonki';
 
@@ -10,32 +9,40 @@ export function DonkiPanel({ donki }: { donki: DonkiState }) {
   return (
     <section className="rad-card" aria-labelledby="rad-donki-h">
       <h2 id="rad-donki-h">Space weather (NASA DONKI)</h2>
-      {donki.status === 'loading' && <p className="rad-dim">Loading saved space-weather data…</p>}
+      {donki.status === 'loading' && <p className="rad-dim">Checking NASA for live space-weather data…</p>}
       {donki.status === 'error' && (
-        <p role="alert">Space-weather data could not be loaded ({donki.message}). Dose figures above are not affected.</p>
+        <p role="alert">Space-weather data could not be loaded, live or saved ({donki.message}). Dose figures above are not affected.</p>
       )}
-      {donki.status === 'ready' && <Ready snap={donki.snapshot} />}
+      {donki.status === 'ready' && <Ready load={donki} />}
     </section>
   );
 }
 
-function Ready({ snap }: { snap: DonkiSnapshot }) {
-  const asOf = snapshotAsOf(snap);
+function Ready({ load }: { load: DonkiLoad }) {
+  const { snapshot: snap, asOf, origin, liveError } = load;
   const s = summary(snap);
   const ev = strongestEvents(snap);
   const sep = lastSep(snap);
   const flares = latestFlares(snap, 3);
   const covers = sepDataCoversNow(snap, asOf);
-  const active = isActiveSolarStorm(snap, asOf);
+  const episode = activeSepEpisode(snap, asOf);
+  const active = episode !== null;
 
   return (
     <>
-      <p className="rad-dim rad-small">Showing saved data from {s.generatedAt} · works offline</p>
+      {origin === 'live' ? (
+        <p className="rad-dim rad-small">Live from NASA · fetched {asOf.toISOString().slice(0, 16).replace('T', ' ')} UTC</p>
+      ) : (
+        <p className="rad-dim rad-small">
+          Showing saved data from {s.generatedAt} · works offline
+          {liveError ? ` · live update unavailable (${liveError})` : ''}
+        </p>
+      )}
 
       <p>
         <strong>
           {active
-            ? 'Solar particle event in the last 24 h'
+            ? `Solar particle event in the last 24 h (${episode.id})`
             : covers
               ? 'No solar particle event in the last 24 h'
               : 'Current particle events: unknown'}

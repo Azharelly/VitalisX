@@ -3,7 +3,7 @@
 // strongest events): loading the bundled snapshot, the "active solar storm" rule, and honesty labels.
 // Only loadDonkiSnapshot() is impure.
 
-import { parseDonkiTime, sepEpisodes } from '../data/donki';
+import { parseDonkiTime, sepEpisodes, type SepEpisode } from '../data/donki';
 import type { DonkiSnapshot } from '../data/donki.types';
 
 /** Honest label for the UI: DONKI watches the Sun from near Earth. */
@@ -49,14 +49,132 @@ export function sepDataCoversNow(snapshot: DonkiSnapshot, asOf: Date): boolean {
 }
 
 /**
- * Active solar storm = an SEP EPISODE (records grouped by src/data/donki.ts) that ended
- * within the last `windowHours` (default 24 h). Geomagnetic storms do not count: SEP is the radiation hazard.
+ * The active solar storm = the most recent SEP EPISODE (records grouped by src/data/donki.ts) that ended
+ * within the last `windowHours` (default 24 h) before `asOf`. null if there is none.
+ * Geomagnetic storms do not count: SEP is the radiation hazard.
  * [PROPOSED] Team to confirm; same 24 h window as sep_flag in PRD 5.3.
  */
-export function isActiveSolarStorm(snapshot: DonkiSnapshot, asOf: Date, windowHours = 24): boolean {
+export function activeSepEpisode(snapshot: DonkiSnapshot, asOf: Date, windowHours = 24): SepEpisode | null {
   const now = asOf.getTime();
-  return sepEpisodes(snapshot).some((e) => {
+  // sepEpisodes() is newest first, so the first match is the most recent one.
+  return sepEpisodes(snapshot).find((e) => {
     const age = now - parseDonkiTime(e.end).getTime();
     return age >= 0 && age <= windowHours * HOUR_MS;
-  });
+  }) ?? null;
+}
+
+/** Yes/no version of activeSepEpisode(). */
+export function isActiveSolarStorm(snapshot: DonkiSnapshot, asOf: Date, windowHours = 24): boolean {
+  return activeSepEpisode(snapshot, asOf, windowHours) !== null;
+}
+
+// ---------- live API with fallback to the saved snapshot (issue #14) ----------
+// Order: try NASA live; on ANY failure (offline, timeout, HTTP error, bad data) use the bundled snapshot.
+// The UI is told which one it got, so it never shows old data as if it were live.
+
+export type DonkiOrigin = 'live' | 'saved';
+
+export interface DonkiLoad {
+  snapshot: DonkiSnapshot;
+  origin: DonkiOrigin;
+  /** "Now" for the active-storm rule: the real clock for live data, the capture day for the saved snapshot. */
+  asOf: Date;
+  /** Why the live call was not used (only when origin is 'saved'). null otherwise. */
+  liveError: string | null;
+}
+
+const DONKI_API = 'https://api.nasa.gov/DONKI';
+/** NASA's shared demo key works but is rate limited. Set VITE_NASA_API_KEY for a real one (api.nasa.gov, free). */
+const DEFAULT_API_KEY = 'DEMO_KEY';
+export const LIVE_TIMEOUT_MS = 8000;
+/** Same length as the 30-day default NASA uses for DONKI queries. */
+export const LIVE_WINDOW_DAYS = 30;
+
+export interface LiveOptions {
+  now?: Date;
+  fetchFn?: typeof fetch;
+  apiKey?: string;
+  timeoutMs?: number;
+  windowDays?: number;
+}
+
+const ymd = (d: Date) => d.toISOString().slice(0, 10);
+
+/** DONKI answers an empty window with an empty body or null, not always with []. */
+function asList<T>(body: unknown, what: string): T[] {
+  if (body === null || body === undefined || body === '') return [];
+  if (!Array.isArray(body)) throw new Error(`NASA returned an unexpected ${what} response`);
+  return body as T[];
+}
+
+/** One live call per event type, all or nothing. Throws on any problem; loadDonki() turns that into the fallback. */
+export async function fetchDonkiLive(opts: LiveOptions = {}): Promise<DonkiSnapshot> {
+  const now = opts.now ?? new Date();
+  const fetchFn = opts.fetchFn ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
+  const apiKey = opts.apiKey ?? (import.meta.env.VITE_NASA_API_KEY as string | undefined) ?? DEFAULT_API_KEY;
+  const timeoutMs = opts.timeoutMs ?? LIVE_TIMEOUT_MS;
+  const windowDays = opts.windowDays ?? LIVE_WINDOW_DAYS;
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('device is offline');
+
+  const range = `${ymd(new Date(now.getTime() - windowDays * DAY_MS))}/${ymd(now)}`;
+  const [startDate, endDate] = range.split('/');
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+
+  const get = async <T>(type: 'FLR' | 'CME' | 'GST' | 'SEP'): Promise<T[]> => {
+    const url = `${DONKI_API}/${type}?startDate=${startDate}&endDate=${endDate}&api_key=${encodeURIComponent(apiKey)}`;
+    const res = await fetchFn(url, { signal: ctl.signal });
+    if (!res.ok) throw new Error(res.status === 429 ? 'NASA rate limit reached (HTTP 429)' : `NASA answered HTTP ${res.status}`);
+    const text = await res.text();
+    return asList<T>(text.trim() === '' ? null : JSON.parse(text), type);
+  };
+
+  try {
+    const [flares, cme, gst, sep] = await Promise.all([
+      get<DonkiSnapshot['flares'][number]>('FLR'),
+      get<DonkiSnapshot['cme'][number]>('CME'),
+      get<DonkiSnapshot['gst'][number]>('GST'),
+      get<DonkiSnapshot['sep'][number]>('SEP'),
+    ]);
+    return {
+      source: 'NASA CCMC DONKI (api.nasa.gov/DONKI), live',
+      generated_at: ymd(now),
+      ranges: { flares: range, cme: range, gst: range, sep: range },
+      flares, cme, gst, sep,
+    };
+  } catch (e) {
+    if (ctl.signal.aborted) throw new Error(`NASA did not answer within ${Math.round(timeoutMs / 1000)} s`, { cause: e });
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const reason = (e: unknown) => (e instanceof Error ? e.message : 'unknown error');
+
+/**
+ * Live first, saved snapshot second. Throws only if BOTH fail (then the UI shows its error state).
+ * The three sources are injectable so tests need no network.
+ */
+export async function loadDonki(
+  deps: {
+    now?: Date;
+    live?: () => Promise<DonkiSnapshot>;
+    saved?: () => Promise<DonkiSnapshot>;
+  } = {},
+): Promise<DonkiLoad> {
+  const now = deps.now ?? new Date();
+  const live = deps.live ?? (() => fetchDonkiLive({ now }));
+  const saved = deps.saved ?? (() => loadDonkiSnapshot());
+  try {
+    return { snapshot: await live(), origin: 'live', asOf: now, liveError: null };
+  } catch (liveErr) {
+    try {
+      const snapshot = await saved();
+      return { snapshot, origin: 'saved', asOf: snapshotAsOf(snapshot), liveError: reason(liveErr) };
+    } catch (savedErr) {
+      throw new Error(`live: ${reason(liveErr)}; saved: ${reason(savedErr)}`, { cause: savedErr });
+    }
+  }
 }

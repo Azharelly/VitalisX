@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { RadiationDose } from '../data/types';
-import { isActiveSolarStorm, snapshotAsOf } from '../engine/donkiRadiation';
+import { activeSepEpisode } from '../engine/donkiRadiation';
 import { evaluateRadiation } from '../engine/radiation';
 import { MOCK } from './mock';
 import { useDonki } from './useDonki';
@@ -24,11 +24,12 @@ export function RadiationScreen({
   arrivalDay = MOCK.arrivalDay,
 }: RadiationScreenProps) {
   const donki = useDonki();
-  const activeStorm = donki.status === 'ready' && isActiveSolarStorm(donki.snapshot, snapshotAsOf(donki.snapshot));
+  // The episode itself, not just yes/no, so the warning can name it. asOf is the real clock for live data.
+  const activeStormEpisode = donki.status === 'ready' ? activeSepEpisode(donki.snapshot, donki.asOf) : null;
 
   const result = useMemo(
-    () => evaluateRadiation({ doses, priorDoseMsv, currentDay, arrivalDay, activeStorm }),
-    [doses, priorDoseMsv, currentDay, arrivalDay, activeStorm],
+    () => evaluateRadiation({ doses, priorDoseMsv, currentDay, arrivalDay, activeStormEpisode }),
+    [doses, priorDoseMsv, currentDay, arrivalDay, activeStormEpisode],
   );
 
   return (

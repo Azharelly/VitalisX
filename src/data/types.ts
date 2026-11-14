@@ -29,6 +29,7 @@ export interface CrewMember {
   initials: string;
   prior_dose_msv: number;    // radiation from earlier missions
   joined_mission_day: number;
+  removed_at: string | null; // ISO date-time when the person left the crew; null = still active (soft delete: history stays)
   is_simulated: boolean;
 }
 

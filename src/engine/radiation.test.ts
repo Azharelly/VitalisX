@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import type { SepEpisode } from '../data/donki';
 import type { RadiationDose } from '../data/types';
 import {
-  careerDose, doseRate, daysToLimit, arrivalProjection, hasRecentSep, evaluateRadiation,
+  careerDose, doseRate, daysToLimit, arrivalProjection, hasRecentSep, evaluateRadiation, findRecentSep, sepFieldProblems,
 } from './radiation';
 
 const dose = (day: number, msv: number, sep = false): RadiationDose => ({
@@ -118,5 +119,85 @@ describe('evaluateRadiation', () => {
       doses: flat(10, 1), priorDoseMsv: 600, currentDay: 142, arrivalDay: 210, activeStorm: true,
     });
     expect(r.state).toBe('alert');
+  });
+});
+
+// ---------- SEP warning names the episode (issue #15) ----------
+const sepDose = (day: number, msv: number, eventId: string | null): RadiationDose => ({
+  ...dose(day, msv, true), event_id: eventId,
+});
+
+describe('findRecentSep: which event is it?', () => {
+  it('null when no flagged day is in the last 24 h', () => {
+    expect(findRecentSep([...flat(140, 0.5), sepDose(139, 3, 'SEP-2')], 142)).toBeNull();
+  });
+  it('returns the event_id, its flagged days and their summed dose', () => {
+    const doses = [...flat(140, 0.5), sepDose(141, 3, 'SEP-3'), sepDose(142, 4, 'SEP-3')];
+    expect(findRecentSep(doses, 142)).toEqual({ eventId: 'SEP-3', startDay: 141, endDay: 142, days: [141, 142], doseMsv: 7 });
+  });
+  it('a multi-day event that started before the window still reports its first day', () => {
+    const doses = [sepDose(139, 2, 'SEP-3'), sepDose(140, 2, 'SEP-3'), sepDose(142, 2, 'SEP-3')];
+    expect(findRecentSep(doses, 142)?.startDay).toBe(139);
+  });
+  it('does not mix two different events', () => {
+    const doses = [sepDose(100, 5, 'SEP-1'), sepDose(142, 3, 'SEP-4')];
+    expect(findRecentSep(doses, 142)).toMatchObject({ eventId: 'SEP-4', days: [142], doseMsv: 3 });
+  });
+  it('a flagged day with no event_id stands alone with a null id', () => {
+    expect(findRecentSep([sepDose(142, 3, null)], 142)).toMatchObject({ eventId: null, days: [142] });
+  });
+  it('hasRecentSep agrees', () => {
+    expect(hasRecentSep([sepDose(142, 3, 'SEP-3')], 142)).toBe(true);
+    expect(hasRecentSep(flat(142, 1), 142)).toBe(false);
+  });
+});
+
+describe('evaluateRadiation: the warning says which event', () => {
+  it('dose-log SEP: reason names the event_id and the day, and sepEvent is returned', () => {
+    const doses = [...flat(141, 0.5), sepDose(142, 3, 'SEP-3')];
+    const r = evaluateRadiation({ doses, priorDoseMsv: 0, currentDay: 142, arrivalDay: 210 });
+    expect(r.state).toBe('watch');
+    expect(r.sepEvent?.eventId).toBe('SEP-3');
+    expect(r.reasons.join(' ')).toMatch(/SEP-3.*mission day 142/);
+  });
+  it('no recent SEP: sepEvent is null', () => {
+    expect(evaluateRadiation({ doses: flat(142, 0.5), priorDoseMsv: 0, currentDay: 142, arrivalDay: 210 }).sepEvent).toBeNull();
+  });
+  const episode: SepEpisode = {
+    id: '2026-11-14T05:00:00-SEP-001', start: '2026-11-14T05:00Z', end: '2026-11-14T08:00Z', recordCount: 3,
+    channels: [], over10MeV: true, over100MeV: false, linkedEventIds: [], links: [],
+  };
+  it('DONKI episode: reason names the episode and returns it', () => {
+    const r = evaluateRadiation({ doses: flat(142, 0.5), priorDoseMsv: 0, currentDay: 142, arrivalDay: 210, activeStormEpisode: episode });
+    expect(r.state).toBe('watch');
+    expect(r.activeStorm).toBe(true);
+    expect(r.stormEpisode).toBe(episode);
+    expect(r.reasons.join(' ')).toMatch(/2026-11-14T05:00:00-SEP-001.*>10 MeV/);
+  });
+  it('activeStormEpisode = null means no storm, even if a boolean says otherwise', () => {
+    const r = evaluateRadiation({ doses: flat(142, 0.5), priorDoseMsv: 0, currentDay: 142, arrivalDay: 210, activeStormEpisode: null, activeStorm: true });
+    expect(r.activeStorm).toBe(false);
+  });
+  it('the old yes/no input still works', () => {
+    const r = evaluateRadiation({ doses: flat(142, 0.5), priorDoseMsv: 0, currentDay: 142, arrivalDay: 210, activeStorm: true });
+    expect(r.activeStorm).toBe(true);
+    expect(r.stormEpisode).toBeNull();
+  });
+  it('both sources can fire; both are named', () => {
+    const doses = [...flat(141, 0.5), sepDose(142, 3, 'SEP-3')];
+    const r = evaluateRadiation({ doses, priorDoseMsv: 0, currentDay: 142, arrivalDay: 210, activeStormEpisode: episode });
+    expect(r.reasons.join(' ')).toMatch(/DONKI/);
+    expect(r.reasons.join(' ')).toMatch(/SEP-3/);
+  });
+});
+
+describe('sepFieldProblems: sep_flag and event_id must agree', () => {
+  it('clean data has no problems', () => {
+    expect(sepFieldProblems([dose(1, 1), sepDose(2, 3, 'SEP-1')])).toEqual([]);
+  });
+  it('flags a SEP day with no event_id, and an event_id on a non-SEP day', () => {
+    const bad: RadiationDose = { ...dose(4, 1), event_id: 'SEP-9' };
+    const found = sepFieldProblems([sepDose(3, 3, null), bad]).map((p) => p.dose.mission_day);
+    expect(found).toEqual([3, 4]);
   });
 });
