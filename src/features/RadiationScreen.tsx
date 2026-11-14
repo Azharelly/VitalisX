@@ -40,9 +40,9 @@ export function RadiationScreen({
   const [whyOpen, setWhyOpen] = useState(false);
 
   return (
-    <main className="rad-screen">
+    <section className="rad-screen" aria-labelledby="rad-title">
       <header className="rad-head">
-        <h1>Radiation</h1>
+        <h1 id="rad-title">Radiation</h1>
         <StateBadge state={result.state} />
         {evidence && (
           <button type="button" className="rad-why" onClick={() => setWhyOpen(true)}>
@@ -63,6 +63,6 @@ export function RadiationScreen({
       <DonkiPanel donki={donki} />
       <ShelterSteps />
       {whyOpen && evidence && <WhyModal e={evidence} onClose={() => setWhyOpen(false)} />}
-    </main>
+    </section>
   );
 }

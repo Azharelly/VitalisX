@@ -30,14 +30,18 @@ export function WhyModal({ e, onClose }: { e: WhyEvidence; onClose: () => void }
   return (
     <dialog
       ref={(d) => {
-        if (d && !d.open) d.showModal()
+        if (d && !d.open) {
+          d.showModal()
+          // Start at the top: the browser would focus Close (the only control) and scroll the window to the bottom.
+          d.querySelector<HTMLElement>('#why-title')?.focus()
+        }
       }}
       className={`${t.theme} ${s.dialog}`}
       aria-labelledby="why-title"
       onClose={onClose}
     >
       <p className={`${s.level} ${t[e.level]}`}>{LEVEL_WORD[e.level]}</p>
-      <h2 id="why-title" className={s.title}>Why is {e.label} flagged?</h2>
+      <h2 id="why-title" className={s.title} tabIndex={-1}>Why is {e.label} flagged?</h2>
       <p className={s.reason}>{whySentence(e)}</p>
       {e.note && <p className={s.muted}>{e.note}</p>}
 
@@ -56,21 +60,31 @@ export function WhyModal({ e, onClose }: { e: WhyEvidence; onClose: () => void }
               'Live readings · no snapshot stored'
             )}
           </p>
-          <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${e.label}: ${frozen ? `evidence frozen on day ${frozen.raisedDay}, ` : ''}last ${e.points.length} readings${e.usual ? ', shaded band is your usual range' : ''}`}>
-            {e.usual && (
-              <rect className={s.band} x={PAD} width={W - 2 * PAD} y={y(e.usual[1])} height={Math.max(1, y(e.usual[0]) - y(e.usual[1]))} />
-            )}
-            <path className={s.line} d={line} />
-            {e.points.map((p, i) => (
-              <circle key={i} className={`${s.dot} ${p.level ? t[p.level] : ''} ${i === e.points.length - 1 ? s.dotLast : ''}`} cx={x(i)} cy={y(p.value)} r={i === e.points.length - 1 ? 5 : 3}>
-                <title>{`${p.day !== undefined ? `Day ${p.day}: ` : ''}${p.value.toFixed(e.decimals)} ${e.unit}`}</title>
-              </circle>
-            ))}
-          </svg>
-          <figcaption className={s.muted}>
-            {first !== undefined && last !== undefined ? `Day ${first} to day ${last}` : `Last ${e.points.length} readings${frozen ? ` up to day ${frozen.raisedDay}` : ''}`}
-            {e.usual ? ' · shaded band = your usual range' : ''} · large dot = {frozen ? 'the reading that raised it' : 'latest'}
-          </figcaption>
+          {e.points.length === 1 ? (
+            // One reading is a value, not a trend: a lone dot with "day N to day N" says nothing.
+            <p className={s.single}>
+              <strong>{e.points[0].value.toFixed(e.decimals)}</strong> {e.unit}
+              {first !== undefined && <span className={s.muted}> on day {first}{frozen ? ', the reading that raised it' : ''}</span>}
+            </p>
+          ) : (
+            <>
+              <svg className={s.chart} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${e.label}: ${frozen ? `evidence frozen on day ${frozen.raisedDay}, ` : ''}last ${e.points.length} readings${e.usual ? ', shaded band is your usual range' : ''}`}>
+                {e.usual && (
+                  <rect className={s.band} x={PAD} width={W - 2 * PAD} y={y(e.usual[1])} height={Math.max(1, y(e.usual[0]) - y(e.usual[1]))} />
+                )}
+                <path className={s.line} d={line} />
+                {e.points.map((p, i) => (
+                  <circle key={i} className={`${s.dot} ${p.level ? t[p.level] : ''} ${i === e.points.length - 1 ? s.dotLast : ''}`} cx={x(i)} cy={y(p.value)} r={i === e.points.length - 1 ? 5 : 3}>
+                    <title>{`${p.day !== undefined ? `Day ${p.day}: ` : ''}${p.value.toFixed(e.decimals)} ${e.unit}`}</title>
+                  </circle>
+                ))}
+              </svg>
+              <figcaption className={s.muted}>
+                {first !== undefined && last !== undefined ? `Day ${first} to day ${last}` : `Last ${e.points.length} readings${frozen ? ` up to day ${frozen.raisedDay}` : ''}`}
+                {e.usual ? ' · shaded band = your usual range' : ''} · large dot = {frozen ? 'the reading that raised it' : 'latest'}
+              </figcaption>
+            </>
+          )}
           {frozen && (
             <p className={s.muted}>
               This is what the app saw when it raised the alert. It does not change when you log new readings.
@@ -145,7 +159,7 @@ export function WhyModal({ e, onClose }: { e: WhyEvidence; onClose: () => void }
       {pending && g && <p className={s.muted}>Source pending: part of this guidance has no citation yet.</p>}
 
       <form method="dialog" className={s.actions}>
-        <button type="submit" className={t.ghostBtn} autoFocus>Close</button>
+        <button type="submit" className={t.ghostBtn}>Close</button>
       </form>
     </dialog>
   )

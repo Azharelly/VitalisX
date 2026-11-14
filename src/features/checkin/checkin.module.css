@@ -1,186 +1,308 @@
-.form {
-  background-color: #0B0F14;
-  color: #E6EDF3;
-  padding: 20px;
-  max-width: 600px;
+/* Check-in. Tokens, banner, cards, badges and buttons come from the Today stylesheet (today.module.css). */
+
+/* ── Page: one centred column. A form is read top to bottom, and one column leaves no holes between cards. ── */
+.page {
+  max-width: calc(760px + 48px); /* 760 px of content plus the page padding */
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
+}
+
+.page form {
+  display: grid;
   gap: 16px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-.banner {
-  background-color: #161B22;
-  border: 1px solid #30363D;
-  padding: 12px 16px;
-  border-radius: 8px;
-  font-size: 1rem;
-  color: #58A6FF;
+.intro {
+  margin: -8px 0 20px;
+  color: var(--muted);
 }
 
-.card {
-  background-color: #141B23;
-  border: 1px solid #30363D;
-  border-radius: 10px;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.card h3 {
+/* ── Cards ── */
+.section {
+  gap: 20px;
   margin: 0;
-  font-size: 1.05rem;
-  color: #F0F6FC;
+  min-width: 0;
 }
 
-.grid3 {
+.sectionTitle {
+  padding: 0;
+  font: 600 15px var(--heading);
+}
+
+.section > .sectionTitle {
+  float: left; /* keeps the legend inside the card instead of on its border */
+  width: 100%;
+}
+
+/* ── One reading per row: the box, then how it was taken. Wraps under the box on phones. ── */
+.measure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 24px;
+}
+
+.measure > :first-child { flex: 0 1 240px; }
+.measure > .pair { flex: 0 1 496px; }
+.measure > :last-child { flex: 1 1 240px; }
+
+.measure .pills {
+  padding-top: 4px; /* centres the 44 px pills on the 52 px box */
+}
+
+.pair {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 240px));
+  gap: 12px 16px;
 }
 
-.grid2 {
+/* ── Fields ── */
+.field {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.fieldGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.fieldGroup label {
-  font-size: 0.85rem;
-  color: #8B949E;
-}
-
-.fieldGroup input,
-.fieldGroup select {
-  background-color: #0D1117;
-  border: 1px solid #30363D;
-  border-radius: 6px;
-  color: #F0F6FC;
-  padding: 10px;
-  font-size: 1rem;
-  min-height: 44px;
-}
-
-.fieldGroup input:focus,
-.fieldGroup select:focus {
-  outline: none;
-  border-color: #58A6FF;
-}
-
-.rowBetween {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.rowGap {
-  display: flex;
-  gap: 12px;
-}
-
-.quickBtn,
-.toggleBtn {
-  background-color: #21262D;
-  color: #58A6FF;
-  border: 1px solid #30363D;
-  border-radius: 6px;
-  padding: 8px 16px;
-  min-height: 44px;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.quickBtn:hover,
-.toggleBtn:hover {
-  background-color: #30363D;
-}
-
-.linkBtn {
-  background: none;
-  border: none;
-  color: #8B949E;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.moodRow {
-  display: flex;
-  justify-content: space-between;
+  align-content: start;
   gap: 8px;
+  min-width: 0;
 }
 
-.moodBtn {
-  background-color: #0D1117;
-  border: 1px solid #30363D;
-  border-radius: 8px;
-  font-size: 1.5rem;
+.label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.inputWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 240px; /* a number needs no more; long boxes read as "type a sentence" */
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--bg);
+}
+
+.inputWrap:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.inputWrap input {
   flex: 1;
-  min-height: 44px;
-  cursor: pointer;
+  width: 100%; /* an input's default width would push it out of narrow cells */
+  min-width: 0;
+  padding: 12px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: 300 24px var(--sans);
+  font-variant-numeric: tabular-nums;
 }
 
-.moodActive {
-  border-color: #58A6FF;
-  background-color: rgba(88, 166, 255, 0.15);
+.unitText {
+  color: var(--muted);
+  font-size: 14px;
 }
 
-.chipsGrid {
+.invalid {
+  border-color: var(--alert);
+}
+
+.hint,
+.fieldError {
+  font-size: 13px;
+}
+
+.hint { color: var(--muted); }
+.fieldError { color: var(--alert); }
+
+/* ── Pill choices (context, mood, severity) ── */
+.pills {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.chip {
-  background-color: #0D1117;
-  border: 1px solid #30363D;
-  color: #C9D1D9;
-  border-radius: 20px;
-  padding: 8px 14px;
+.pill {
   min-height: 44px;
-  cursor: pointer;
-  font-size: 0.9rem;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 14px;
 }
 
-.chipActive {
-  background-color: #1F6FEB;
-  color: #FFFFFF;
-  border-color: #58A6FF;
+.pill:hover {
+  background: var(--surface-2);
 }
 
-.submitBtn {
-  background-color: #238636;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 14px;
-  font-size: 1.1rem;
-  font-weight: bold;
-  min-height: 48px;
-  cursor: pointer;
+.pill[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+  font-weight: 600;
 }
 
-.submitBtn:disabled {
-  opacity: 0.6;
+.face {
+  width: 22px;
+  height: 22px;
+  margin-right: 2px;
+  vertical-align: -6px;
+}
+
+/* ── Fluids stepper ── */
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stepper button {
+  white-space: nowrap;
+}
+
+.stepper button:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-.error {
-  color: #F85149;
-  background-color: rgba(248, 81, 73, 0.1);
-  padding: 10px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  margin: 0;
+.stepValue {
+  min-width: 96px;
+  text-align: center;
+  font: 300 24px var(--sans);
+  font-variant-numeric: tabular-nums;
 }
 
-.marginTop {
+.stepValue span[class] {
+  font-size: 14px;
+}
+
+/* ── Optional section (glucose, blood pressure) ── */
+.optional > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.optional > summary::-webkit-details-marker {
+  display: none;
+}
+
+.optional > summary::after {
+  content: '+';
+  color: var(--muted);
+  font-size: 20px;
+}
+
+.optional[open] > summary::after {
+  content: '−';
+}
+
+.optionalBody {
+  display: grid; /* <details> does not lay out its content as grid items, so the rows get their own grid */
+  gap: 20px;
+  margin-top: 4px;
+}
+
+.optional:not([open]) {
+  gap: 0; /* the closed body still counts as a grid row in Chrome */
+}
+
+.optionalTag {
+  margin-left: 8px;
+  color: var(--muted);
+  font: 400 13px var(--sans);
+}
+
+/* ── Save row ── */
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px 20px;
+  padding-top: 8px;
+}
+
+.status {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.demoTag {
+  margin-right: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--watch) 18%, transparent);
+  color: var(--watch);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.changes {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* ── Result after saving ── */
+.doNow {
+  max-width: 60ch;
   margin-top: 12px;
+}
+
+.danger {
+  min-height: 44px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--alert);
+  color: #fff;
+  font-weight: 700;
+}
+
+.danger:hover {
+  background: #ff6a60;
+}
+
+.ladder {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.ladder ol {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+}
+
+.ladder li:first-child {
+  color: var(--text);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end; /* same side as Save on the form */
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

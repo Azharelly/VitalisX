@@ -1,383 +1,399 @@
-import { useState } from 'react';
-import s from './checkin.module.css';
-
-export interface CheckInEntry {
-  crewId: string;
-  values: Partial<
-    Record<
-      | 'sleep'
-      | 'hr'
-      | 'spo2'
-      | 'temp'
-      | 'glucose'
-      | 'bp_sys'
-      | 'bp_dia'
-      | 'fluids'
-      | 'mood',
-      number
-    >
-  >;
-  context: {
-    temp?: 'resting' | 'after exercise' | 'after meal';
-    glucose?: 'fasting' | 'before meal' | 'after meal';
-  };
-  symptoms: string[];
-}
+import { useRef, useState, type ReactNode } from 'react'
+import { actionFor } from '../../data/guidance'
+import type { Context, MetricId } from '../../data/types'
+import { LEVEL_WORD } from '../today/model'
+import { StatusIcon } from '../today/StatusIcon'
+import t from '../today/today.module.css'
+import s from './checkin.module.css'
+import {
+  CONTEXT_LABEL, DEMO_FORM, EMPTY_FORM, FIELDS, atypical, fromAnswers, outcomeHeadline, toAnswers,
+  type CheckInAnswers, type ContextField, type FieldId, type FormState, type Outcome,
+} from './model'
 
 export interface CheckInScreenProps {
-  crewId?: string;
-  name?: string;
-  onSave?: (entry: CheckInEntry) => void;
+  /** Whose check-in this is (shown big: there is no sign-in, PRD D1). */
+  name: string
+  /** Mission day being logged. */
+  day?: number
+  /** Today's saved answers, if any: the form opens on them and saving updates them (PRD F-03 "Edit"). */
+  existing?: CheckInAnswers
+  /** Personal bands (median ± 1.5 × scale) from Today, to ask "are you sure?" on very unusual values. */
+  usual?: Partial<Record<MetricId, [number, number]>>
+  /** Saves and recomputes. Wire as `async (a) => toOutcomes(await saveCheckIn(crewId, a, takenAt, day))`. */
+  onSave: (answers: CheckInAnswers) => Promise<Outcome[]>
+  /** "Back to Today" after saving. */
+  onDone?: () => void
+  /** Result screen buttons; each one shows only when its handler is given. */
+  onEmergency?: () => void
+  onWhy?: (metricId: string) => void
+  onNoteForEarth?: (metricId: string) => void
 }
 
-const SYMPTOM_OPTIONS = [
-  'None today',
-  'Headache',
-  'Congestion',
-  'Nausea',
-  'Back pain',
-  'Vision change',
-  'Fever or chills',
-  'Other',
-];
+const MOODS = ['Very low', 'Low', 'Okay', 'Good', 'Great'] as const
+const MOUTHS = ['M9 17q3-3 6 0', 'M9 16.5q3-1.5 6 0', 'M9 16h6', 'M9 15.5q3 1.8 6 0', 'M8.5 15q3.5 3.5 7 0'] // sad → happy
 
-const toNumber = (text: string): number | undefined => {
-  const t = text.trim().replace(',', '.');
-  return t === '' ? undefined : Number(t);
-};
+// Line-drawn faces: emoji look different on every device and clash with the line icons.
+const Face = ({ i }: { i: number }) => (
+  <svg className={s.face} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="9.5" />
+    <path d="M9 9.5v1M15 9.5v1" />
+    <path d={MOUTHS[i]} />
+  </svg>
+)
+const SEVERITY = ['None', 'Mild', 'Moderate', 'Severe'] as const
+const FLUID_STEP_ML = 250
 
-export function CheckInScreen({
-  crewId = 'crew-1',
-  name = 'Ravi Menon',
-  onSave,
-}: CheckInScreenProps) {
-  const [sleep, setSleep] = useState('7.5');
-  const [hr, setHr] = useState('68');
-  const [spo2, setSpo2] = useState('98');
-  const [temp, setTemp] = useState('');
-  const [tempContext, setTempContext] = useState<
-    'resting' | 'after exercise' | 'after meal'
-  >('resting');
-  const [fluids, setFluids] = useState(0);
-  const [mood, setMood] = useState<number | undefined>(undefined);
+export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone, onEmergency, onWhy, onNoteForEarth }: CheckInScreenProps) {
+  const [form, setForm] = useState<FormState>(() => (existing ? fromAnswers(existing) : EMPTY_FORM))
+  const [editing, setEditing] = useState(existing !== undefined)
+  const [touched, setTouched] = useState<Set<FieldId>>(new Set())
+  const [submitted, setSubmitted] = useState(false)
+  const [warnings, setWarnings] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [result, setResult] = useState<Outcome[] | null>(null)
+  const busy = useRef(false) // a double click lands before React disables the button
 
-  const [showGlucose, setShowGlucose] = useState(false);
-  const [glucose, setGlucose] = useState('');
-  const [glucoseContext, setGlucoseContext] = useState<
-    'fasting' | 'before meal' | 'after meal'
-  >('fasting');
+  const { answers, errors } = toAnswers(form)
+  const errorFor = (id: FieldId) => ((submitted || touched.has(id)) && errors[id]) || undefined
+  const count = Object.keys(answers).length
 
-  const [showBP, setShowBP] = useState(false);
-  const [bpSys, setBpSys] = useState('');
-  const [bpDia, setBpDia] = useState('');
+  const update = (patch: Partial<FormState>) => {
+    setForm((f) => ({ ...f, ...patch }))
+    setWarnings([]) // any edit means the numbers must be checked again
+    setSaveError('')
+  }
+  const setText = (id: FieldId, v: string) => update({ text: { ...form.text, [id]: v } })
+  const setContext = (id: ContextField, c: Context) => update({ context: { ...form.context, [id]: c } })
 
-  const [symptoms, setSymptoms] = useState<string[]>([]);
-
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  const toggleSymptom = (symptom: string) => {
-    if (symptom === 'None today') {
-      setSymptoms(['None today']);
-      return;
+  const save = async () => {
+    setSubmitted(true)
+    const firstBad = (Object.keys(FIELDS) as FieldId[]).find((id) => errors[id])
+    if (firstBad) document.getElementById(`ci-${firstBad}`)?.focus() // the error may be off-screen
+    if (busy.current || firstBad || count === 0) return
+    if (warnings.length === 0) {
+      const odd = atypical(answers, usual)
+      if (odd.length > 0) return setWarnings(odd) // second press = confirmed
     }
-    setSymptoms((prev) => {
-      const filtered = prev.filter((item) => item !== 'None today');
-      if (filtered.includes(symptom)) {
-        return filtered.filter((item) => item !== symptom);
-      }
-      return [...filtered, symptom];
-    });
-  };
-
-  const handleSave = () => {
-    const parsedTemp = toNumber(temp);
-    const parsedSleep = toNumber(sleep);
-    const parsedHr = toNumber(hr);
-    const parsedSpo2 = toNumber(spo2);
-    const parsedGlucose = toNumber(glucose);
-    const parsedBpSys = toNumber(bpSys);
-    const parsedBpDia = toNumber(bpDia);
-
-    if (
-      parsedTemp !== undefined &&
-      (Number.isNaN(parsedTemp) || parsedTemp < 30 || parsedTemp > 45)
-    ) {
-      setError('Temperature must be between 30 and 45 °C');
-      return;
+    busy.current = true
+    setSaving(true)
+    setSaveError('')
+    try {
+      setResult(await onSave(answers))
+      setEditing(true)
+      setWarnings([])
+    } catch {
+      setSaveError('Could not save. Your entries are still here, please try again.')
+    } finally {
+      busy.current = false
+      setSaving(false)
     }
-    if (
-      parsedGlucose !== undefined &&
-      (Number.isNaN(parsedGlucose) || parsedGlucose < 20 || parsedGlucose > 600)
-    ) {
-      setError('Glucose must be between 20 and 600 mg/dL');
-      return;
-    }
+  }
 
-    setIsSaving(true);
-    setError('');
+  const header = (
+    <header className={t.banner}>
+      <div>
+        <span className={t.eyebrow}>Daily check-in{day !== undefined && ` · Day ${day}`}</span>
+        <h1 className={t.name}>{name}</h1>
+      </div>
+      {result === null && (
+        <button type="button" className={t.ghostBtn} onClick={() => update(DEMO_FORM)}>
+          <span className={s.demoTag}>Demo</span> Fill typical values
+        </button>
+      )}
+    </header>
+  )
 
-    const entry: CheckInEntry = {
-      crewId,
-      values: {
-        sleep: parsedSleep,
-        hr: parsedHr,
-        spo2: parsedSpo2,
-        temp: parsedTemp,
-        fluids: fluids > 0 ? fluids : undefined,
-        mood,
-        glucose: parsedGlucose,
-        bp_sys: parsedBpSys,
-        bp_dia: parsedBpDia,
-      },
-      context: {
-        temp: parsedTemp !== undefined ? tempContext : undefined,
-        glucose: parsedGlucose !== undefined ? glucoseContext : undefined,
-      },
-      symptoms,
-    };
+  if (result !== null) {
+    return (
+      <section className={`${t.root} ${s.page}`} aria-label={`Check-in result for ${name}`}>
+        {header}
+        <Result
+          outcomes={result}
+          first={name.split(' ')[0]}
+          count={count}
+          onDone={onDone}
+          onEdit={() => setResult(null)}
+          onEmergency={onEmergency}
+          onWhy={onWhy}
+          onNoteForEarth={onNoteForEarth}
+        />
+      </section>
+    )
+  }
 
-    if (onSave) {
-      onSave(entry);
-    }
-
-    setTimeout(() => {
-      setIsSaving(false);
-    }, 800);
-  };
+  const num = (id: FieldId) => (
+    <NumField id={id} value={form.text[id] ?? ''} error={errorFor(id)} usual={usual[id]} onChange={(v) => setText(id, v)} onBlur={() => setTouched((x) => new Set(x).add(id))} />
+  )
+  const ctx = (id: ContextField, what: string) => (
+    <Pills label="Taken" ariaLabel={`${what} taken`} value={form.context[id]} onChange={(c) => c && setContext(id, c)} options={FIELDS[id].contexts.map((c) => [c, CONTEXT_LABEL[c]])} />
+  )
+  const fluidsL = form.fluidsMl === undefined ? null : (form.fluidsMl / 1000).toFixed(2).replace(/0$/, '')
 
   return (
-    <form
-      className={s.form}
-      onSubmit={(e) => {
-        e.preventDefault();
-        handleSave();
-      }}
-    >
-      {/* Top Banner */}
-      <div className={s.banner}>
-        Entering for <strong>{name}</strong>
-      </div>
+    <section className={`${t.root} ${s.page}`} aria-label={`Check-in for ${name}`}>
+      {header}
+      <p className={s.intro}>
+        {editing ? 'You already checked in today. Change anything below and save again.' : 'About a minute.'} Leave blank anything you did not
+        measure: blank is never saved as 0.
+      </p>
 
-      {/* Vitals Card (Sleep, HR, SpO2) */}
-      <div className={s.card}>
-        <h3>Vitals & Sleep</h3>
-        <div className={s.grid3}>
-          <div className={s.fieldGroup}>
-            <label htmlFor="sleep-input">Sleep (h)</label>
-            <input
-              id="sleep-input"
-              inputMode="decimal"
-              value={sleep}
-              onChange={(e) => setSleep(e.target.value)}
-            />
+      <form
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault()
+          void save()
+        }}
+      >
+        <Section title="Sleep and mood" tone="learn">
+          {num('sleep')}
+          <Pills
+            label="Mood"
+            toggle
+            value={form.mood}
+            onChange={(v) => update({ mood: v })}
+            options={MOODS.map((m, i) => [i + 1, <><Face i={i} /> {m}</>])}
+          />
+        </Section>
+
+        <Section title="Vitals" tone="ok">
+          <div className={s.measure}>
+            {num('hr')}
+            {ctx('hr', 'Heart rate')}
           </div>
-          <div className={s.fieldGroup}>
-            <label htmlFor="hr-input">HR (bpm)</label>
-            <input
-              id="hr-input"
-              inputMode="numeric"
-              value={hr}
-              onChange={(e) => setHr(e.target.value)}
-            />
+          {num('spo2')}
+          <div className={s.measure}>
+            {num('temp')}
+            {ctx('temp', 'Temperature')}
           </div>
-          <div className={s.fieldGroup}>
-            <label htmlFor="spo2-input">SpO2 (%)</label>
-            <input
-              id="spo2-input"
-              inputMode="numeric"
-              value={spo2}
-              onChange={(e) => setSpo2(e.target.value)}
-            />
+        </Section>
+
+        <Section title="How you feel" tone="watch">
+          <Pills label="Symptoms today (headache, nausea, congestion, pain, fever…)" toggle value={form.symptoms} onChange={(v) => update({ symptoms: v })} options={SEVERITY.map((x, i) => [i, x])} />
+          <Pills label="Vision self-check: any blur or change?" toggle value={form.vision} onChange={(v) => update({ vision: v })} options={SEVERITY.map((x, i) => [i, x])} />
+        </Section>
+
+        <Section title="Body and activity" tone="learn">
+          <div className={s.pair}>
+            {num('weight')}
+            {num('exercise')}
           </div>
-        </div>
-      </div>
-
-      {/* Body Temperature */}
-      <div className={s.card}>
-        <h3>Temperature (°C)</h3>
-        <div className={s.grid2}>
-          <div className={s.fieldGroup}>
-            <label htmlFor="temp-input">Body Temp (°C)</label>
-            <input
-              id="temp-input"
-              inputMode="decimal"
-              placeholder="e.g. 36.6"
-              value={temp}
-              onChange={(e) => {
-                setError('');
-                setTemp(e.target.value);
-              }}
-            />
-          </div>
-          <div className={s.fieldGroup}>
-            <label htmlFor="temp-ctx">Context</label>
-            <select
-              id="temp-ctx"
-              value={tempContext}
-              onChange={(e) =>
-                setTempContext(
-                  e.target.value as 'resting' | 'after exercise' | 'after meal'
-                )
-              }
-            >
-              <option value="resting">Resting</option>
-              <option value="after exercise">After exercise</option>
-              <option value="after meal">After meal</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Fluid Intake */}
-      <div className={s.card}>
-        <h3>Fluid Intake</h3>
-        <div className={s.rowBetween}>
-          <span>
-            Total: <strong>{fluids} mL</strong>
-          </span>
-          <button
-            type="button"
-            className={s.quickBtn}
-            onClick={() => setFluids((f) => f + 250)}
-          >
-            +250 mL
-          </button>
-        </div>
-      </div>
-
-      {/* Mood Assessment */}
-      <div className={s.card}>
-        <div className={s.rowBetween}>
-          <h3>Mood Rating</h3>
-          <button
-            type="button"
-            className={s.linkBtn}
-            onClick={() => setMood(undefined)}
-          >
-            Skip
-          </button>
-        </div>
-        <div className={s.moodRow}>
-          {[1, 2, 3, 4, 5].map((val) => (
-            <button
-              key={val}
-              type="button"
-              className={`${s.moodBtn} ${mood === val ? s.moodActive : ''}`}
-              onClick={() => setMood(val)}
-            >
-              {['😫', '😕', '😐', '🙂', '🚀'][val - 1]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Symptom Chips */}
-      <div className={s.card}>
-        <h3>Symptoms Today</h3>
-        <div className={s.chipsGrid}>
-          {SYMPTOM_OPTIONS.map((sym) => (
-            <button
-              key={sym}
-              type="button"
-              className={`${s.chip} ${
-                symptoms.includes(sym) ? s.chipActive : ''
-              }`}
-              onClick={() => toggleSymptom(sym)}
-            >
-              {sym}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      
-      <div className={s.card}>
-        <div className={s.rowGap}>
-          <button
-            type="button"
-            className={s.toggleBtn}
-            onClick={() => setShowGlucose(!showGlucose)}
-          >
-            {showGlucose ? '− Hide Glucose' : '+ Glucose'}
-          </button>
-          <button
-            type="button"
-            className={s.toggleBtn}
-            onClick={() => setShowBP(!showBP)}
-          >
-            {showBP ? '− Hide Blood Pressure' : '+ Blood Pressure'}
-          </button>
-        </div>
-
-        {showGlucose && (
-          <div className={`${s.grid2} ${s.marginTop}`}>
-            <div className={s.fieldGroup}>
-              <label htmlFor="glucose-input">Glucose (mg/dL)</label>
-              <input
-                id="glucose-input"
-                inputMode="decimal"
-                value={glucose}
-                onChange={(e) => {
-                  setError('');
-                  setGlucose(e.target.value);
-                }}
-              />
+          <div className={s.field}>
+            <span className={s.label} id="ci-fluids">
+              Fluids
+            </span>
+            <div className={s.stepper} role="group" aria-labelledby="ci-fluids">
+              <button type="button" className={t.ghostBtn} aria-label={`Remove ${FLUID_STEP_ML} mL`} disabled={!form.fluidsMl}
+                onClick={() => update({ fluidsMl: form.fluidsMl! > FLUID_STEP_ML ? form.fluidsMl! - FLUID_STEP_ML : undefined })}>
+                −
+              </button>
+              <output className={s.stepValue} aria-live="polite">
+                {fluidsL === null ? <span className={t.muted}>Not logged</span> : <>{fluidsL}<span className={s.unitText}> L</span></>}
+              </output>
+              <button type="button" className={t.ghostBtn} onClick={() => update({ fluidsMl: (form.fluidsMl ?? 0) + FLUID_STEP_ML })}>
+                +{FLUID_STEP_ML} mL
+              </button>
             </div>
-            <div className={s.fieldGroup}>
-              <label htmlFor="glucose-ctx">Context</label>
-              <select
-                id="glucose-ctx"
-                value={glucoseContext}
-                onChange={(e) =>
-                  setGlucoseContext(
-                    e.target.value as 'fasting' | 'before meal' | 'after meal'
-                  )
-                }
-              >
-                <option value="fasting">Fasting</option>
-                <option value="before meal">Before meal</option>
-                <option value="after meal">After meal</option>
-              </select>
+          </div>
+        </Section>
+
+        <details className={`${t.card} ${s.optional}`} open={Boolean(form.text.glucose || form.text.sys || form.text.dia)}>
+          <summary>
+            <span className={s.sectionTitle}>
+              Glucose and blood pressure <span className={s.optionalTag}>Optional</span>
+            </span>
+          </summary>
+          <div className={s.optionalBody}>
+            <div className={s.measure}>
+              {num('glucose')}
+              {ctx('glucose', 'Glucose')}
             </div>
+            <div className={s.measure}>
+              <div className={s.pair}>
+                {num('sys')}
+                {num('dia')}
+              </div>
+              {ctx('sys', 'Blood pressure')}
+            </div>
+          </div>
+        </details>
+
+        {warnings.length > 0 && (
+          <div className={`${t.card} ${t.watch}`} role="alert">
+            <p className={s.sectionTitle}>Please double-check</p>
+            <ul className={s.changes}>
+              {warnings.map((w) => (
+                <li key={w}>{w}</li>
+              ))}
+            </ul>
+            <p className={t.muted}>Fix the number above if it is a typo, or press "Save anyway" if it is right.</p>
           </div>
         )}
 
-        {showBP && (
-          <div className={`${s.grid2} ${s.marginTop}`}>
-            <div className={s.fieldGroup}>
-              <label htmlFor="bpsys-input">Systolic (mmHg)</label>
-              <input
-                id="bpsys-input"
-                inputMode="numeric"
-                value={bpSys}
-                onChange={(e) => setBpSys(e.target.value)}
-              />
-            </div>
-            <div className={s.fieldGroup}>
-              <label htmlFor="bpdia-input">Diastolic (mmHg)</label>
-              <input
-                id="bpdia-input"
-                inputMode="numeric"
-                value={bpDia}
-                onChange={(e) => setBpDia(e.target.value)}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+        <div className={s.footer}>
+          <p className={s.status} role={saveError || (submitted && count === 0) ? 'alert' : undefined}>
+            {saveError ||
+              (submitted && Object.keys(errors).length > 0 && 'Check the highlighted fields.') ||
+              (submitted && count === 0 && 'Fill in at least one reading.') ||
+              `${count} reading${count === 1 ? '' : 's'} ready`}
+          </p>
+          <button type="submit" className={t.primaryBtn} disabled={saving}>
+            {saving ? 'Saving…' : warnings.length > 0 ? 'Save anyway' : `${editing ? 'Update' : 'Save'} check-in for ${name.split(' ')[0]}`}
+          </button>
+        </div>
+      </form>
+    </section>
+  )
+}
 
-      {/* Error Message */}
-      {error && (
-        <p role="alert" className={s.error}>
-          {error}
+function Section({ title, tone, children }: { title: string; tone: 'ok' | 'watch' | 'learn'; children: ReactNode }) {
+  return (
+    <fieldset className={`${t.card} ${t[tone]} ${s.section}`}>
+      <legend className={s.sectionTitle}>{title}</legend>
+      {children}
+    </fieldset>
+  )
+}
+
+function NumField({ id, value, error, usual, onChange, onBlur }: {
+  id: FieldId; value: string; error?: string; usual?: [number, number]; onChange: (v: string) => void; onBlur: () => void
+}) {
+  const { label, unit } = FIELDS[id]
+  const hint = error ?? (usual && `Your usual ${usual[0]}–${usual[1]} ${unit}`)
+  return (
+    <div className={s.field}>
+      <label htmlFor={`ci-${id}`} className={s.label}>
+        {label} <span className={s.sr}>in {unit}</span>
+      </label>
+      <div className={`${s.inputWrap} ${error ? s.invalid : ''}`}>
+        <input
+          id={`ci-${id}`}
+          inputMode="decimal"
+          autoComplete="off"
+          value={value}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={hint ? `ci-${id}-hint` : undefined}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+        />
+        <span className={s.unitText} aria-hidden="true">
+          {unit}
+        </span>
+      </div>
+      {hint && (
+        <p id={`ci-${id}-hint`} className={error ? s.fieldError : s.hint}>
+          {hint}
         </p>
       )}
+    </div>
+  )
+}
 
-      {/* Main Submit Button */}
-      <button type="submit" disabled={isSaving} className={s.submitBtn}>
-        {isSaving ? 'Saving...' : `Save check-in for ${name}`}
-      </button>
-    </form>
-  );
+/** A row of pill buttons. `toggle` lets a second tap clear it (for optional answers like mood). */
+function Pills<V extends string | number>({ label, ariaLabel, value, options, onChange, toggle }: {
+  label: string; ariaLabel?: string; value: V | undefined; options: [V, ReactNode][]; onChange: (v: V | undefined) => void; toggle?: boolean
+}) {
+  return (
+    <div className={s.field}>
+      <span className={s.label}>{label}</span>
+      <div className={s.pills} role="group" aria-label={ariaLabel ?? label}>
+        {options.map(([v, text]) => (
+          <button key={String(v)} type="button" className={s.pill} aria-pressed={value === v} onClick={() => onChange(toggle && value === v ? undefined : v)}>
+            {text}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// The guidance texts still use the old blood-pressure ids.
+const GUIDE_ID: Record<string, string> = { sys: 'bp_sys', dia: 'bp_dia' }
+
+/** After saving: the most urgent change, what to do now and how to escalate (PRD F-03, 3-step ladder). */
+function Result({ outcomes, first, count, onDone, onEdit, onEmergency, onWhy, onNoteForEarth }: {
+  outcomes: Outcome[]; first: string; count: number; onDone?: () => void; onEdit: () => void
+} & Pick<CheckInScreenProps, 'onEmergency' | 'onWhy' | 'onNoteForEarth'>) {
+  const [top, ...rest] = outcomes
+  const level = top?.level ?? 'ok'
+  const flagged = level !== 'ok'
+  const act = top && flagged ? actionFor(GUIDE_ID[top.metric] ?? top.metric, level) : undefined
+  return (
+    <>
+      <article className={`${t.next} ${t[level]}`} role="status" aria-labelledby="ci-result">
+        <div className={t.nextHead}>
+          <p className={t.eyebrow}>Check-in saved · {first}</p>
+          {top && (
+            <span className={t.badge}>
+              <StatusIcon level={level} /> {top.level === 'ok' ? 'Resolved' : LEVEL_WORD[level]}
+            </span>
+          )}
+        </div>
+        <h2 id="ci-result" className={t.nextTitle}>
+          {top ? outcomeHeadline(top) : 'Nothing new to act on'}
+        </h2>
+        <p className={t.nextText}>
+          {top && flagged && top.rule && top.rule !== outcomeHeadline(top) ? `${top.rule} ` : ''}
+          {!top && `${count} reading${count === 1 ? '' : 's'} saved and compared with ${first}'s usual. Keep following your plan.`}
+        </p>
+        {act && (
+          <p className={s.doNow}>
+            <strong>Do this now:</strong> {act}
+          </p>
+        )}
+        {top && flagged && (
+          <div className={t.nextFoot}>
+            {level === 'alert' && onEmergency && (
+              <button type="button" className={s.danger} onClick={onEmergency}>
+                Get help now
+              </button>
+            )}
+            {onWhy && (
+              <button type="button" className={t.why} onClick={() => onWhy(top.metric)}>
+                Why am I seeing this?
+              </button>
+            )}
+            {onNoteForEarth && (
+              <button type="button" className={t.ghostBtn} onClick={() => onNoteForEarth(top.metric)}>
+                Message flight surgeon
+              </button>
+            )}
+          </div>
+        )}
+        {flagged && (
+          <div className={s.ladder}>
+            <span className={t.eyebrow}>If it does not settle</span>
+            <ol>
+              <li>Look after yourself (now)</li>
+              <li>Tell the crew medic</li>
+              <li>Message the flight surgeon</li>
+            </ol>
+          </div>
+        )}
+        {rest.length > 0 && (
+          <div className={t.then}>
+            <span>Also</span>
+            <ul>
+              {rest.map((o) => (
+                <li key={o.metric} className={t[o.level]}>
+                  <StatusIcon level={o.level} /> {outcomeHeadline(o)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <p className={t.fine}>Decision support, not a diagnosis. Follow mission procedures.</p>
+      </article>
+      <div className={s.actions}>
+        {onDone && (
+          <button type="button" className={t.primaryBtn} onClick={onDone}>
+            Back to Today
+          </button>
+        )}
+        <button type="button" className={t.ghostBtn} onClick={onEdit}>
+          Edit check-in
+        </button>
+      </div>
+    </>
+  )
 }
