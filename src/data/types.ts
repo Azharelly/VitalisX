@@ -17,9 +17,6 @@ export type Context =
 export type EmergencyCategory =
   | 'unresponsive' | 'chest_pain' | 'injury' | 'breathing' | 'fever' | 'other';
 
-// Mind data is private in Crew and in the avatar status. In an emergency it is shown.
-export const PRIVATE_ZONES: Zone[] = ['mind'];
-
 // ---------- the 7 data stores ----------
 export interface CrewMember {
   id: number;                // PK

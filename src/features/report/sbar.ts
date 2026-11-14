@@ -17,9 +17,6 @@ export const SBAR_FIELDS = [
   { key: 'recommendation', letter: 'R', title: 'Recommendation', hint: 'What you are asking Earth for.' },
 ] as const satisfies readonly { key: keyof Sbar; letter: string; title: string; hint: string }[]
 
-/** Mind & sleep is private by default (types.ts PRIVATE_ZONES): left out of the draft unless the person adds it. */
-const isPrivate = (zone: string) => zone === 'mind'
-
 const MAX_EVENTS = 6
 
 export function draftSbar(report: ReportView): Sbar {
@@ -29,13 +26,12 @@ export function draftSbar(report: ReportView): Sbar {
   const rad = report.radiation
   const radPct = percentOf(rad.careerMsv, rad.limitMsv)
   const open = openItems(report)
-  const shared = open.filter((o) => !isPrivate(o.zone))
 
   const situation = `${report.person.name} (${report.person.role}), mission day ${report.missionDay}. ${period === 'week' ? 'Weekly' : 'Monthly'} health summary for days ${first}–${report.missionDay}. ${
-    shared.length ? `${shared.length} open ${shared.length === 1 ? 'item' : 'items'}: ${shared.map((o) => `${o.label} (${LEVEL_WORD[o.level]})`).join(', ')}.` : 'No open Watch or Alert items.'
+    open.length ? `${open.length} open ${open.length === 1 ? 'item' : 'items'}: ${open.map((o) => `${o.label} (${LEVEL_WORD[o.level]})`).join(', ')}.` : 'No open Watch or Alert items.'
   }`
 
-  const events = report.events.filter((e) => !isPrivate(report.metrics.find((m) => m.id === e.metricId)?.zone ?? ''))
+  const events = report.events
   const shown = events.slice(-MAX_EVENTS)
   const background = [
     `${report.logged} of ${span} days logged${report.streakDays > 1 ? `; ${report.streakDays}-day check-in streak` : ''}.`,
@@ -45,7 +41,7 @@ export function draftSbar(report: ReportView): Sbar {
   ].join(' ')
 
   const lines = report.metrics
-    .filter((m) => open.some((o) => o.id === m.id) && !isPrivate(m.zone))
+    .filter((m) => open.some((o) => o.id === m.id))
     .sort((a, b) => open.findIndex((o) => o.id === a.id) - open.findIndex((o) => o.id === b.id))
     .map((m) => {
       const last = m.points.findLast((p) => p.value !== null)?.value ?? null
@@ -59,17 +55,11 @@ export function draftSbar(report: ReportView): Sbar {
   }.`
   const assessment = [...lines, radLine].join('\n')
 
-  const recommendation = shared.length
-    ? `Requesting flight surgeon review of: ${shared.map((o) => o.label).join(', ')}.`
+  const recommendation = open.length
+    ? `Requesting flight surgeon review of: ${open.map((o) => o.label).join(', ')}.`
     : 'No action requested. Routine report for the record.'
 
   return { situation, background, assessment, recommendation }
-}
-
-/** The Mind & sleep items the draft left out, as one line the person can choose to add. Null when there are none. */
-export function privateLine(report: ReportView): string | null {
-  const items = openItems(report).filter((o) => isPrivate(o.zone))
-  return items.length ? `Mind & sleep: ${items.map((o) => `${o.label} (${LEVEL_WORD[o.level]})`).join(', ')}.` : null
 }
 
 /** The final plain-text message that is queued and sent. Empty sections are skipped. */

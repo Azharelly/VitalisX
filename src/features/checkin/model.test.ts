@@ -48,18 +48,18 @@ describe('check-in form (PRD F-03)', () => {
 describe('check-in result', () => {
   // The parts of saveCheckIn()'s result that the screen reads.
   const changed = (metric_id: string, change: string, level: string | null, value: number, median: number | null, rule: string | null = null) =>
-    ({ metric_id, result: { change, alert: level && { level }, eval: { value, rule, baseline: median === null ? null : { median } } } }) as never
+    ({ metric_id, result: { change, alert: level ? { level } : null, eval: { value, rule, baseline: median === null ? null : { median } } } }) as never
 
   it('puts the most urgent change first: level, then metric priority', () => {
     const out = toOutcomes({
-      changed: [changed('sleep', 'opened', 'watch', 5.1, 6.5), changed('temp', 'opened', 'alert', 39.2, 36.9), changed('hr', 'opened', 'watch', 80, 66), changed('mood', 'resolved', null, 4, 4)],
+      results: [changed('sleep', 'opened', 'watch', 5.1, 6.5), changed('temp', 'opened', 'alert', 39.2, 36.9), changed('hr', 'opened', 'watch', 80, 66), changed('mood', 'resolved', null, 4, 4)],
     })
     expect(out.map((o) => `${o.metric}:${o.level}`)).toEqual(['temp:alert', 'hr:watch', 'sleep:watch', 'mood:ok'])
   })
 
   it('says which way a reading moved, falls back to the rule, and words a resolved alert', () => {
     const [temp, symptoms, sleep, sys] = toOutcomes({ // sorted: alert, then watch by priority (symptoms 5 before sleep 8), then resolved
-      changed: [
+      results: [
         changed('temp', 'opened', 'alert', 39.2, 36.9),
         changed('sleep', 'escalated', 'watch', 5.1, 6.5),
         changed('symptoms', 'opened', 'watch', 2, null, 'Symptoms reported (2 of 3).'),
@@ -70,5 +70,17 @@ describe('check-in result', () => {
     expect(outcomeHeadline(sleep)).toBe('Sleep is below your usual')
     expect(outcomeHeadline(symptoms)).toBe('Symptoms reported (2 of 3).')
     expect(outcomeHeadline(sys)).toBe('Blood pressure is back to normal for you')
+  })
+
+  it('keeps an alert that is still open (a repeat fever is not "nothing new"), drops untouched metrics, merges blood pressure', () => {
+    const out = toOutcomes({
+      results: [
+        changed('temp', 'updated', 'alert', 39.2, 36.9),
+        changed('sleep', 'unchanged', null, 6.5, 6.5),
+        changed('sys', 'opened', 'watch', 140, 113),
+        changed('dia', 'opened', 'watch', 95, 72),
+      ],
+    })
+    expect(out.map((o) => `${o.metric}:${o.change}`)).toEqual(['temp:ongoing', 'sys:opened'])
   })
 })

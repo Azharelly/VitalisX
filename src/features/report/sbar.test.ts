@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { simulatedTodayApi } from '../today/simulate.ts';
 import type { ReportView } from '../today/model.ts';
-import { draftSbar, isSendable, privateLine, sbarToText } from './sbar.ts';
+import { draftSbar, isSendable, sbarToText } from './sbar.ts';
 import { openItems } from './summary.ts';
 
 const crew = ['amara', 'kenji', 'lucia', 'ravi'];
@@ -21,36 +21,31 @@ describe('draftSbar on every simulated person, week and month', () => {
 });
 
 describe('content rules', () => {
-  it('lists each shared open item in Situation and asks for review of them', async () => {
+  it('lists every open item in Situation (Mind & sleep included) and asks for review of them', async () => {
     for (const id of crew) {
       const r = await simulatedTodayApi.getReport(id);
-      const shared = openItems(r).filter((o) => o.zone !== 'mind');
+      const open = openItems(r);
       const d = draftSbar(r);
-      for (const o of shared) expect(d.situation).toContain(o.label);
-      expect(d.recommendation).toMatch(shared.length ? /^Requesting flight surgeon review of/ : /^No action requested/);
+      for (const o of open) expect(d.situation).toContain(o.label);
+      expect(d.recommendation).toMatch(open.length ? /^Requesting flight surgeon review of/ : /^No action requested/);
     }
   });
-  it('keeps Mind & sleep out of the draft and offers it separately', async () => {
-    let seen = 0;
+  it('treats Mind & sleep like any other zone', async () => {
     for (const id of crew)
       for (const days of [7, 28] as const) {
         const r = await simulatedTodayApi.getReport(id, { days });
-        const mindOpen = openItems(r).filter((o) => o.zone === 'mind');
         const all = Object.values(draftSbar(r)).join('\n');
-        for (const o of mindOpen) {
-          seen++;
-          expect(all).not.toContain(o.label);
-          expect(privateLine(r)).toContain(o.label);
-        }
-        if (!mindOpen.length) expect(privateLine(r)).toBeNull();
+        for (const o of openItems(r).filter((o) => o.zone === 'mind')) expect(all).toContain(o.label);
       }
     // synthetic case so the rule is always exercised, whatever the simulation produces
     const base = await simulatedTodayApi.getReport('amara');
     const m = { ...base.metrics[0], zone: 'mind' as const, level: 'watch' as const, label: 'Sleep duration X' };
     const r: ReportView = { ...base, metrics: [m], events: [{ day: base.missionDay, metricId: m.id, label: m.label, from: 'ok', to: 'watch' }] };
-    expect(Object.values(draftSbar(r)).join('\n')).not.toContain('Sleep duration X');
-    expect(privateLine(r)).toContain('Sleep duration X');
-    expect(seen).toBeGreaterThanOrEqual(0);
+    const d = draftSbar(r);
+    expect(d.situation).toContain('Sleep duration X');
+    expect(d.background).toContain('Sleep duration X');
+    expect(d.assessment).toContain('Sleep duration X');
+    expect(d.recommendation).toContain('Sleep duration X');
   });
   it('caps the status-change list', async () => {
     const base = await simulatedTodayApi.getReport('amara', { days: 28 });
@@ -70,7 +65,8 @@ describe('sbarToText / isSendable', () => {
   });
 });
 
-import { arrivalLeftSec, MIN_CHECKIN_DAYS } from './SbarDialog'
+import { arrivalLeftSec } from '../../data/outbox'
+import { MIN_CHECKIN_DAYS } from './SbarDialog'
 describe('outbox countdown and readiness (#23)', () => {
   it('needs 3 check-in days', () => expect(MIN_CHECKIN_DAYS).toBe(3))
   it('counts down from created_at + delay_sec', () => {

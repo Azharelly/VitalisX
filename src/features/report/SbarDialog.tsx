@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
-import { DEFAULT_COMMS_DELAY_SEC, flushOutbox, type OutboxMessage, type OutboxPort, type SendToEarth } from '../../data/outbox'
+import { useEffect, useState } from 'react'
+import { arrivalLeftSec, DEFAULT_COMMS_DELAY_SEC, flushOutbox, type OutboxMessage, type OutboxPort, type SendToEarth } from '../../data/outbox'
 import type { ReportView } from '../today/model.ts'
 import t from '../today/today.module.css'
-import { SBAR_FIELDS, draftSbar, isSendable, privateLine, sbarToText, type Sbar } from './sbar.ts'
+import { SBAR_FIELDS, draftSbar, isSendable, sbarToText, type Sbar } from './sbar.ts'
 import s from './sbar.module.css'
 
 interface Props {
@@ -29,11 +29,6 @@ function loadDraft(r: ReportView): Sbar {
   return draftSbar(r)
 }
 
-/** Seconds until a message reaches Earth: created_at + delay_sec - now. 0 = arrived. Derived from stored fields only. */
-export function arrivalLeftSec(m: Pick<OutboxMessage, 'createdAt' | 'delaySec'>, now: number, fallbackDelaySec = DEFAULT_COMMS_DELAY_SEC) {
-  const at = Date.parse(m.createdAt) + (m.delaySec ?? fallbackDelaySec) * 1000
-  return Math.max(0, Math.ceil((at - now) / 1000))
-}
 const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
 
 const minutes = (sec: number) => (sec < 90 ? `${Math.round(sec)} s` : `${Math.round(sec / 60)} min`)
@@ -42,7 +37,6 @@ const minutes = (sec: number) => (sec < 90 ? `${Math.round(sec)} s` : `${Math.ro
 export function SbarDialog({ report, outbox, send, commsDelaySec = DEFAULT_COMMS_DELAY_SEC, onClose }: Props) {
   const crewId = report.person.id
   const [draft, setDraft] = useState<Sbar>(() => loadDraft(report))
-  const extra = useMemo(() => privateLine(report), [report])
   const [messages, setMessages] = useState<OutboxMessage[]>([])
   const [tick, setTick] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -150,15 +144,6 @@ export function SbarDialog({ report, outbox, send, commsDelaySec = DEFAULT_COMMS
           </label>
         ))}
       </div>
-
-      {extra && !draft.assessment.includes(extra) && (
-        <p className={s.muted}>
-          Mind &amp; sleep readings are private, so they are not in the draft.{' '}
-          <button type="button" className={s.linkBtn} onClick={() => set('assessment', `${draft.assessment.trim()}\n${extra}`.trim())}>
-            Add them to the Assessment
-          </button>
-        </p>
-      )}
 
       <div className={s.actions}>
         <button type="button" className={s.primary} disabled={busy || !ready || !isSendable(draft) || text === lastQueued} onClick={queue}>

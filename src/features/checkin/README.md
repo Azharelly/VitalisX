@@ -3,34 +3,31 @@
 The daily form for **one crew member on one mission day**. It turns what they type into readings, catches typos before
 they reach the engine, saves through `saveCheckIn()` and then shows what changed and what to do now.
 
-> Status: UI done and tested. In the app preview it runs on **simulated data and stores nothing**. Plugging in the real
-> save is the wiring below (needs the Dexie Today data, issue #46). Owner: Omar. Spec: PRD §4.2 F-03, §5.2, R-07, R-08.
+> Status: done and tested on the seeded database (`connect.test.ts`). The app preview still uses simulated data and
+> stores nothing until `App.tsx` mounts `CheckInConnected` (issue #46). Owner: Omar. Spec: PRD §4.2 F-03, §5.2, R-07, R-08.
 
 ---
 
 ## Wire it (App.tsx, real data)
 
-The screen does not read the database itself. It gets everything as props, so the data side stays in `src/data`.
+`CheckInConnected` is the ready-made piece: it loads everything from the database and saves with `saveCheckIn()`.
+One slot in `App.tsx`:
 
 ```tsx
-import { saveCheckIn } from './data/checkin'
-import { CheckInScreen, toOutcomes } from './features/checkin'
+import { CheckInConnected } from './features/checkin'
 
 <AppShell
-  /* …crewApi, todayApi… */
+  /* …crewApi, todayApi = dexieTodayApi({ mission })… */
   screens={{
-    checkin: ({ crewId, day = config.today_mission_day, go }) => ( // the slot's day is undefined for "today"
-      <CheckInScreen
-        key={`${crewId}@${day}`}            // fresh form per person and day
-        name={person.name}                   // e.g. from useCrew().selected
-        day={day}
-        existing={today.answers}             // undefined if no check-in yet today (see "Edit" below)
-        usual={bands}                        // personal bands; {} is fine (see "usual" below)
-        onSave={async (answers) =>
-          toOutcomes(await saveCheckIn(Number(crewId), answers, today.takenAt ?? new Date().toISOString(), day))}
-        onDone={() => go('today')}
-        onEmergency={() => openEmergency(crewId)}            // F-08, shown on Alert only
-        onWhy={(metricId) => openWhy(crewId, metricId)}      // F-05
+    checkin: ({ crewId, day, go }) => (
+      <CheckInConnected
+        todayApi={todayApi}                    // the same dexieTodayApi the Today tab uses
+        crewId={crewId}                        // a database id ("1".."4"); simulated ids are refused
+        day={day}                              // undefined = current mission day
+        launchDate={mission.launch_date}       // new check-ins are stamped on the mission calendar
+        onDone={() => go('today')}             // Today remounts, so it refetches and shows the new state
+        onEmergency={() => openEmergency(crewId)}               // F-08, shown on Alert only
+        onWhy={(metricId) => openWhy(crewId, metricId)}         // F-05
         onNoteForEarth={(metricId) => openNote(crewId, metricId)} // F-07
       />
     ),
@@ -39,34 +36,24 @@ import { CheckInScreen, toOutcomes } from './features/checkin'
 ```
 
 `onEmergency`, `onWhy` and `onNoteForEarth` are optional: a button only shows when its handler is given.
-If `onSave` throws, the form keeps every entry and says "Could not save … please try again" (nothing is lost).
+`database` is optional too (defaults to the app's `db`; tests pass their own).
 
-### What the props need from the data side
+### What it does
 
-| Prop | Where it comes from |
+| Step | How |
 |---|---|
-| `name` | `crew_member.name` (already in the shell: `useCrew().selected.name`) |
-| `day` | the mission day on screen (`MissionConfig.today_mission_day` by default) |
-| `existing` + `takenAt` | today's check-in readings, see below |
-| `usual` | the personal band per metric, see below |
+| Name, mission day, personal bands | `todayApi.getToday(crewId, day)`: `person.name`, `missionDay`, `readings[].usual` (`bp_sys`/`bp_dia` mapped back to `sys`/`dia`) |
+| Today's check-in (Edit) | `measurement` rows of that person and day with `source = 'checkin'`; the latest `taken_at` is today's check-in |
+| Time stamp | Reuses today's `taken_at`, so every later save **edits** those rows (PRD F-03 uniqueness). A new check-in gets the mission-calendar date of the day plus the current time |
+| Save | `saveCheckIn(Number(crewId), answers, takenAt, day)` |
+| Result | `toOutcomes(result)`: alerts opened, escalated or resolved, **and alerts still open** for what was just logged (a repeated fever stays on screen; it is not "nothing new") |
+| Loading / error | "Loading the check-in…"; on failure the message and **Try again** |
 
-**Today's check-in (`existing`, `takenAt`).** One query, then a reshape:
+> ⚠️ If you build your own wiring with `CheckInScreen`, reuse the original `taken_at` for edits. A new time stamp adds a
+> **second** reading for the same day. `loadCheckIn()` and `saveAndExplain()` in `connect.ts` do this for you.
 
-```ts
-const rows = await db.measurement.where('crew_id').equals(crewId)
-  .filter((m) => m.mission_day === day && m.source === 'checkin').toArray()
-const existing = rows.length ? Object.fromEntries(rows.map((m) => [m.metric_id, { value: m.value, context: m.context }])) : undefined
-const takenAt = rows[0]?.taken_at // reuse it when saving an edit
-```
-
-> ⚠️ **Edits must reuse the original `takenAt`.** `saveCheckIn` treats person + metric + `taken_at` as the same
-> reading (PRD F-03 uniqueness) and corrects it. A new timestamp would add a **second** reading for the same day.
-
-**Personal band (`usual`).** `{ [metricId]: [low, high] }` with `low/high = median ∓ 1.5 × scale` from the engine's
-baseline (`computeBaseline`, same context, last 28 days). It is the same band Today shows as "your usual range", so
-taking it from `TodayView.readings[].usual` is enough (map `bp_sys` → `sys` and `bp_dia` → `dia`: Today's
-readings still use the old blood-pressure ids; `CheckInPreview` shows the mapping). Leave a metric out while it is still learning. The form uses it
-for the "Your usual …" hint and for the "Please double-check" step; with `{}` both simply do not appear.
+`CheckInScreen` on its own takes everything as props (`name`, `day`, `existing`, `usual`, `onSave`), for other data
+sources. `CheckInPreview` is the simulated version used by `AppPreview`.
 
 ## Data contract (what `onSave` receives)
 
@@ -111,9 +98,9 @@ Plausible ranges catch typos (370 for 37.0) and are **not** clinical limits; tho
 | Already checked in today | Form opens on today's values; button says **Update check-in for {name}** |
 | Demo | "Fill typical values", clearly tagged **Demo** (PRD F-03) |
 
-**Result** (after saving), built from `saveCheckIn(...).changed` by `toOutcomes()`:
+**Result** (after saving), built from `saveCheckIn(...).results` by `toOutcomes()`:
 
-- Most urgent change first: level (Alert, then Watch, then resolved), then PRD metric priority
+- Alerts the saved readings opened, escalated, resolved or kept open (systolic + diastolic shown once). Most urgent first: level (Alert, then Watch, then resolved), then PRD metric priority
   (SpO₂ 1, glucose 2, heart rate / blood pressure 3, temperature 4, symptoms 5, vision 6, the rest 8).
 - Headline ("Temperature is far above your usual"), the engine's rule ("Fever from 38.0 °C."), **Do this now** from
   `GUIDANCE` (`src/data/guidance.ts`), then **Get help now** (Alert only), **Why am I seeing this?**,
@@ -130,7 +117,8 @@ Plausible ranges catch typos (370 for 37.0) and are **not** clinical limits; tho
 
 ## Test it
 
-`npm test` runs `model.test.ts` (form rules and result ordering) with the rest of the suite.
+`npm test` runs `model.test.ts` (form rules, result ordering) and `connect.test.ts` (load and save on the seeded
+database) with the rest of the suite.
 
 Manual checks before the demo (from the PRD's manual test list), once the real save is wired:
 
@@ -148,6 +136,9 @@ Manual checks before the demo (from the PRD's manual test list), once the real s
 | `CheckInScreen.tsx` | Form, double-check step, result screen. Props only, no database. |
 | `model.ts` | Pure logic: fields and ranges, `toAnswers` / `fromAnswers`, `atypical`, `toOutcomes`, `outcomeHeadline`. |
 | `model.test.ts` | Unit tests for the above. |
+| `CheckInConnected.tsx` | **Use this in `App.tsx`.** Loads from the database, saves with `saveCheckIn()`, loading / error states. |
+| `connect.ts` | `loadCheckIn`, `saveAndExplain`, `newTakenAt`: the database side, no React. |
+| `connect.test.ts` | Runs against the seeded `public/data` (edit keeps one row per metric, repeated fever stays an Alert, new member, ids). |
 | `CheckInPreview.tsx` | Demo only: the screen inside `AppPreview` on simulated data. |
 | `checkin.module.css` | Layout and form controls. Colours, cards and buttons come from `today.module.css`. |
 | `index.ts` | Public exports. |
