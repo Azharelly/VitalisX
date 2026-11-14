@@ -1,5 +1,5 @@
-import { DONKI_NOTE, summarizeDonki } from '../../engine/donki';
-import { STORM_DESIGN_TARGET_MSV } from '../../engine/radiation';
+import { DONKI_NOTE, summarizeDonki } from '../engine/donki';
+import { STORM_DESIGN_TARGET_MSV } from '../engine/radiation';
 import type { DonkiState } from './useDonki';
 
 export function DonkiPanel({ donki }: { donki: DonkiState }) {

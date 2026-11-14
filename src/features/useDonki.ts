@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { loadDonkiSnapshot, type DonkiSnapshot } from '../../engine/donki';
+import { loadDonkiSnapshot, type DonkiSnapshot } from '../engine/donki';
 
 export type DonkiState =
   | { status: 'loading' }

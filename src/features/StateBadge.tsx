@@ -1,4 +1,4 @@
-import type { State } from '../../data/types';
+import type { State } from '../data/types';
 
 // State = color + shape + text (PRD section 7: never color alone).
 const META: Record<State, { label: string; shape: string; color: string }> = {

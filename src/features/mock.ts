@@ -1,6 +1,6 @@
 // TEMPORARY mock data (Kenji's story) until the real data layer exists.
 // Replace with doses from IndexedDB + mission_config.json.
-import type { RadiationDose } from '../../data/types';
+import type { RadiationDose } from '../data/types';
 
 export const MOCK = {
   priorDoseMsv: 130,

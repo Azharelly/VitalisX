@@ -1,4 +1,4 @@
-import { CAREER_LIMIT_MSV, type RadiationEval } from '../../engine/radiation';
+import { CAREER_LIMIT_MSV, type RadiationEval } from '../engine/radiation';
 
 const msv = (n: number) => n.toFixed(1);
 const pct = (f: number) => `${Math.round(f * 100)}%`;
