@@ -1,7 +1,13 @@
 // DONKI logic for the Radiation screen. Pure functions: data in, data out.
 // No React, no fetch, no IndexedDB. The UI calls these and only draws what they return.
 
-import type { DonkiFlare, DonkiSep, DonkiSnapshot } from './donki.types';
+import type {
+    DonkiCme,
+    DonkiFlare,
+    DonkiGeomagneticStorm,
+    DonkiSep,
+    DonkiSnapshot,
+} from './donki.types';
 
 // ---------- time ----------
 
@@ -139,4 +145,98 @@ export function sepEpisodes(snap: DonkiSnapshot): SepEpisode[] {
 /** The most recent SEP episode, or null if the snapshot has none. */
 export function lastSep(snap: DonkiSnapshot): SepEpisode | null {
     return sepEpisodes(snap)[0] ?? null;
+}
+
+// ---------- strongest events ----------
+// The flare, CME and geomagnetic storm that stand out in the snapshot window.
+// These are facts read from NASA's data. They are NOT radiation doses: there is no valid way
+// to turn a flare class, a CME speed or a Kp value into mSv.
+
+export interface CmeView {
+    id: string;                          // activityID
+    startTime: string;
+    speedKmS: number;                    // from the most accurate analysis
+    halfAngleDeg: number;
+    sourceLocation: string;              // can be ""
+    link: string;
+}
+
+export interface StormView {
+    id: string;                          // gstID
+    startTime: string;
+    maxKp: number;                       // 0 to 9, can be fractional (5.67)
+    maxKpTime: string;                   // when that Kp was observed
+    link: string;
+}
+
+export interface StrongestEvents {
+    flare: FlareView | null;             // highest X-ray class
+    cme: CmeView | null;                 // fastest
+    storm: StormView | null;             // highest Kp
+}
+
+// Flare class = letter + number, e.g. "M6.7". Each letter is 10x the one before: A < B < C < M < X.
+// So M10 equals X1.0. Anything that does not look like a class is ignored.
+const FLARE_RANK: Record<string, number> = { A: 1, B: 2, C: 3, M: 4, X: 5 };
+
+function flareStrength(classType: string): number | null {
+    const m = /^([ABCMX])(\d+(?:\.\d+)?)$/.exec(classType.trim().toUpperCase());
+    return m ? Number(m[2]) * 10 ** FLARE_RANK[m[1]] : null;
+}
+
+/** Highest-class flare. If two tie, the more recent one wins. */
+export function strongestFlare(snap: DonkiSnapshot): FlareView | null {
+    let best: { f: DonkiFlare; s: number; t: number } | null = null;
+    for (const f of snap.flares) {
+        const s = flareStrength(f.classType);
+        if (s === null) continue;
+        const t = parseDonkiTime(f.peakTime).getTime();
+        if (best === null || s > best.s || (s === best.s && t > best.t)) best = { f, s, t };
+    }
+    return best ? toFlareView(best.f) : null;
+}
+
+/** Fastest CME, using only analyses NASA marks as most accurate. A CME with none is skipped. If two tie, the more recent wins. */
+export function fastestCme(snap: DonkiSnapshot): CmeView | null {
+    let best: { c: DonkiCme; speed: number; angle: number; t: number } | null = null;
+    for (const c of snap.cme) {
+        const top = (c.cmeAnalyses ?? [])
+            .filter((a) => a.isMostAccurate && Number.isFinite(a.speed))
+            .sort((a, b) => b.speed - a.speed)[0];
+        if (!top) continue;
+        const t = parseDonkiTime(c.startTime).getTime();
+        if (best === null || top.speed > best.speed || (top.speed === best.speed && t > best.t)) {
+            best = { c, speed: top.speed, angle: top.halfAngle, t };
+        }
+    }
+    return best
+        ? {
+            id: best.c.activityID,
+            startTime: best.c.startTime,
+            speedKmS: best.speed,
+            halfAngleDeg: best.angle,
+            sourceLocation: best.c.sourceLocation,
+            link: best.c.link,
+        }
+        : null;
+}
+
+/** Storm with the highest Kp reading. A storm with no Kp readings is skipped. If two tie, the more recent wins. */
+export function strongestStorm(snap: DonkiSnapshot): StormView | null {
+    let best: { g: DonkiGeomagneticStorm; kp: number; at: string; t: number } | null = null;
+    for (const g of snap.gst) {
+        const top = [...(g.allKpIndex ?? [])].sort((a, b) => b.kpIndex - a.kpIndex)[0];
+        if (!top) continue;
+        const t = parseDonkiTime(g.startTime).getTime();
+        if (best === null || top.kpIndex > best.kp || (top.kpIndex === best.kp && t > best.t)) {
+            best = { g, kp: top.kpIndex, at: top.observedTime, t };
+        }
+    }
+    return best
+        ? { id: best.g.gstID, startTime: best.g.startTime, maxKp: best.kp, maxKpTime: best.at, link: best.g.link }
+        : null;
+}
+
+export function strongestEvents(snap: DonkiSnapshot): StrongestEvents {
+    return { flare: strongestFlare(snap), cme: fastestCme(snap), storm: strongestStorm(snap) };
 }
