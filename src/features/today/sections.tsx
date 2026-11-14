@@ -74,7 +74,7 @@ export function NextActionCard({ data, flagged, onStart, onWhy, onNoteForEarth, 
         <>
           <h2 id="today-next" className={s.nextTitle}>
             {na.kind === 'learning'
-              ? `Learning ${first}'s normal`
+              ? 'Learning your normal'
               : data.checkIn.doneAt
                 ? 'All readings are in your usual range'
                 : "Today's check-in is due"}

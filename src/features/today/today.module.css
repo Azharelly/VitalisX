@@ -200,6 +200,9 @@
   stroke-width: 0.8;
 }
 
+/* Female figure's hair: its own layer so the face stays visible. */
+.hair path { fill: #45546a; }
+
 /* Auras: colour = status. Normal glows softly, Watch stronger, Alert pulses. Learning/no data: no glow. */
 .aura { color: var(--c); opacity: 0; transition: opacity 0.4s; }
 .aura.ok { opacity: 0.22; }
@@ -255,6 +258,9 @@
 }
 .marker[aria-pressed='true'] { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--text); }
 .marker:not(.flag)[aria-pressed='true'] { color: var(--text); }
+/* Visual stays 36 px; this invisible ring makes the tap area 44 px (PRD §7 touch targets). */
+.marker::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; }
+
 .markerIcon { width: 18px; height: 18px; }
 
 /* Zone button: callout next to the body, or a tile below it */
@@ -636,7 +642,7 @@
 .emergency:active { background: #d93636; border-color: #d93636; color: #fff; }
 
 .dueBtn {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 14px;
   border: 1px dashed var(--watch);
   border-radius: 999px;

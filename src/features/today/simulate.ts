@@ -27,16 +27,17 @@ const MIN_BASELINE = 14
 const MISS_RATE = 0.08
 
 interface Crew extends CrewSummary {
+  sex: 'F' | 'M'
   priorDoseMsv: number
   doseRate: number // mSv/day in transit (MSL RAD ≈ 1.8)
   shift: Partial<Record<string, number>> // personal offsets from the population mean
 }
 
 const CREW: Crew[] = [
-  { id: 'amara', name: 'Amara Okafor', role: 'Commander', priorDoseMsv: 25, doseRate: 1.84, shift: { hr: -4, sleep: 0.1, bp_sys: -3 } },
-  { id: 'kenji', name: 'Kenji Tanaka', role: 'Flight engineer', priorDoseMsv: 130, doseRate: 1.88, shift: { hr: 2, weight: 6, sleep: -0.1 } },
-  { id: 'lucia', name: 'Lucía Fernández', role: 'Mission specialist', priorDoseMsv: 10, doseRate: 1.82, shift: { hr: -2, weight: -9 } },
-  { id: 'ravi', name: 'Ravi Menon', role: 'Systems engineer', priorDoseMsv: 35, doseRate: 1.85, shift: {} },
+  { id: 'amara', name: 'Amara Okafor', role: 'Commander', sex: 'F', priorDoseMsv: 25, doseRate: 1.84, shift: { hr: -4, sleep: 0.1, bp_sys: -3 } },
+  { id: 'kenji', name: 'Kenji Tanaka', role: 'Flight engineer', sex: 'M', priorDoseMsv: 130, doseRate: 1.88, shift: { hr: 2, weight: 6, sleep: -0.1 } },
+  { id: 'lucia', name: 'Lucía Fernández', role: 'Mission specialist', sex: 'F', priorDoseMsv: 10, doseRate: 1.82, shift: { hr: -2, weight: -9 } },
+  { id: 'ravi', name: 'Ravi Menon', role: 'Systems engineer', sex: 'M', priorDoseMsv: 35, doseRate: 1.85, shift: {} },
 ]
 
 type Bad = 'high' | 'low' | 'both'
@@ -265,7 +266,7 @@ function buildToday(c: Crew, asOf: number): TodayView {
   for (let day = asOf; day >= 1 && !missed(c, day); day--) streakDays++
 
   return {
-    person: { id: c.id, name: c.name, role: c.role },
+    person: { id: c.id, name: c.name, role: c.role, sex: c.sex },
     missionDay: asOf,
     isSimulated: true,
     checkIn: { doneAt: missed(c, asOf) ? undefined : checkInTime(c, asOf), streakDays },

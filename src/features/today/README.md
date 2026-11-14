@@ -47,7 +47,7 @@ Good days to try in the preview:
 |---|---|---|
 | Top bar | Back to Crew, **Emergency** button | `TodayScreen` |
 | Viewing banner | Who is on screen (no sign-in, so this matters most), overall status, mission day, check-in time or "Check-in due" | `TodayScreen` |
-| Body | Status colour on every zone. Local glows: Mind, Eyes, Heart, Bones, Metabolism (core). Whole-body auras: **Immune** (outline), **Radiation** (outer field). Tap a zone to filter. | `BodyFigure` |
+| Body | Female or male drawing (from `person.sex`). Status colour and shape on every zone. Local glows: Mind, Eyes, Heart, Bones, Metabolism (core). Whole-body auras: **Immune** (outline), **Radiation** (outer field). Tap a zone to filter. | `BodyFigure` |
 | Next best action | One step, its headline, *Start*, *Why am I seeing this?*, *Note for Earth*, "Then: …" | `NextActionCard` |
 | Zone detail | Picked zone + What helps / Tell the flight surgeon when / How to measure / Why space changes this + sources | `GuidancePanel` |
 | Needs attention | Watch/Alert readings: value, distance from the usual band, 7-day trend, next step, Why? | `AttentionCard` |
@@ -150,7 +150,6 @@ The self-check fails if a metric the data layer returns has no `GUIDANCE` entry.
 - `model.ts` types are local until `src/data/types.ts` lands. `Level` uses the same names as its `State`.
 - `simulate.ts` has its own mini-evaluator and mission constants. Replace with `src/engine` + `mission_config.json`.
 - Palette tokens live in `today.module.css`. Move to `src/ui` tokens when they exist.
-- One neutral body drawing. F/M drawings replace the paths in `BodyFigure.tsx`.
 - Fonts fall back to system fonts until the bundled fonts land (F-09).
 
 ## Next steps
@@ -159,5 +158,4 @@ The self-check fails if a metric the data layer returns has no `GUIDANCE` entry.
 2. **Real data**: implement `TodayApi` over Dexie (or the server), using `src/engine` for levels; keep `simulatedTodayApi` for the demo "Reset".
 3. **Guidance review**: research/science pass on `src/data/guidance.ts`; replace every `Source pending` with a citation or keep it visibly tentative (PRD D13, R-01).
 4. **Open decision**: radiation Watch threshold. The simulation uses 80% projected at arrival (PRD R-15 is still OPEN).
-5. **Art**: F/M body drawings (2D, muscle style) to replace the neutral figure.
 6. **QA**: the PRD §11 manual checklist (offline, screen reader on body zones and the Emergency button, mobile Safari).

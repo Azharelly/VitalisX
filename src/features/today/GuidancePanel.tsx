@@ -8,6 +8,7 @@ const TENTATIVE = /design rule|source pending/i
  * Renders nothing if the metric has no guidance entry (so a missing entry never breaks the page).
  */
 export function GuidancePanel({ metricId, open }: { metricId: string; open?: boolean }) {
+  // `open` (zone detail) expands the two sections the spec asks to show: what helps and how to measure.
   const g = GUIDANCE[metricId]
   if (!g) return null
   return (
@@ -24,7 +25,7 @@ export function GuidancePanel({ metricId, open }: { metricId: string; open?: boo
         <summary>Tell the flight surgeon when</summary>
         <p>{g.tell}</p>
       </details>
-      <details>
+      <details open={open}>
         <summary>How to measure</summary>
         <ol>
           {g.measure.map((m) => (

@@ -46,6 +46,9 @@ class BadData extends Error {
   }
 }
 
+const badData = (where: string): never => {
+  throw new BadData(where)
+}
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
 const str = (v: unknown, where: string, max = 200): string => {
   if (typeof v !== 'string' || v.length > max) throw new BadData(where)
@@ -118,7 +121,12 @@ function parseWeek(w: unknown): WeekDay[] {
 export function parseTodayView(json: unknown): TodayView {
   if (!isObj(json) || !isObj(json.person) || !isObj(json.checkIn) || !Array.isArray(json.readings)) throw new BadData('today view')
   return {
-    person: { id: str(json.person.id, 'person.id'), name: str(json.person.name, 'person.name', 40), role: str(json.person.role, 'person.role', 40) },
+    person: {
+      id: str(json.person.id, 'person.id'),
+      name: str(json.person.name, 'person.name', 40),
+      role: str(json.person.role, 'person.role', 40),
+      sex: json.person.sex === 'F' ? 'F' : json.person.sex === 'M' ? 'M' : badData('person.sex'),
+    },
     missionDay: num(json.missionDay, 'missionDay'),
     isSimulated: json.isSimulated === true,
     checkIn: { doneAt: optStr(json.checkIn.doneAt, 'checkIn.doneAt'), streakDays: num(json.checkIn.streakDays, 'checkIn.streakDays') },

@@ -37,8 +37,11 @@ export interface WeekDay {
   zones: Record<ZoneId, Level> | null
 }
 
+/** 'F' | 'M' picks the body drawing (src/data/types.ts CrewMember.sex). */
+export type Sex = 'F' | 'M'
+
 export interface TodayView {
-  person: { id: string; name: string; role: string }
+  person: { id: string; name: string; role: string; sex: Sex }
   missionDay: number
   isSimulated: boolean // drives the "Simulated data" label (PRD: is_simulated)
   checkIn: { doneAt?: string; streakDays: number } // doneAt absent = today's check-in is due
@@ -95,12 +98,13 @@ export function headline(r: Reading): string {
   return r.note ? `${r.label}: ${r.note}` : `${r.label} needs a look`
 }
 
-/** "Usual 36.7–37.1" for the personal band, or the learning message. */
+/** "Your usual range 36.7–37.1 °C" for the personal band, or the learning message. */
 export function usualText(r: Reading) {
   if (r.level === 'learn') return 'Learning your normal'
   if (!r.usual) return ''
   const [lo, hi] = r.usual
-  return `Usual ${lo.toFixed(r.decimals)}–${hi.toFixed(r.decimals)}`
+  const unit = r.unit.startsWith('/') ? '' : ` ${r.unit}` // "3–5", not "3–5 /5"
+  return `Your usual range ${lo.toFixed(r.decimals)}–${hi.toFixed(r.decimals)}${unit}`
 }
 
 /* ── Report (week / month in review) ─────────────────────────────────────────── */
