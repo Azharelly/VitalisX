@@ -5,7 +5,7 @@ const TENTATIVE = /design rule|source pending/i
 
 /**
  * The four "learn more" sections for one metric, read from GUIDANCE[metricId].
- * Renders nothing if the metric has no guidance entry, so a missing entry never breaks the page.
+ * Renders nothing if the metric has no guidance entry (so a missing entry never breaks the page).
  */
 export function GuidancePanel({ metricId, open }: { metricId: string; open?: boolean }) {
   const g = GUIDANCE[metricId]
@@ -21,7 +21,7 @@ export function GuidancePanel({ metricId, open }: { metricId: string; open?: boo
         </ul>
       </details>
       <details>
-        <summary>When to tell the flight surgeon</summary>
+        <summary>Tell the flight surgeon when</summary>
         <p>{g.tell}</p>
       </details>
       <details>
@@ -36,14 +36,13 @@ export function GuidancePanel({ metricId, open }: { metricId: string; open?: boo
         <summary>Why space changes this</summary>
         <p>{g.why}</p>
       </details>
-      <p className={s.sources}>
-        <span className={s.sourcesLabel}>Sources</span>
+      <div className={s.sources} aria-label="Sources">
         {g.sources.map((src) => (
           <span key={src} className={`${s.source} ${TENTATIVE.test(src) ? s.sourceTentative : ''}`}>
             {src}
           </span>
         ))}
-      </p>
+      </div>
     </div>
   )
 }

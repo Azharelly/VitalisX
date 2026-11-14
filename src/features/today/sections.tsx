@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 import { actionFor } from '../../data/guidance'
 import { RangeBar, Sparkline } from './Charts'
 import { GuidancePanel } from './GuidancePanel'
-import { StatusBadge, StatusIcon } from './StatusIcon'
+import { StatusIcon } from './StatusIcon'
 import { ZoneIcon } from './ZoneIcon'
 import {
   LEVEL_WORD,
@@ -17,15 +17,13 @@ import {
   type TodayView,
   type ZoneId,
 } from './model'
-import ui from './shared.module.css'
 import s from './today.module.css'
 
 // The Today page's sections. Each one is presentational: data in, callbacks out, no fetching.
 
 const zoneLabel = (z: ZoneId) => ZONES.find((x) => x.id === z)!.label
-const metaLine = (r: Reading) => [usualText(r) || r.note, r.measured].filter(Boolean).join(' · ')
 
-/* ── Next step ─────────────────────────────────────────────────────────────────── */
+/* ── Next best action ─────────────────────────────────────────────────────────── */
 
 interface NextProps {
   data: TodayView
@@ -36,66 +34,68 @@ interface NextProps {
   onStartCheckIn?: () => void
 }
 
-export function NextStepCard({ data, flagged, onStart, onWhy, onNoteForEarth, onStartCheckIn }: NextProps) {
+export function NextActionCard({ data, flagged, onStart, onWhy, onNoteForEarth, onStartCheckIn }: NextProps) {
   const na = data.nextAction
   const target = na.kind === 'metric' ? data.readings.find((r) => r.id === na.metricId) : undefined
-  const also = flagged.filter((r) => r.id !== target?.id)
+  const level: Level = target?.level ?? 'ok'
+  const then = flagged.filter((r) => r.id !== target?.id)
   const first = data.person.name.split(' ')[0]
 
-  if (target) {
-    return (
-      <article className={`${ui.card} ${s.next} ${s[target.level]}`} aria-labelledby="today-next">
-        <div className={s.nextHead}>
-          <p className={ui.caption}>Next step</p>
-          <StatusBadge level={target.level} label={LEVEL_WORD[target.level]} />
-        </div>
-        <h2 id="today-next" className={ui.title}>
-          {headline(target)}
-        </h2>
-        <p className={s.nextText}>{actionFor(target.id, target.level)}</p>
-        <div className={s.actions}>
-          <button type="button" className={ui.btnPrimary} onClick={() => onStart?.(target.id)}>
-            Mark as started
-          </button>
-          <button type="button" className={ui.btn} onClick={() => onWhy?.(target.id)}>
-            Why?
-          </button>
-          <button type="button" className={ui.btn} onClick={() => onNoteForEarth?.(target.id)}>
-            Message flight surgeon
-          </button>
-        </div>
-        {also.length > 0 && <p className={`${ui.small} ${ui.muted}`}>Also open: {also.map((r) => r.label).join(', ')}</p>}
-        <details className={s.more}>
-          <summary>How to handle this</summary>
-          <GuidancePanel metricId={target.id} />
-        </details>
-        <p className={ui.caption}>Decision support, not a diagnosis. Follow mission procedures.</p>
-      </article>
-    )
-  }
-
-  const due = !data.checkIn.doneAt
-  const [title, text] =
-    na.kind === 'learning'
-      ? [`Learning ${first}'s normal`, `${na.checkInsLeft} more check-in${na.checkInsLeft === 1 ? '' : 's'} until readings can be compared with ${first}'s own normal.`]
-      : due
-        ? ["Today's check-in is due", 'It takes about a minute. Readings are compared with your own normal.']
-        : ['Everything is within your usual range', 'Nothing to do right now. Keep following your plan.']
-
   return (
-    <article className={`${ui.card} ${s.next} ${s.ok}`} aria-labelledby="today-next">
-      <p className={ui.caption}>Next step</p>
-      <h2 id="today-next" className={ui.title}>
-        {title}
-      </h2>
-      <p className={s.nextText}>{text}</p>
-      {due && (
-        <div className={s.actions}>
-          <button type="button" className={ui.btnPrimary} onClick={onStartCheckIn}>
-            Start check-in
-          </button>
-        </div>
+    <article className={`${s.next} ${s[level]}`} aria-labelledby="today-next">
+      <p className={s.eyebrow}>Next best action · {first}</p>
+      {target ? (
+        <>
+          <span className={s.badge}>
+            <StatusIcon level={target.level} /> {LEVEL_WORD[target.level]}
+          </span>
+          <h2 id="today-next" className={s.nextTitle}>
+            {headline(target)}
+          </h2>
+          <p className={s.nextText}>{actionFor(target.id, target.level)}</p>
+          <div className={s.nextFoot}>
+            <button type="button" className={s.primaryBtn} onClick={() => onStart?.(target.id)}>
+              Start
+            </button>
+            <button type="button" className={s.why} onClick={() => onWhy?.(target.id)}>
+              Why am I seeing this?
+            </button>
+            <button type="button" className={s.ghostBtn} onClick={() => onNoteForEarth?.(target.id)}>
+              Note for Earth
+            </button>
+          </div>
+          {then.length > 0 && <p className={s.then}>Then: {then.map((r) => r.label).join(', ')}.</p>}
+          <details className={s.nextGuide}>
+            <summary>More about {target.label.toLowerCase()}</summary>
+            <GuidancePanel metricId={target.id} />
+          </details>
+        </>
+      ) : (
+        <>
+          <h2 id="today-next" className={s.nextTitle}>
+            {na.kind === 'learning'
+              ? `Learning ${first}'s normal`
+              : data.checkIn.doneAt
+                ? 'All readings are in your usual range'
+                : "Today's check-in is due"}
+          </h2>
+          <p className={s.nextText}>
+            {na.kind === 'learning'
+              ? `${na.checkInsLeft} more check-in${na.checkInsLeft === 1 ? '' : 's'} until VitalisX can compare you with your own normal.`
+              : data.checkIn.doneAt
+                ? 'Nothing to do now. Keep following your plan.'
+                : 'It takes about a minute. Your readings are compared with your own normal.'}
+          </p>
+          {!data.checkIn.doneAt && (
+            <div className={s.nextFoot}>
+              <button type="button" className={s.primaryBtn} onClick={onStartCheckIn}>
+                Start check-in
+              </button>
+            </div>
+          )}
+        </>
       )}
+      <p className={s.fine}>Decision support, not a diagnosis. Follow mission procedures.</p>
     </article>
   )
 }
@@ -106,97 +106,100 @@ export function AttentionCard({ r, onWhy }: { r: Reading; onWhy?: (id: string) =
   const dev = deviation(r)
   const step = actionFor(r.id, r.level)
   return (
-    <article className={`${ui.card} ${s.card} ${s[r.level]}`} aria-label={`${r.label}, ${LEVEL_WORD[r.level]}`}>
+    <article className={`${s.card} ${s[r.level]}`}>
       <header className={s.cardHead}>
         <span className={s.iconCircle}>
           <ZoneIcon zone={r.zone} />
         </span>
         <span className={s.cardTitle}>
-          <span className={ui.h3}>{r.label}</span>
-          <span className={ui.caption}>{[zoneLabel(r.zone), r.context].filter(Boolean).join(' · ')}</span>
+          <span className={s.cardLabel}>{r.label}</span>
+          <span className={s.muted}>{[zoneLabel(r.zone), r.context].filter(Boolean).join(' · ')}</span>
         </span>
-        <StatusBadge level={r.level} label={LEVEL_WORD[r.level]} />
+        <span className={s.badge}>
+          <StatusIcon level={r.level} /> {LEVEL_WORD[r.level]}
+        </span>
       </header>
 
       <div className={s.cardBody}>
         <p className={s.value}>
           {formatValue(r)}
-          <span className={ui.unit}>{r.unit}</span>
+          <span className={s.unit}>{r.unit}</span>
         </p>
         <Sparkline r={r} />
       </div>
 
-      <div className={s.cardMeta}>
-        {dev && <p className={s.dev}>{dev}</p>}
-        <p className={ui.caption}>{metaLine(r)}</p>
-      </div>
+      <p className={s.cardMeta}>
+        {dev && <strong className={s.dev}>{dev}</strong>}
+        {[usualText(r) || r.note, r.measured].filter(Boolean).join(' · ')}
+      </p>
 
       {step && (
-        <footer className={s.cardFoot}>
-          <p className={ui.small}>
-            <span className={ui.caption}>Next step</span>
-            <br />
+        <div className={s.step}>
+          <p>
+            <span className={s.eyebrow}>Next step</span>
             {step}
           </p>
-          <button type="button" className={ui.btnText} onClick={() => onWhy?.(r.id)}>
+          <button type="button" className={s.why} onClick={() => onWhy?.(r.id)}>
             Why?
           </button>
-        </footer>
+        </div>
       )}
     </article>
   )
 }
 
-/* ── Within your usual range ─────────────────────────────────────────────────── */
+/* ── Good news: everything inside the person's normal ────────────────────────── */
 
-export function InRange({ data, readings, zoneLevels }: { data: TodayView; readings: Reading[]; zoneLevels: Record<ZoneId, Level> }) {
-  if (!readings.length) return null
-  const allNormal = ZONES.filter((z) => zoneLevels[z.id] === 'ok')
-  const measured = data.readings.filter((r) => r.level !== 'none').length
-  const ok = readings.filter((r) => r.level === 'ok').length
+export function GoodNews({ data, normal, zoneLevels }: { data: TodayView; normal: Reading[]; zoneLevels: Record<ZoneId, Level> }) {
+  if (!normal.length) return null
+  const allClearZones = ZONES.filter((z) => zoneLevels[z.id] === 'ok')
+  const total = data.readings.filter((r) => r.level !== 'none').length
+  const inRange = normal.filter((r) => r.level === 'ok').length
   return (
-    <section className={ui.section} aria-labelledby="today-inrange">
-      <div className={ui.sectionHead}>
-        <h2 id="today-inrange" className={`${ui.h2} ${s.withIcon}`}>
-          <span className={s.check} aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12.5 10 17.5 19 7" />
-            </svg>
-          </span>
-          Within your usual range
-        </h2>
-        <span className={ui.sectionMeta}>
-          {ok} of {measured} readings
-          {data.checkIn.streakDays > 1 && ` · ${data.checkIn.streakDays}-day check-in streak`}
+    <section aria-labelledby="today-good" className={s.goodWrap}>
+      <div className={s.goodHead}>
+        <span className={s.goodCheck} aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12.5 10 17.5 19 7" />
+          </svg>
         </span>
+        <div>
+          <h2 id="today-good" className={s.goodTitle}>
+            Good news
+          </h2>
+          <p className={s.muted}>
+            {inRange} of {total} readings are inside your usual range
+            {data.checkIn.streakDays > 1 && ` · ${data.checkIn.streakDays}-day check-in streak`}
+          </p>
+        </div>
       </div>
-      {allNormal.length > 0 && (
-        <ul className={s.chips} aria-label="Zones with every reading normal">
-          {allNormal.map((z) => (
+      {allClearZones.length > 0 && (
+        <ul className={s.clearZones} aria-label="Zones all normal">
+          {allClearZones.map((z) => (
             <li key={z.id}>
-              <ZoneIcon zone={z.id} className={s.chipIcon} />
+              <ZoneIcon zone={z.id} className={s.clearIcon} />
               {z.label}
             </li>
           ))}
         </ul>
       )}
       <ul className={s.tiles}>
-        {readings.map((r, i) => (
-          <li key={r.id} className={`${ui.card} ${s.tile} ${s[r.level]}`} style={{ '--i': i } as CSSProperties}>
+        {normal.map((r, i) => (
+          <li key={r.id} className={`${s.tile} ${s[r.level]}`} style={{ '--i': i } as CSSProperties}>
             <span className={s.tileHead}>
               <ZoneIcon zone={r.zone} className={s.tileIcon} />
-              <span className={s.tileLabel}>{r.label}</span>
+              {r.label}
               <StatusIcon level={r.level} />
             </span>
             <span className={s.tileRow}>
               <span className={s.tileValue}>
                 {formatValue(r)}
-                <span className={ui.unit}>{r.unit}</span>
+                <span className={s.unit}>{r.unit}</span>
               </span>
               <Sparkline r={r} small />
             </span>
             <RangeBar r={r} />
-            <span className={ui.caption}>{metaLine(r)}</span>
+            <span className={s.tileMeta}>{[usualText(r) || r.note, r.measured].filter(Boolean).join(' · ')}</span>
           </li>
         ))}
       </ul>
@@ -204,36 +207,39 @@ export function InRange({ data, readings, zoneLevels }: { data: TodayView; readi
   )
 }
 
-/* ── This week: zone-by-day grid for the last 7 days ─────────────────────────── */
+/* ── My week: zone-by-day grid for the last 7 days ───────────────────────────── */
 
-export function ThisWeek({ data, onOpenReport }: { data: TodayView; onOpenReport?: () => void }) {
+export function MyWeek({ data, onOpenReport }: { data: TodayView; onOpenReport?: () => void }) {
   const logged = data.week.filter((d) => d.zones).length
   return (
-    <section className={ui.section} aria-labelledby="today-week">
-      <div className={ui.sectionHead}>
-        <h2 id="today-week" className={ui.h2}>
-          This week
+    <section aria-labelledby="today-week" className={s.weekWrap}>
+      <div className={s.weekHead}>
+        <h2 id="today-week" className={s.h2}>
+          My week
         </h2>
-        <span className={s.sectionTools}>
-          <span className={ui.sectionMeta}>
-            {logged} of {data.week.length} days logged · {data.checkIn.streakDays}-day streak
+        <span className={s.weekStats}>
+          <span>
+            <strong>{logged}</strong> of {data.week.length} days logged
+          </span>
+          <span>
+            <strong>{data.checkIn.streakDays}</strong>-day streak
           </span>
           {onOpenReport && (
-            <button type="button" className={ui.btnText} onClick={onOpenReport}>
-              View full report <span aria-hidden="true">→</span>
+            <button type="button" className={s.linkBtn} onClick={onOpenReport}>
+              Open full report →
             </button>
           )}
         </span>
       </div>
-      <div className={`${ui.card} ${s.weekCard}`}>
+      <div className={s.weekScroll}>
         <table className={s.week}>
-          <caption className={ui.srOnly}>Status of each zone for the last {data.week.length} days</caption>
+          <caption className={s.srOnly}>Status of each zone for the last {data.week.length} days</caption>
           <thead>
             <tr>
               <th scope="col">Zone</th>
               {data.week.map((d) => (
                 <th key={d.day} scope="col">
-                  {d.day === data.missionDay ? 'Today' : `Day ${d.day}`}
+                  {d.day === data.missionDay ? 'Today' : `D${d.day}`}
                 </th>
               ))}
             </tr>

@@ -2,7 +2,6 @@ import type { CSSProperties } from 'react'
 import { LEVEL_WORD, ZONES, isFlagged, type ReportMetric, type ReportView } from '../today/model.ts'
 import { StatusIcon } from '../today/StatusIcon'
 import { ZoneIcon } from '../today/ZoneIcon'
-import ui from '../today/shared.module.css'
 import s from './report.module.css'
 
 // Hand-drawn SVG charts (no chart dependency). Each one has a text alternative; the SVG itself is a picture of it.
@@ -137,7 +136,7 @@ export function ZoneRibbon({ report }: { report: ReportView }) {
   return (
     <div className={s.ribbonScroll}>
       <table className={s.ribbon} style={{ '--n': n } as CSSProperties}>
-        <caption className={ui.srOnly}>Status of each zone per day, days {report.zones[0]?.day} to {report.missionDay}</caption>
+        <caption className={s.srOnly}>Status of each zone per day, days {report.zones[0]?.day} to {report.missionDay}</caption>
         <thead>
           <tr>
             <th scope="col">Zone</th>

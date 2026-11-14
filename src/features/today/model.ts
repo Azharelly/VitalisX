@@ -95,13 +95,12 @@ export function headline(r: Reading): string {
   return r.note ? `${r.label}: ${r.note}` : `${r.label} needs a look`
 }
 
-/** "Your usual 36.7–37.1 °C" for the personal band, or the learning message. */
+/** "Usual 36.7–37.1" for the personal band, or the learning message. */
 export function usualText(r: Reading) {
   if (r.level === 'learn') return 'Learning your normal'
   if (!r.usual) return ''
   const [lo, hi] = r.usual
-  const unit = r.unit.startsWith('/') ? '' : ` ${r.unit}` // "3–5", not "3–5 /5"
-  return `Your usual ${lo.toFixed(r.decimals)}–${hi.toFixed(r.decimals)}${unit}`
+  return `Usual ${lo.toFixed(r.decimals)}–${hi.toFixed(r.decimals)}`
 }
 
 /* ── Report (week / month in review) ─────────────────────────────────────────── */

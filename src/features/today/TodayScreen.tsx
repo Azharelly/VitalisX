@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { BodyFigure, ZoneButton } from './BodyFigure'
 import { GuidancePanel } from './GuidancePanel'
-import { AttentionCard, InRange, NextStepCard, ThisWeek } from './sections'
-import { StatusBadge } from './StatusIcon'
+import { AttentionCard, GoodNews, MyWeek, NextActionCard } from './sections'
+import { StatusIcon } from './StatusIcon'
 import { ZoneIcon } from './ZoneIcon'
 import { LEVEL_WORD, ZONES, byAttention, isFlagged, worst, type Level, type Reading, type TodayView, type ZoneId } from './model'
-import ui from './shared.module.css'
 import s from './today.module.css'
 
 /** Everything the Today page can ask the app to do. All optional; the app wires the ones it supports. */
@@ -22,11 +21,11 @@ export interface TodayActions {
   onNoteForEarth?: (crewId: string, metricId?: string) => void
   /** Go to Check-in (F-03) for this person. */
   onStartCheckIn?: (crewId: string) => void
-  /** Open the full week/month Report for this person (shows a link under "This week" when set). */
+  /** Open the full week/month Report for this person (shows a link under "My week" when set). */
   onOpenReport?: (crewId: string) => void
 }
 
-const OFF_BODY: ZoneId[] = ['immune', 'meta', 'radiation'] // whole-body zones: auras on the figure, tiles below it
+const OFF_BODY: ZoneId[] = ['immune', 'meta', 'radiation'] // no single spot on the figure, so they also get tiles
 const zoneLabel = (z: ZoneId) => ZONES.find((x) => x.id === z)!.label
 
 /** The full Today page for one crew member. Presentational: give it a TodayView, get callbacks back. */
@@ -47,14 +46,14 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
   const allFlagged = ranked.filter((r) => isFlagged(r.level))
   const shown = ranked.filter((r) => !zone || r.zone === zone)
   const flagged = shown.filter((r) => isFlagged(r.level))
-  const inRange = shown.filter((r) => !isFlagged(r.level) && r.level !== 'none')
+  const normal = shown.filter((r) => !isFlagged(r.level) && r.level !== 'none')
   const initials = data.person.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
   return (
-    <section className={`${ui.root} ${s.page}`} aria-labelledby="today-name">
+    <section className={s.root} aria-labelledby="today-viewing">
       <div className={s.topBar}>
         {actions.onBack ? (
-          <button type="button" className={ui.btnText} onClick={actions.onBack}>
+          <button type="button" className={s.backBtn} onClick={actions.onBack}>
             <span aria-hidden="true">←</span> Crew
           </button>
         ) : (
@@ -68,64 +67,45 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
         </button>
       </div>
 
-      <header className={`${ui.card} ${s.identity}`}>
+      <header className={s.banner}>
         <div className={s.who}>
           <span className={`${s.avatar} ${s[overall]}`} aria-hidden="true">
             {initials}
           </span>
           <div>
-            <p className={ui.caption}>Viewing</p>
-            <h1 id="today-name" className={ui.title}>
+            <p className={s.eyebrow}>Viewing</p>
+            <h1 id="today-viewing" className={s.name}>
               {data.person.name}
             </h1>
-            <p className={`${ui.small} ${ui.muted}`}>{data.person.role}</p>
+            <p className={s.muted}>{data.person.role}</p>
           </div>
         </div>
-        <dl className={s.facts}>
-          <div>
-            <dt className={ui.caption}>Status</dt>
-            <dd>
-              <StatusBadge level={overall} label={LEVEL_WORD[overall]} />
-            </dd>
-          </div>
-          <div>
-            <dt className={ui.caption}>Mission day</dt>
-            <dd className={s.fact}>{data.missionDay}</dd>
-          </div>
-          <div>
-            <dt className={ui.caption}>Check-in</dt>
-            <dd className={s.fact}>
-              {data.checkIn.doneAt ?? (
-                <button type="button" className={ui.btnText} onClick={() => actions.onStartCheckIn?.(id)}>
-                  Start check-in
-                </button>
-              )}
-            </dd>
-          </div>
-          {data.isSimulated && (
-            <div>
-              <dt className={ui.srOnly}>Data</dt>
-              <dd>
-                <span className={ui.tag}>Simulated data</span>
-              </dd>
-            </div>
+        <div className={s.bannerMeta}>
+          <span className={`${s.pill} ${s[overall]}`}>
+            <StatusIcon level={overall} /> {LEVEL_WORD[overall]}
+          </span>
+          <span className={s.metaItem}>
+            <span className={s.eyebrow}>Mission day</span>
+            <span className={s.metaNum}>{data.missionDay}</span>
+          </span>
+          {data.checkIn.doneAt ? (
+            <span className={s.metaItem}>
+              <span className={s.eyebrow}>Checked in</span>
+              <span className={s.metaNum}>{data.checkIn.doneAt}</span>
+            </span>
+          ) : (
+            <button type="button" className={s.dueBtn} onClick={() => actions.onStartCheckIn?.(id)}>
+              Check-in due · start
+            </button>
           )}
-        </dl>
+          {data.isSimulated && <span className={s.sim}>Simulated data</span>}
+        </div>
       </header>
 
       <div className={s.layout}>
-        <aside className={`${ui.card} ${s.bodyPanel}`} aria-label="Body map">
-          <div className={ui.sectionHead}>
-            <h2 className={ui.h3}>Body</h2>
-            <span className={ui.caption}>Select a zone to filter</span>
-          </div>
+        <div className={s.bodyPanel}>
           <BodyFigure levels={levels} headline={headline} selected={zone} onSelect={toggle} />
-          {/* Column labels above the whole-body tiles: how each one shows on the figure. */}
-          <ul className={s.legend} aria-label="How whole-body zones show on the figure">
-            <li><span className={s.keyOutline} aria-hidden="true" /> Aura: outline</li>
-            <li><span className={s.keyCore} aria-hidden="true" /> Aura: core</li>
-            <li><span className={s.keyField} aria-hidden="true" /> Aura: outer field</li>
-          </ul>
+          <p className={s.auraLegend}>Glow colour = status. Outer field = Radiation · Body outline = Immune · Core = Metabolism</p>
           <div className={s.offBody}>
             {OFF_BODY.map((z) => (
               <ZoneButton
@@ -136,30 +116,16 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
                 reading={headline[z]}
                 selected={zone === z}
                 onSelect={toggle}
-                className={s.zoneTile}
+                className={s.tileBtn}
                 icon
               />
             ))}
           </div>
-        </aside>
+        </div>
 
-        <div className={s.main}>
-          {zone ? (
-            <section className={`${ui.card} ${s.zoneDetail}`} aria-labelledby="today-zone">
-              <div className={s.zoneDetailHead}>
-                <ZoneIcon zone={zone} className={s.zoneDetailIcon} />
-                <h2 id="today-zone" className={ui.h2}>
-                  {zoneLabel(zone)}
-                </h2>
-                <StatusBadge level={levels[zone]} label={LEVEL_WORD[levels[zone]]} />
-                <button type="button" className={`${ui.btnText} ${s.pushRight}`} onClick={() => setZone(null)}>
-                  Show all zones
-                </button>
-              </div>
-              {headline[zone] && <GuidancePanel metricId={headline[zone]!.id} open />}
-            </section>
-          ) : (
-            <NextStepCard
+        <div className={s.right}>
+          {!zone && (
+            <NextActionCard
               data={data}
               flagged={allFlagged}
               onStart={(m) => actions.onStart?.(id, m)}
@@ -169,20 +135,33 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
             />
           )}
 
+          {zone && (
+            <section className={s.zoneDetail} aria-labelledby="today-zone">
+              <div className={s.filter}>
+                <span className={s.filterName}>
+                  <ZoneIcon zone={zone} className={s.filterIcon} />
+                  <span id="today-zone">{zoneLabel(zone)}</span>
+                  <span className={`${s.badge} ${s[levels[zone]]}`}>
+                    <StatusIcon level={levels[zone]} /> {LEVEL_WORD[levels[zone]]}
+                  </span>
+                </span>
+                <button type="button" className={s.linkBtn} onClick={() => setZone(null)}>
+                  Show all zones
+                </button>
+              </div>
+              {headline[zone] && <GuidancePanel metricId={headline[zone]!.id} open />}
+            </section>
+          )}
+
           {shown.length === 0 && (
-            <p className={`${ui.card} ${s.empty}`}>{zone ? 'No readings for this zone yet.' : 'No readings yet. Complete a check-in to start learning your normal.'}</p>
+            <p className={s.empty}>{zone ? 'No readings for this zone yet.' : "No readings yet. Do today's check-in to start learning your normal."}</p>
           )}
 
           {flagged.length > 0 && (
-            <section className={ui.section} aria-labelledby="today-attention">
-              <div className={ui.sectionHead}>
-                <h2 id="today-attention" className={ui.h2}>
-                  Needs attention
-                </h2>
-                <span className={ui.sectionMeta}>
-                  {flagged.length} {flagged.length === 1 ? 'reading' : 'readings'}
-                </span>
-              </div>
+            <section aria-labelledby="today-attention">
+              <h2 id="today-attention" className={s.h2}>
+                Needs attention <span className={s.count}>{flagged.length}</span>
+              </h2>
               <div className={s.cards}>
                 {flagged.map((r) => (
                   <AttentionCard key={r.id} r={r} onWhy={actions.onWhy} />
@@ -191,9 +170,9 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
             </section>
           )}
 
-          <InRange data={data} readings={inRange} zoneLevels={levels} />
+          <GoodNews data={data} normal={normal} zoneLevels={levels} />
 
-          {!zone && <ThisWeek data={data} onOpenReport={actions.onOpenReport && (() => actions.onOpenReport!(id))} />}
+          {!zone && <MyWeek data={data} onOpenReport={actions.onOpenReport && (() => actions.onOpenReport!(id))} />}
         </div>
       </div>
     </section>
