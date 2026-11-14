@@ -23,7 +23,16 @@ export interface CheckInScreenProps {
 }
 
 const MOODS = ['Very low', 'Low', 'Okay', 'Good', 'Great'] as const
-const MOOD_FACES = ['😫', '😕', '😐', '🙂', '😄'] as const
+const MOUTHS = ['M9 17q3-3 6 0', 'M9 16.5q3-1.5 6 0', 'M9 16h6', 'M9 15.5q3 1.8 6 0', 'M8.5 15q3.5 3.5 7 0'] // sad → happy
+
+// Line-drawn faces: emoji look different on every device and clash with the line icons.
+const Face = ({ i }: { i: number }) => (
+  <svg className={s.face} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="9.5" />
+    <path d="M9 9.5v1M15 9.5v1" />
+    <path d={MOUTHS[i]} />
+  </svg>
+)
 const SEVERITY = ['None', 'Mild', 'Moderate', 'Severe'] as const
 const FLUID_STEP_ML = 250
 
@@ -122,7 +131,7 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone 
   }
 
   const num = (id: FieldId) => (
-    <NumField id={id} value={form.text[id] ?? ''} error={errorFor(id)} onChange={(v) => setText(id, v)} onBlur={() => setTouched((x) => new Set(x).add(id))} />
+    <NumField id={id} value={form.text[id] ?? ''} error={errorFor(id)} usual={usual[id]} onChange={(v) => setText(id, v)} onBlur={() => setTouched((x) => new Set(x).add(id))} />
   )
   const ctx = (id: ContextField, label: string) => (
     <Pills label={label} value={form.context[id]} onChange={(c) => c && setContext(id, c)} options={FIELDS[id].contexts.map((c) => [c, CONTEXT_LABEL[c]])} />
@@ -151,7 +160,7 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone 
             toggle
             value={form.mood}
             onChange={(v) => update({ mood: v })}
-            options={MOODS.map((m, i) => [i + 1, <><span aria-hidden="true">{MOOD_FACES[i]}</span> {m}</>])}
+            options={MOODS.map((m, i) => [i + 1, <><Face i={i} /> {m}</>])}
           />
         </Section>
 
@@ -237,7 +246,7 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone 
               `${count} reading${count === 1 ? '' : 's'} ready`}
           </p>
           <button type="submit" className={t.primaryBtn} disabled={saving}>
-            {saving ? 'Saving…' : warnings.length > 0 ? 'Save anyway' : editing ? 'Update check-in' : 'Save check-in'}
+            {saving ? 'Saving…' : warnings.length > 0 ? 'Save anyway' : `${editing ? 'Update' : 'Save'} check-in for ${name.split(' ')[0]}`}
           </button>
         </div>
       </form>
@@ -254,8 +263,11 @@ function Section({ title, tone, children }: { title: string; tone: 'ok' | 'watch
   )
 }
 
-function NumField({ id, value, error, onChange, onBlur }: { id: FieldId; value: string; error?: string; onChange: (v: string) => void; onBlur: () => void }) {
+function NumField({ id, value, error, usual, onChange, onBlur }: {
+  id: FieldId; value: string; error?: string; usual?: [number, number]; onChange: (v: string) => void; onBlur: () => void
+}) {
   const { label, unit } = FIELDS[id]
+  const hint = error ?? (usual && `Your usual ${usual[0]}–${usual[1]} ${unit}`)
   return (
     <div className={s.field}>
       <label htmlFor={`ci-${id}`} className={s.label}>
@@ -268,7 +280,7 @@ function NumField({ id, value, error, onChange, onBlur }: { id: FieldId; value: 
           autoComplete="off"
           value={value}
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? `ci-${id}-err` : undefined}
+          aria-describedby={hint ? `ci-${id}-hint` : undefined}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
         />
@@ -276,9 +288,9 @@ function NumField({ id, value, error, onChange, onBlur }: { id: FieldId; value: 
           {unit}
         </span>
       </div>
-      {error && (
-        <p id={`ci-${id}-err`} className={s.fieldError}>
-          {error}
+      {hint && (
+        <p id={`ci-${id}-hint`} className={error ? s.fieldError : s.hint}>
+          {hint}
         </p>
       )}
     </div>

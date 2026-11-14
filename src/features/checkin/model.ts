@@ -1,8 +1,9 @@
 // Check-in form logic (PRD F-03), pure: text in, answers or errors out. No React, no database.
+import type { CheckInAnswers } from '../../data/checkin'
 import type { Context, MetricId } from '../../data/types'
 
 /** What saveCheckIn() takes: one entry per metric the person filled in. Blank metrics are left out. */
-export type CheckInAnswers = Partial<Record<MetricId, { value: number; context?: Context }>>
+export type { CheckInAnswers }
 
 /** Typed fields. min/max are physically plausible ranges to catch typos, NOT clinical limits (those live in the engine). */
 export const FIELDS = {
