@@ -2,10 +2,10 @@
 // No React, no fetch, no IndexedDB. The UI calls these and only draws what they return.
 
 import type {
-    DonkiCme,
-    DonkiFlare,
-    DonkiGeomagneticStorm,
-    DonkiSep,
+    SlimCme,
+    SlimFlare,
+    SlimGeomagneticStorm,
+    SlimSep,
     DonkiSnapshot,
 } from './donki.types';
 
@@ -55,7 +55,7 @@ export interface FlareView {
     link: string;                        // page on the DONKI site
 }
 
-function toFlareView(f: DonkiFlare): FlareView {
+function toFlareView(f: SlimFlare): FlareView {
     return {
         id: f.flrID,
         classType: f.classType,
@@ -98,9 +98,9 @@ const isModel = (name: string) => name.startsWith('MODEL:');   // model output, 
 const OVER_10 = />\s*10\s*MeV/i;       // does not match ">100 MeV": after "10" comes "0", not a space
 const OVER_100 = />\s*100\s*MeV/i;
 
-const timeOf = (r: DonkiSep) => parseDonkiTime(r.eventTime).getTime();
+const timeOf = (r: SlimSep) => parseDonkiTime(r.eventTime).getTime();
 
-function buildEpisode(records: DonkiSep[]): SepEpisode {
+function buildEpisode(records: SlimSep[]): SepEpisode {
     const sorted = [...records].sort((a, b) => timeOf(a) - timeOf(b) || a.sepID.localeCompare(b.sepID));
     const names = sorted.flatMap((r) => r.instruments.map((i) => i.displayName));
     const observed = names.filter((n) => !isModel(n));
@@ -132,7 +132,7 @@ export function sepEpisodes(snap: DonkiSnapshot): SepEpisode[] {
             else parent[find(i)] = find(seen);
         }
     });
-    const groups = new Map<number, DonkiSep[]>();
+    const groups = new Map<number, SlimSep[]>();
     recs.forEach((r, i) => {
         const root = find(i);
         groups.set(root, [...(groups.get(root) ?? []), r]);
@@ -186,7 +186,7 @@ function flareStrength(classType: string): number | null {
 
 /** Highest-class flare. If two tie, the more recent one wins. */
 export function strongestFlare(snap: DonkiSnapshot): FlareView | null {
-    let best: { f: DonkiFlare; s: number; t: number } | null = null;
+    let best: { f: SlimFlare; s: number; t: number } | null = null;
     for (const f of snap.flares) {
         const s = flareStrength(f.classType);
         if (s === null) continue;
@@ -198,7 +198,7 @@ export function strongestFlare(snap: DonkiSnapshot): FlareView | null {
 
 /** Fastest CME, using only analyses NASA marks as most accurate. A CME with none is skipped. If two tie, the more recent wins. */
 export function fastestCme(snap: DonkiSnapshot): CmeView | null {
-    let best: { c: DonkiCme; speed: number; angle: number; t: number } | null = null;
+    let best: { c: SlimCme; speed: number; angle: number; t: number } | null = null;
     for (const c of snap.cme) {
         const top = (c.cmeAnalyses ?? [])
             .filter((a) => a.isMostAccurate && Number.isFinite(a.speed))
@@ -223,7 +223,7 @@ export function fastestCme(snap: DonkiSnapshot): CmeView | null {
 
 /** Storm with the highest Kp reading. A storm with no Kp readings is skipped. If two tie, the more recent wins. */
 export function strongestStorm(snap: DonkiSnapshot): StormView | null {
-    let best: { g: DonkiGeomagneticStorm; kp: number; at: string; t: number } | null = null;
+    let best: { g: SlimGeomagneticStorm; kp: number; at: string; t: number } | null = null;
     for (const g of snap.gst) {
         const top = [...(g.allKpIndex ?? [])].sort((a, b) => b.kpIndex - a.kpIndex)[0];
         if (!top) continue;
