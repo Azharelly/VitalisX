@@ -1,17 +1,17 @@
-/* shortcut: palette B tokens scoped to this screen; switch to the src/ui design tokens once they land. */
+/* shortcut: "A · Flight deck (dark)" tokens scoped to this screen; switch to the src/ui tokens once they land. */
 .root {
-  --bg: #0f1013;
-  --surface: #17181d;
-  --surface-2: #1d1f25;
-  --line: #2a2c34;
-  --text: #ecebf2;
-  --muted: #9a9cab;
-  --accent: #b4a7ff;
-  --ok: #5fd3a5;
-  --watch: #f5c04a;
-  --alert: #ff7b86;
-  --learn: #9094a8;
-  --body: #2b2d36;
+  --bg: #0b0f14; /* ground */
+  --surface: #141b23; /* card */
+  --surface-2: #1b2430;
+  --line: #273140;
+  --text: #e6edf3;
+  --muted: #8b96a3;
+  --accent: #58a6ff; /* info / advisory */
+  --ok: #3fb950;
+  --watch: #f2c94c;
+  --alert: #f85149;
+  --learn: #8b96a3;
+  --body: #222b36;
 
   background: var(--bg);
   color: var(--text);
