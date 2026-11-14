@@ -125,8 +125,8 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone,
   const num = (id: FieldId) => (
     <NumField id={id} value={form.text[id] ?? ''} error={errorFor(id)} usual={usual[id]} onChange={(v) => setText(id, v)} onBlur={() => setTouched((x) => new Set(x).add(id))} />
   )
-  const ctx = (id: ContextField, label: string) => (
-    <Pills label={label} value={form.context[id]} onChange={(c) => c && setContext(id, c)} options={FIELDS[id].contexts.map((c) => [c, CONTEXT_LABEL[c]])} />
+  const ctx = (id: ContextField, what: string) => (
+    <Pills label="Taken" ariaLabel={`${what} taken`} value={form.context[id]} onChange={(c) => c && setContext(id, c)} options={FIELDS[id].contexts.map((c) => [c, CONTEXT_LABEL[c]])} />
   )
   const fluidsL = form.fluidsMl === undefined ? null : (form.fluidsMl / 1000).toFixed(2).replace(/0$/, '')
 
@@ -157,16 +157,14 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone,
         </Section>
 
         <Section title="Vitals" tone="ok">
-          <div className={s.grid}>
-            <div className={s.stack}>
-              {num('hr')}
-              {ctx('hr', 'Heart rate taken')}
-            </div>
-            {num('spo2')}
-            <div className={s.stack}>
-              {num('temp')}
-              {ctx('temp', 'Temperature taken')}
-            </div>
+          <div className={s.measure}>
+            {num('hr')}
+            {ctx('hr', 'Heart rate')}
+          </div>
+          {num('spo2')}
+          <div className={s.measure}>
+            {num('temp')}
+            {ctx('temp', 'Temperature')}
           </div>
         </Section>
 
@@ -176,25 +174,25 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone,
         </Section>
 
         <Section title="Body and activity" tone="learn">
-          <div className={s.grid}>
+          <div className={s.pair}>
             {num('weight')}
             {num('exercise')}
-            <div className={s.field}>
-              <span className={s.label} id="ci-fluids">
-                Fluids
-              </span>
-              <div className={s.stepper} role="group" aria-labelledby="ci-fluids">
-                <button type="button" className={t.ghostBtn} aria-label={`Remove ${FLUID_STEP_ML} mL`} disabled={!form.fluidsMl}
-                  onClick={() => update({ fluidsMl: form.fluidsMl! > FLUID_STEP_ML ? form.fluidsMl! - FLUID_STEP_ML : undefined })}>
-                  −
-                </button>
-                <output className={s.stepValue} aria-live="polite">
-                  {fluidsL === null ? <span className={t.muted}>Not logged</span> : <>{fluidsL}<span className={s.unitText}> L</span></>}
-                </output>
-                <button type="button" className={t.ghostBtn} onClick={() => update({ fluidsMl: (form.fluidsMl ?? 0) + FLUID_STEP_ML })}>
-                  +{FLUID_STEP_ML} mL
-                </button>
-              </div>
+          </div>
+          <div className={s.field}>
+            <span className={s.label} id="ci-fluids">
+              Fluids
+            </span>
+            <div className={s.stepper} role="group" aria-labelledby="ci-fluids">
+              <button type="button" className={t.ghostBtn} aria-label={`Remove ${FLUID_STEP_ML} mL`} disabled={!form.fluidsMl}
+                onClick={() => update({ fluidsMl: form.fluidsMl! > FLUID_STEP_ML ? form.fluidsMl! - FLUID_STEP_ML : undefined })}>
+                −
+              </button>
+              <output className={s.stepValue} aria-live="polite">
+                {fluidsL === null ? <span className={t.muted}>Not logged</span> : <>{fluidsL}<span className={s.unitText}> L</span></>}
+              </output>
+              <button type="button" className={t.ghostBtn} onClick={() => update({ fluidsMl: (form.fluidsMl ?? 0) + FLUID_STEP_ML })}>
+                +{FLUID_STEP_ML} mL
+              </button>
             </div>
           </div>
         </Section>
@@ -205,21 +203,23 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone,
               Glucose and blood pressure <span className={s.optionalTag}>Optional</span>
             </span>
           </summary>
-          <div className={s.stack}>
-            {num('glucose')}
-            {ctx('glucose', 'Glucose taken')}
-          </div>
-          <div className={s.stack}>
-            <div className={s.grid}>
-              {num('sys')}
-              {num('dia')}
+          <div className={s.optionalBody}>
+            <div className={s.measure}>
+              {num('glucose')}
+              {ctx('glucose', 'Glucose')}
             </div>
-            {ctx('sys', 'Blood pressure taken')}
+            <div className={s.measure}>
+              <div className={s.pair}>
+                {num('sys')}
+                {num('dia')}
+              </div>
+              {ctx('sys', 'Blood pressure')}
+            </div>
           </div>
         </details>
 
         {warnings.length > 0 && (
-          <div className={`${t.card} ${t.watch} ${s.wide}`} role="alert">
+          <div className={`${t.card} ${t.watch}`} role="alert">
             <p className={s.sectionTitle}>Please double-check</p>
             <ul className={s.changes}>
               {warnings.map((w) => (
@@ -230,7 +230,7 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone,
           </div>
         )}
 
-        <div className={`${s.footer} ${s.wide}`}>
+        <div className={s.footer}>
           <p className={s.status} role={saveError || (submitted && count === 0) ? 'alert' : undefined}>
             {saveError ||
               (submitted && Object.keys(errors).length > 0 && 'Check the highlighted fields.') ||
@@ -290,13 +290,13 @@ function NumField({ id, value, error, usual, onChange, onBlur }: {
 }
 
 /** A row of pill buttons. `toggle` lets a second tap clear it (for optional answers like mood). */
-function Pills<V extends string | number>({ label, value, options, onChange, toggle }: {
-  label: string; value: V | undefined; options: [V, ReactNode][]; onChange: (v: V | undefined) => void; toggle?: boolean
+function Pills<V extends string | number>({ label, ariaLabel, value, options, onChange, toggle }: {
+  label: string; ariaLabel?: string; value: V | undefined; options: [V, ReactNode][]; onChange: (v: V | undefined) => void; toggle?: boolean
 }) {
   return (
     <div className={s.field}>
       <span className={s.label}>{label}</span>
-      <div className={s.pills} role="group" aria-label={label}>
+      <div className={s.pills} role="group" aria-label={ariaLabel ?? label}>
         {options.map(([v, text]) => (
           <button key={String(v)} type="button" className={s.pill} aria-pressed={value === v} onClick={() => onChange(toggle && value === v ? undefined : v)}>
             {text}
@@ -384,7 +384,7 @@ function Result({ outcomes, first, count, onDone, onEdit, onEmergency, onWhy, on
         )}
         <p className={t.fine}>Decision support, not a diagnosis. Follow mission procedures.</p>
       </article>
-      <div className={`${s.actions} ${s.resultActions}`}>
+      <div className={s.actions}>
         {onDone && (
           <button type="button" className={t.primaryBtn} onClick={onDone}>
             Back to Today
