@@ -11,6 +11,7 @@ export function DonkiPanel({ donki }: { donki: DonkiState }) {
   return (
     <section className="rad-card" aria-labelledby="rad-donki-h">
       <h2 id="rad-donki-h">Space weather (NASA DONKI)</h2>
+      <p className="rad-dim rad-small">Real NASA data</p>
       {donki.status === 'loading' && <p className="rad-dim">Checking NASA for live space-weather data…</p>}
       {donki.status === 'error' && (
         <p role="alert">Space-weather data could not be loaded, live or saved ({donki.message}). Dose figures above are not affected.</p>

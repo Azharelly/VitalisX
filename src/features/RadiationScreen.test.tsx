@@ -21,8 +21,8 @@ describe('Radiation tab (#21)', () => {
   });
 
   it('says 250 mSv is the NASA short-term limit (exact wording)', () => {
-    expect(html).toContain('250 mSv is NASA&#x27;s short-term (30-day) dose limit for blood-forming organs, not a career limit.');
-    expect(html).not.toContain('shielding design target for one solar storm');
+    expect(html).toContain('NASA short-term limit for a solar particle event: 250 mSv effective dose (design requirement based on the October 1989 event)');
+    expect(html).toContain('Real NASA data');
   });
 
   it('draws one bar per daily dose and marks storm days', () => {

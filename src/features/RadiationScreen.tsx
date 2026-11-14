@@ -49,7 +49,7 @@ export function RadiationScreen({
             Why?
           </button>
         )}
-        <span className="rad-sim">Simulated data</span>
+        <span className="rad-sim">Simulated crew data</span>
       </header>
 
       {doses.length === 0 ? (
