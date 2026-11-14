@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { RadiationDose } from '../data/types';
-import { isActiveSolarStorm, snapshotAsOf } from '../engine/donki';
+import { isActiveSolarStorm, snapshotAsOf } from '../engine/donkiRadiation';
 import { evaluateRadiation } from '../engine/radiation';
 import { MOCK } from './mock';
 import { useDonki } from './useDonki';
