@@ -1,5 +1,5 @@
 import type { CrewSummary, TodayApi } from './api.ts'
-import { byAttention, isFlagged, type Level, type Reading, type TodayView, type ZoneId } from './model.ts'
+import { ZONES, byAttention, isFlagged, worst, type Level, type NextAction, type Reading, type TodayView, type WeekDay, type ZoneId } from './model.ts'
 
 // Simulated backend for the Today screen. Everything here is made up (is_simulated = true), calibrated to the
 // dossier's stories and orders of magnitude, and evaluated with the PRD §5 rules.
@@ -73,24 +73,6 @@ const EVENTS: Record<string, Record<string, Record<number, number>>> = {
 }
 const NOTES: Record<string, string> = { ravi: 'Headache, chills', lucia: 'Skin irritation', amara: 'Blurred vision' }
 
-// Example guidance (not clinically validated; the UI states decision support).
-const ACTIONS: Record<string, Partial<Record<Level, string>> & { next?: string }> = {
-  temp: { watch: 'Re-measure tonight and log any symptoms.', alert: 'Rest, drink fluids and re-measure in 1 hour.', next: 'Re-measure your temperature in 1 hour and send a report to the flight surgeon.' },
-  hr: { watch: 'Sit for 5 minutes and re-measure your resting pulse.', alert: 'Re-measure now; if it stays high, report to the flight surgeon.' },
-  spo2: { watch: 'Re-measure at rest in 10 minutes.', alert: 'Re-measure now and alert the crew medical officer.' },
-  bp_sys: { watch: 'Re-measure seated after 5 minutes of rest.', alert: 'Re-measure now; report it if it stays out of range.' },
-  bp_dia: { watch: 'Re-measure seated after 5 minutes of rest.', alert: 'Re-measure now; report it if it stays out of range.' },
-  glucose: { watch: 'Re-measure fasting tomorrow morning.', alert: 'Re-measure now and follow the glucose procedure.' },
-  sleep: { watch: "Protect tonight's sleep window: dim lights and no screens 1 hour before.", alert: 'Tell the commander and take a rest period today.' },
-  mood: { watch: 'Take a break and talk to someone you trust; a private conference is available.', alert: 'Talk to the crew medical officer today.' },
-  weight: { watch: 'Check food intake against your plan this week.', alert: 'Review your diet with the flight surgeon.' },
-  fluids: { watch: 'Drink an extra 500 mL today.', alert: 'Drink now and re-check fluids tonight.' },
-  vision: { watch: 'Repeat the vision self-test tomorrow and note any blur.', alert: 'Report vision changes to the flight surgeon today.' },
-  symptoms: { watch: 'Log any change in the next check-in.', alert: 'Report symptoms to the crew medical officer now.' },
-  exercise: { watch: 'Book your missed sessions this week; bone loss speeds up without them.' },
-  rad: { watch: 'Limit time outside the shielded core and review EVA plans.', alert: 'Move to the storm shelter now and stay until the event ends.' },
-}
-
 // ── deterministic randomness ──
 function hash(s: string) {
   let h = 2166136261
@@ -155,9 +137,7 @@ function measuredText(c: Crew, day: number, asOf: number) {
 }
 
 function reading(d: Pick<Def, 'id' | 'label' | 'zone' | 'unit' | 'decimals' | 'priority' | 'context'>, extra: Partial<Reading> & { level: Level }): Reading {
-  const r: Reading = { id: d.id, label: d.label, zone: d.zone, unit: d.unit, decimals: d.decimals, priority: d.priority, context: d.context, value: null, ...extra }
-  if (isFlagged(r.level)) r.action = ACTIONS[d.id]?.[r.level]
-  return r
+  return { id: d.id, label: d.label, zone: d.zone, unit: d.unit, decimals: d.decimals, priority: d.priority, context: d.context, value: null, ...extra }
 }
 
 /** PRD §5.1–5.2: robust z against the person's last 28 days, same context; Alert on abs limits or |z| ≥ 3; Watch on 3 readings |z| ≥ 1.5. */
@@ -199,12 +179,12 @@ function evalSeverity(c: Crew, id: 'symptoms' | 'vision', asOf: number): Reading
 
 /** Exercise: sessions in the last 7 days against a plan of 6; fewer than 4 → Watch. */
 function evalExercise(c: Crew, asOf: number): Reading {
-  const def = { id: 'exercise', label: 'Exercise', zone: 'bone' as ZoneId, unit: 'sessions / 7 days', decimals: 0, priority: 8 }
+  const def = { id: 'exercise', label: 'Exercise', zone: 'bone' as ZoneId, unit: 'sessions', decimals: 0, priority: 8 }
   const done = (day: number) => !missed(c, day) && rng(`${c.id}:ex:${day}`)() < (EVENTS[c.id]?.exercise?.[day] ? 0.15 : 0.85)
   const week = (end: number) => Array.from({ length: 7 }, (_, i) => end - i).filter((d) => d >= 1 && done(d)).length
-  if (asOf < 7) return reading(def, { level: 'learn', value: week(asOf), measured: 'Plan: 6 per week' })
+  if (asOf < 7) return reading(def, { level: 'learn', value: week(asOf), measured: 'Last 7 days · plan 6' })
   const v = week(asOf)
-  return reading(def, { level: v < 4 ? 'watch' : 'ok', value: v, trend: Array.from({ length: 7 }, (_, i) => week(asOf - 6 + i)), measured: 'Plan: 6 per week' })
+  return reading(def, { level: v < 4 ? 'watch' : 'ok', value: v, trend: Array.from({ length: 7 }, (_, i) => week(asOf - 6 + i)), measured: 'Last 7 days · plan 6' })
 }
 
 /** PRD §5.3: career dose vs 600 mSv, projection at arrival, solar storm. Watch at ≥ 80% projected (PRD: OPEN, proposed). */
@@ -231,24 +211,45 @@ function evalRadiation(c: Crew, asOf: number): Reading {
   })
 }
 
-function buildToday(c: Crew, asOf: number): TodayView {
-  const readings = [
+function readingsFor(c: Crew, asOf: number): Reading[] {
+  return [
     ...Z_METRICS.map((d) => evalZ(c, d, asOf)),
     evalSeverity(c, 'symptoms', asOf),
     evalSeverity(c, 'vision', asOf),
     evalExercise(c, asOf),
     evalRadiation(c, asOf),
   ]
+}
+
+const zoneLevels = (readings: Reading[]) =>
+  Object.fromEntries(ZONES.map((z) => [z.id, worst(readings.filter((r) => r.zone === z.id).map((r) => r.level))])) as Record<ZoneId, Level>
+
+function buildToday(c: Crew, asOf: number): TodayView {
+  const readings = readingsFor(c, asOf)
   const top = [...readings].sort(byAttention)[0]
   const checkIns = pointsUpTo(series(c, Z_METRICS[0]), asOf).length
-  const learning = checkIns <= MIN_BASELINE
-  const nextAction =
+  const nextAction: NextAction =
     top && isFlagged(top.level)
-      ? { text: (top.level === 'alert' && ACTIONS[top.id]?.next) || top.action || 'Follow your plan.', metricId: top.id }
-      : learning
-        ? { text: `Learning your normal: ${MIN_BASELINE + 1 - checkIns} more check-ins needed. Keep doing your daily check-in.` }
-        : { text: 'All normal. Follow your plan.' }
-  return { person: { name: c.name, role: c.role }, missionDay: asOf, isSimulated: true, nextAction, readings }
+      ? { kind: 'metric', metricId: top.id }
+      : checkIns <= MIN_BASELINE
+        ? { kind: 'learning', checkInsLeft: MIN_BASELINE + 1 - checkIns }
+        : { kind: 'all-clear' }
+
+  const week: WeekDay[] = Array.from({ length: 7 }, (_, i) => asOf - 6 + i)
+    .filter((day) => day >= 1)
+    .map((day) => ({ day, zones: missed(c, day) ? null : zoneLevels(readingsFor(c, day)) }))
+  let streakDays = 0
+  for (let day = asOf; day >= 1 && !missed(c, day); day--) streakDays++
+
+  return {
+    person: { id: c.id, name: c.name, role: c.role },
+    missionDay: asOf,
+    isSimulated: true,
+    checkIn: { doneAt: missed(c, asOf) ? undefined : checkInTime(c, asOf), streakDays },
+    nextAction,
+    readings,
+    week,
+  }
 }
 
 /** In-browser implementation of the TodayApi contract, returning simulated data. Async like a real backend. */

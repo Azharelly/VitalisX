@@ -17,7 +17,7 @@ function domain(r: Reading): [number, number] {
 }
 
 /** Last readings against the person's usual band. Decorative: the card text carries the numbers. */
-export function Sparkline({ r }: { r: Reading }) {
+export function Sparkline({ r, small }: { r: Reading; small?: boolean }) {
   const t = r.trend
   if (!t || t.length < 2) return null
   const W = 180
@@ -28,7 +28,7 @@ export function Sparkline({ r }: { r: Reading }) {
   const pts = t.map((v, i) => `${x(i)},${y(v)}`).join(' ')
   const last = t.length - 1
   return (
-    <svg className={s.spark} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
+    <svg className={small ? s.sparkSmall : s.spark} viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
       {r.usual && <rect className={s.sparkBand} x="0" width={W} y={y(r.usual[1])} height={y(r.usual[0]) - y(r.usual[1])} rx="3" />}
       <polyline className={s.sparkLine} points={pts} />
       <circle className={s.sparkDot} cx={x(last)} cy={y(t[last])} r="4" />

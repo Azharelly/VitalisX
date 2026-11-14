@@ -1,17 +1,16 @@
 import type { TodayApi } from './api.ts'
-import { TodayScreen } from './TodayScreen'
+import { TodayScreen, type TodayActions } from './TodayScreen'
 import { useToday } from './useToday.ts'
 import s from './today.module.css'
 
-interface Props {
+interface Props extends TodayActions {
   api: TodayApi
   crewId: string
   day?: number // mission day; omitted = current day from the data source
-  onWhy?: (metricId: string) => void
 }
 
 /** Connected Today screen: fetches through the TodayApi contract and handles loading and error states. */
-export function Today({ api, crewId, day, onWhy }: Props) {
+export function Today({ api, crewId, day, ...actions }: Props) {
   const state = useToday(api, crewId, day)
 
   if (state.status === 'loading') {
@@ -43,5 +42,5 @@ export function Today({ api, crewId, day, onWhy }: Props) {
     )
   }
 
-  return <TodayScreen data={state.data} onWhy={onWhy} />
+  return <TodayScreen data={state.data} {...actions} />
 }

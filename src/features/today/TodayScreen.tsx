@@ -1,34 +1,36 @@
 import { useState } from 'react'
 import { BodyFigure, ZoneButton } from './BodyFigure'
-import { RangeBar, Sparkline } from './Charts'
+import { GuidancePanel } from './GuidancePanel'
+import { AttentionCard, GoodNews, MyWeek, NextActionCard } from './sections'
 import { StatusIcon } from './StatusIcon'
 import { ZoneIcon } from './ZoneIcon'
-import {
-  LEVEL_WORD,
-  ZONES,
-  byAttention,
-  deviation,
-  formatValue,
-  isFlagged,
-  worst,
-  type Level,
-  type Reading,
-  type TodayView,
-  type ZoneId,
-} from './model'
+import { LEVEL_WORD, ZONES, byAttention, isFlagged, worst, type Level, type Reading, type TodayView, type ZoneId } from './model'
 import s from './today.module.css'
 
-interface Props {
-  data: TodayView
-  onWhy?: (metricId: string) => void // opens the Why? modal (F-05)
+/** Everything the Today page can ask the app to do. All optional; the app wires the ones it supports. */
+export interface TodayActions {
+  /** Back to the crew overview. Shows a "Crew" link when set. */
+  onBack?: () => void
+  /** Open the emergency flow (F-08) for this person. */
+  onEmergency?: (crewId: string) => void
+  /** Open the Why? modal (F-05) for a metric. */
+  onWhy?: (metricId: string) => void
+  /** Log that self-care for a metric has started (action_log, kind = done). */
+  onStart?: (crewId: string, metricId: string) => void
+  /** Open the Earth link / SBAR draft (F-07), optionally about one metric. */
+  onNoteForEarth?: (crewId: string, metricId?: string) => void
+  /** Go to Check-in (F-03) for this person. */
+  onStartCheckIn?: (crewId: string) => void
 }
 
-const OFF_BODY: ZoneId[] = ['immune', 'meta', 'radiation'] // no place on the figure, so they get tiles
+const OFF_BODY: ZoneId[] = ['immune', 'meta', 'radiation'] // no single spot on the figure, so they also get tiles
 const zoneLabel = (z: ZoneId) => ZONES.find((x) => x.id === z)!.label
 
-export function TodayScreen({ data, onWhy }: Props) {
+/** The full Today page for one crew member. Presentational: give it a TodayView, get callbacks back. */
+export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayActions) {
   const [zone, setZone] = useState<ZoneId | null>(null)
   const toggle = (z: ZoneId) => setZone((cur) => (cur === z ? null : z))
+  const id = data.person.id
 
   const ranked = [...data.readings].sort(byAttention)
   const levels = {} as Record<ZoneId, Level>
@@ -39,14 +41,30 @@ export function TodayScreen({ data, onWhy }: Props) {
     headline[z.id] = inZone[0]
   }
   const overall = worst(Object.values(levels))
+  const allFlagged = ranked.filter((r) => isFlagged(r.level))
   const shown = ranked.filter((r) => !zone || r.zone === zone)
   const flagged = shown.filter((r) => isFlagged(r.level))
-  const rest = shown.filter((r) => !isFlagged(r.level))
-  const target = data.readings.find((r) => r.id === data.nextAction.metricId)
+  const normal = shown.filter((r) => !isFlagged(r.level) && r.level !== 'none')
   const initials = data.person.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
 
   return (
     <section className={s.root} aria-labelledby="today-viewing">
+      <div className={s.topBar}>
+        {actions.onBack ? (
+          <button type="button" className={s.backBtn} onClick={actions.onBack}>
+            <span aria-hidden="true">←</span> Crew
+          </button>
+        ) : (
+          <span />
+        )}
+        <button type="button" className={s.emergency} onClick={() => actions.onEmergency?.(id)}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 3 22 20H2ZM12 10v4M12 17v.5" />
+          </svg>
+          Emergency
+        </button>
+      </div>
+
       <header className={s.banner}>
         <div className={s.who}>
           <span className={`${s.avatar} ${s[overall]}`} aria-hidden="true">
@@ -68,6 +86,16 @@ export function TodayScreen({ data, onWhy }: Props) {
             <span className={s.eyebrow}>Mission day</span>
             <span className={s.metaNum}>{data.missionDay}</span>
           </span>
+          {data.checkIn.doneAt ? (
+            <span className={s.metaItem}>
+              <span className={s.eyebrow}>Checked in</span>
+              <span className={s.metaNum}>{data.checkIn.doneAt}</span>
+            </span>
+          ) : (
+            <button type="button" className={s.dueBtn} onClick={() => actions.onStartCheckIn?.(id)}>
+              Check-in due · start
+            </button>
+          )}
           {data.isSimulated && <span className={s.sim}>Simulated data</span>}
         </div>
       </header>
@@ -75,9 +103,7 @@ export function TodayScreen({ data, onWhy }: Props) {
       <div className={s.layout}>
         <div className={s.bodyPanel}>
           <BodyFigure levels={levels} headline={headline} selected={zone} onSelect={toggle} />
-          <p className={s.auraLegend}>
-            Glow colour = status. Outer field = Radiation · Body outline = Immune · Core = Metabolism
-          </p>
+          <p className={s.auraLegend}>Glow colour = status. Outer field = Radiation · Body outline = Immune · Core = Metabolism</p>
           <div className={s.offBody}>
             {OFF_BODY.map((z) => (
               <ZoneButton
@@ -96,47 +122,37 @@ export function TodayScreen({ data, onWhy }: Props) {
         </div>
 
         <div className={s.right}>
-          <article className={`${s.next} ${target ? s[target.level] : s.ok}`}>
-            <p className={s.eyebrow}>Next action</p>
-            <p className={s.nextText}>{data.nextAction.text}</p>
-            <div className={s.nextFoot}>
-              {target && (
-                <span className={s.nextLink}>
-                  <StatusIcon level={target.level} />
-                  {target.label}
-                  <span className={s.mono}>
-                    {formatValue(target)} {target.unit}
-                  </span>
-                </span>
-              )}
-              {target && (
-                <button type="button" className={s.why} onClick={() => onWhy?.(target.id)}>
-                  Why?
-                </button>
-              )}
-            </div>
-            <p className={s.fine}>Decision support, not a diagnosis. Follow mission procedures.</p>
-          </article>
+          {!zone && (
+            <NextActionCard
+              data={data}
+              flagged={allFlagged}
+              onStart={(m) => actions.onStart?.(id, m)}
+              onWhy={actions.onWhy}
+              onNoteForEarth={(m) => actions.onNoteForEarth?.(id, m)}
+              onStartCheckIn={() => actions.onStartCheckIn?.(id)}
+            />
+          )}
 
           {zone && (
-            <div className={s.filter}>
-              <span className={s.filterName}>
-                <ZoneIcon zone={zone} className={s.filterIcon} />
-                {zoneLabel(zone)}
-                <span className={s.muted}>
-                  {shown.length} reading{shown.length === 1 ? '' : 's'}
+            <section className={s.zoneDetail} aria-labelledby="today-zone">
+              <div className={s.filter}>
+                <span className={s.filterName}>
+                  <ZoneIcon zone={zone} className={s.filterIcon} />
+                  <span id="today-zone">{zoneLabel(zone)}</span>
+                  <span className={`${s.badge} ${s[levels[zone]]}`}>
+                    <StatusIcon level={levels[zone]} /> {LEVEL_WORD[levels[zone]]}
+                  </span>
                 </span>
-              </span>
-              <button type="button" className={s.linkBtn} onClick={() => setZone(null)}>
-                Show all zones
-              </button>
-            </div>
+                <button type="button" className={s.linkBtn} onClick={() => setZone(null)}>
+                  Show all zones
+                </button>
+              </div>
+              {headline[zone] && <GuidancePanel metricId={headline[zone]!.id} open />}
+            </section>
           )}
 
           {shown.length === 0 && (
-            <p className={s.empty}>
-              {zone ? 'No readings for this zone yet.' : "No readings yet. Do today's check-in to start learning your normal."}
-            </p>
+            <p className={s.empty}>{zone ? 'No readings for this zone yet.' : "No readings yet. Do today's check-in to start learning your normal."}</p>
           )}
 
           {flagged.length > 0 && (
@@ -146,90 +162,17 @@ export function TodayScreen({ data, onWhy }: Props) {
               </h2>
               <div className={s.cards}>
                 {flagged.map((r) => (
-                  <FlaggedCard key={r.id} r={r} onWhy={onWhy} />
+                  <AttentionCard key={r.id} r={r} onWhy={actions.onWhy} />
                 ))}
               </div>
             </section>
           )}
 
-          {rest.length > 0 && (
-            <section aria-labelledby="today-normal">
-              <h2 id="today-normal" className={s.h2}>
-                Within your normal <span className={s.count}>{rest.length}</span>
-              </h2>
-              <ul className={s.tiles}>
-                {rest.map((r) => (
-                  <li key={r.id} className={s.tile}>
-                    <span className={s.tileHead}>
-                      <ZoneIcon zone={r.zone} className={s.tileIcon} />
-                      {r.label}
-                      {r.level === 'learn' && <StatusIcon level="learn" />}
-                    </span>
-                    <span className={s.tileValue}>
-                      {formatValue(r)}
-                      <span className={s.unit}>{r.unit}</span>
-                    </span>
-                    <RangeBar r={r} />
-                    <span className={s.tileMeta}>{[usualText(r) || r.note, r.measured].filter(Boolean).join(' · ')}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          <GoodNews data={data} normal={normal} zoneLevels={levels} />
+
+          {!zone && <MyWeek data={data} />}
         </div>
       </div>
     </section>
   )
-}
-
-function FlaggedCard({ r, onWhy }: { r: Reading; onWhy?: (id: string) => void }) {
-  const dev = deviation(r)
-  return (
-    <article className={`${s.card} ${s[r.level]}`}>
-      <header className={s.cardHead}>
-        <span className={s.iconCircle}>
-          <ZoneIcon zone={r.zone} />
-        </span>
-        <span className={s.cardTitle}>
-          <span className={s.cardLabel}>{r.label}</span>
-          <span className={s.muted}>{[zoneLabel(r.zone), r.context].filter(Boolean).join(' · ')}</span>
-        </span>
-        <span className={s.badge}>
-          <StatusIcon level={r.level} /> {LEVEL_WORD[r.level]}
-        </span>
-      </header>
-
-      <div className={s.cardBody}>
-        <p className={s.value}>
-          {formatValue(r)}
-          <span className={s.unit}>{r.unit}</span>
-        </p>
-        <Sparkline r={r} />
-      </div>
-
-      <p className={s.cardMeta}>
-        {dev && <strong className={s.dev}>{dev}</strong>}
-        {[usualText(r) || r.note, r.measured].filter(Boolean).join(' · ')}
-      </p>
-
-      {r.action && (
-        <div className={s.step}>
-          <p>
-            <span className={s.eyebrow}>Next step</span>
-            {r.action}
-          </p>
-          <button type="button" className={s.why} onClick={() => onWhy?.(r.id)}>
-            Why?
-          </button>
-        </div>
-      )}
-    </article>
-  )
-}
-
-function usualText(r: Reading) {
-  if (r.level === 'learn') return 'Learning your normal'
-  if (!r.usual) return ''
-  const [lo, hi] = r.usual
-  return `Usual ${lo.toFixed(r.decimals)}–${hi.toFixed(r.decimals)}`
 }

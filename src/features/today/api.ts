@@ -1,4 +1,4 @@
-import { ZONES, type Level, type Reading, type TodayView, type ZoneId } from './model.ts'
+import { ZONES, type Level, type NextAction, type Reading, type TodayView, type WeekDay, type ZoneId } from './model.ts'
 
 export interface CrewSummary {
   id: string
@@ -84,17 +84,42 @@ function parseReading(r: unknown, i: number): Reading {
     context: optStr(r.context, `${at}.context`),
     measured: optStr(r.measured, `${at}.measured`),
     note: optStr(r.note, `${at}.note`),
-    action: optStr(r.action, `${at}.action`),
   }
 }
 
+function parseNextAction(n: unknown): NextAction {
+  if (!isObj(n)) throw new BadData('nextAction')
+  if (n.kind === 'metric') return { kind: 'metric', metricId: str(n.metricId, 'nextAction.metricId') }
+  if (n.kind === 'learning') return { kind: 'learning', checkInsLeft: num(n.checkInsLeft, 'nextAction.checkInsLeft') }
+  if (n.kind === 'all-clear') return { kind: 'all-clear' }
+  throw new BadData('nextAction.kind')
+}
+
+function parseWeek(w: unknown): WeekDay[] {
+  if (!Array.isArray(w) || w.length > 31) throw new BadData('week')
+  return w.map((d, i) => {
+    if (!isObj(d)) throw new BadData(`week[${i}]`)
+    if (d.zones === null) return { day: num(d.day, `week[${i}].day`), zones: null }
+    if (!isObj(d.zones)) throw new BadData(`week[${i}].zones`)
+    const zones = {} as Record<ZoneId, Level>
+    for (const z of ZONE_IDS) {
+      const l = d.zones[z]
+      if (!LEVELS.includes(l as Level)) throw new BadData(`week[${i}].zones.${z}`)
+      zones[z] = l as Level
+    }
+    return { day: num(d.day, `week[${i}].day`), zones }
+  })
+}
+
 export function parseTodayView(json: unknown): TodayView {
-  if (!isObj(json) || !isObj(json.person) || !isObj(json.nextAction) || !Array.isArray(json.readings)) throw new BadData('today view')
+  if (!isObj(json) || !isObj(json.person) || !isObj(json.checkIn) || !Array.isArray(json.readings)) throw new BadData('today view')
   return {
-    person: { name: str(json.person.name, 'person.name', 40), role: str(json.person.role, 'person.role', 40) },
+    person: { id: str(json.person.id, 'person.id'), name: str(json.person.name, 'person.name', 40), role: str(json.person.role, 'person.role', 40) },
     missionDay: num(json.missionDay, 'missionDay'),
     isSimulated: json.isSimulated === true,
-    nextAction: { text: str(json.nextAction.text, 'nextAction.text', 300), metricId: optStr(json.nextAction.metricId, 'nextAction.metricId') },
+    checkIn: { doneAt: optStr(json.checkIn.doneAt, 'checkIn.doneAt'), streakDays: num(json.checkIn.streakDays, 'checkIn.streakDays') },
+    nextAction: parseNextAction(json.nextAction),
     readings: json.readings.map(parseReading),
+    week: parseWeek(json.week),
   }
 }

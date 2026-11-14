@@ -1,8 +1,14 @@
-// shortcut: local view-model types until src/data/types.ts lands; then import State/Zone from there
-// (Level mirrors types.ts State names so the swap is a rename-free import).
+// View-model for the Today page: what the backend sends for one crew member on one mission day.
+// The backend sends numbers and states only. All advice text comes from src/data/guidance.ts.
+// shortcut: local types until src/data/types.ts lands; Level mirrors its State names, so the swap is an import change.
+
+/** Status of a reading or zone. `learn` = not enough days yet to know this person's normal. */
 export type Level = 'ok' | 'watch' | 'alert' | 'learn' | 'none'
+
+/** Body zones. Radiation, Immune and Metabolism are whole-body (shown as auras / tiles). */
 export type ZoneId = 'mind' | 'eyes' | 'heart' | 'bone' | 'immune' | 'meta' | 'radiation'
 
+/** One metric's latest state for this person. `id` is the metric id used by GUIDANCE[id]. */
 export interface Reading {
   id: string
   label: string
@@ -14,18 +20,31 @@ export interface Reading {
   priority: number // 1 = most urgent (metric.priority)
   usual?: [number, number] // personal normal band; absent while learning or for rule-only metrics
   trend?: number[] // recent readings, oldest first, last = value
-  context?: string
+  context?: string // resting, fasting, morning…
   measured?: string // already formatted with the mission clock
-  note?: string
-  action?: string // next step, only on watch/alert
+  note?: string // short data note (e.g. "Headache, chills", "49% of the 600 mSv limit")
+}
+
+/** What the page should lead with. The UI turns it into text with GUIDANCE. */
+export type NextAction =
+  | { kind: 'metric'; metricId: string }
+  | { kind: 'learning'; checkInsLeft: number }
+  | { kind: 'all-clear' }
+
+/** One day of the "My week" grid: worst level per zone that day (null = no check-in). */
+export interface WeekDay {
+  day: number
+  zones: Record<ZoneId, Level> | null
 }
 
 export interface TodayView {
-  person: { name: string; role: string }
+  person: { id: string; name: string; role: string }
   missionDay: number
   isSimulated: boolean // drives the "Simulated data" label (PRD: is_simulated)
-  nextAction: { text: string; metricId?: string } // the engine picks exactly one
+  checkIn: { doneAt?: string; streakDays: number } // doneAt absent = today's check-in is due
+  nextAction: NextAction
   readings: Reading[]
+  week: WeekDay[] // last 7 mission days, oldest first, last = today
 }
 
 export const ZONES: { id: ZoneId; label: string }[] = [
@@ -65,4 +84,21 @@ export function deviation(r: Reading): string | null {
   if (r.value > hi) return `${(r.value - hi).toFixed(r.decimals)} ${r.unit} above your usual`
   if (r.value < lo) return `${(lo - r.value).toFixed(r.decimals)} ${r.unit} below your usual`
   return null
+}
+
+/** Plain-language headline for a flagged reading, e.g. "Temperature is far above your usual". */
+export function headline(r: Reading): string {
+  if (r.value !== null && r.usual) {
+    const dir = r.value > r.usual[1] ? 'above' : r.value < r.usual[0] ? 'below' : null
+    if (dir) return `${r.label} is ${r.level === 'alert' ? 'far ' : ''}${dir} your usual`
+  }
+  return r.note ? `${r.label}: ${r.note}` : `${r.label} needs a look`
+}
+
+/** "Usual 36.7–37.1" for the personal band, or the learning message. */
+export function usualText(r: Reading) {
+  if (r.level === 'learn') return 'Learning your normal'
+  if (!r.usual) return ''
+  const [lo, hi] = r.usual
+  return `Usual ${lo.toFixed(r.decimals)}–${hi.toFixed(r.decimals)}`
 }
