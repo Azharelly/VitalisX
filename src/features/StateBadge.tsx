@@ -1,10 +1,10 @@
 import type { State } from '../data/types';
 
-// State = color + shape + text (PRD section 7: never color alone).
+// State = color + shape + text (never color alone). Shapes match palette A: ● ok, ▲ watch, ◆ alert.
 const META: Record<State, { label: string; shape: string; color: string }> = {
   ok: { label: 'Normal', shape: '●', color: 'var(--vx-ok)' },
-  watch: { label: 'Watch', shape: '◆', color: 'var(--vx-watch)' },
-  alert: { label: 'Alert', shape: '■', color: 'var(--vx-alert)' },
+  watch: { label: 'Watch', shape: '▲', color: 'var(--vx-watch)' },
+  alert: { label: 'Alert', shape: '◆', color: 'var(--vx-alert)' },
   learn: { label: 'Learning', shape: '○', color: 'var(--vx-learn)' },
   none: { label: 'No data', shape: '○', color: 'var(--vx-learn)' },
 };

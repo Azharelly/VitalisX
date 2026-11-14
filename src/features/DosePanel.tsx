@@ -21,6 +21,7 @@ export function DosePanel({ r, arrivalDay, currentDay }: { r: RadiationEval; arr
 
       <div
         className="rad-bar"
+        data-state={r.state}
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={CAREER_LIMIT_MSV}

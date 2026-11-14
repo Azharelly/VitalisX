@@ -1,18 +1,25 @@
-/* src/ui/tokens.css — PRD section 7, palette B "Graphite and lavender".
-   Prefixed --vx- so it does not clash with the Vite template styles. */
+/* src/ui/tokens.css — Palette A "Flight deck (dark)".
+   Six values come straight from the palette card; the rest are derived to match.
+   Prefixed --vx- so it does not clash with other styles. */
 :root {
-  --vx-bg: #0f1013;
-  --vx-surface: #17181d;
-  --vx-surface-2: #1f2027;
-  --vx-border: #2a2c35;
-  --vx-text: #e8e9ee;
-  --vx-text-dim: #9fa2b3;
-  --vx-accent: #b4a7ff;
+  color-scheme: dark;
 
-  --vx-ok: #5fd3a5;
-  --vx-watch: #f5c04a;
-  --vx-alert: #ff7b86;
-  --vx-learn: #9094a8;
+  /* From the palette card */
+  --vx-bg: #0b0f14;        /* ground */
+  --vx-surface: #141b23;   /* card */
+  --vx-ok: #3fb950;        /* shape: ● */
+  --vx-watch: #f2c94c;     /* shape: ▲ */
+  --vx-alert: #f85149;     /* shape: ◆ */
+  --vx-info: #58a6ff;      /* advisory / information */
+
+  /* Derived (not on the card): same cool hue family as ground and card */
+  --vx-surface-2: #1c2530;
+  --vx-border: #2a3440;
+  --vx-text: #e6edf3;
+  --vx-text-dim: #8b98a8;
+  --vx-learn: #8b98a8;     /* neutral: learning / no data */
+
+  --vx-accent: var(--vx-info);  /* kept so existing var(--vx-accent) users keep working */
 
   --vx-font-head: 'Space Grotesk', system-ui, sans-serif;
   --vx-font-body: 'Inter', system-ui, sans-serif;
