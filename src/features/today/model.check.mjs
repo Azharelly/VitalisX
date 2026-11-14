@@ -1,6 +1,6 @@
 // Self-check for the Today helpers. Run: node src/features/today/model.check.mjs
 import assert from 'node:assert/strict'
-import { worst, byAttention, formatValue } from './model.ts'
+import { worst, byAttention, formatValue, deviation } from './model.ts'
 
 assert.equal(worst([]), 'none')
 assert.equal(worst(['ok', 'none']), 'ok')
@@ -13,5 +13,12 @@ assert.deepEqual(sorted.map((x) => `${x.level}${x.priority}`), ['alert4', 'watch
 
 assert.equal(formatValue({ value: null, decimals: 1 }), '—')
 assert.equal(formatValue({ value: 38.25, decimals: 1 }), '38.3')
+
+const t = (value, usual) => ({ value, usual, decimals: 1, unit: '°C' })
+assert.equal(deviation(t(38.2, [36.8, 37.3])), '0.9 °C above your usual')
+assert.equal(deviation(t(36.5, [36.8, 37.3])), '0.3 °C below your usual')
+assert.equal(deviation(t(37.3, [36.8, 37.3])), null) // band edge is inside
+assert.equal(deviation(t(38.2, undefined)), null)
+assert.equal(deviation(t(null, [36.8, 37.3])), null)
 
 console.log('today model: ok')

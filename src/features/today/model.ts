@@ -13,6 +13,7 @@ export interface Reading {
   level: Level
   priority: number // 1 = most urgent (metric.priority)
   usual?: [number, number] // personal normal band; absent while learning or for rule-only metrics
+  trend?: number[] // recent readings, oldest first, last = value
   context?: string
   measured?: string // already formatted with the mission clock
   note?: string
@@ -55,3 +56,12 @@ export const byAttention = (a: Reading, b: Reading) =>
   RANK[a.level] - RANK[b.level] || a.priority - b.priority
 
 export const formatValue = (r: Reading) => (r.value === null ? '—' : r.value.toFixed(r.decimals))
+
+// "+0.9 °C above your usual" style text; null when inside the band or nothing to compare.
+export function deviation(r: Reading): string | null {
+  if (r.value === null || !r.usual) return null
+  const [lo, hi] = r.usual
+  if (r.value > hi) return `${(r.value - hi).toFixed(r.decimals)} ${r.unit} above your usual`
+  if (r.value < lo) return `${(lo - r.value).toFixed(r.decimals)} ${r.unit} below your usual`
+  return null
+}
