@@ -1,4 +1,6 @@
 import type { CrewSummary, TodayApi } from './api.ts'
+import type { CrewApi } from '../crew/api.ts'
+import { SHARED_ZONES, checkNewMember, initialsOf, isPrivateZone, type CrewBoard, type CrewCard } from '../crew/model.ts'
 import {
   ZONES,
   average,
@@ -31,6 +33,8 @@ interface Crew extends CrewSummary {
   priorDoseMsv: number
   doseRate: number // mSv/day in transit (MSL RAD ≈ 1.8)
   shift: Partial<Record<string, number>> // personal offsets from the population mean
+  joinedDay?: number // added mid-mission: no data on or before this day
+  removedAt?: number // removed_at: hidden from Crew and the avatar row, data kept
 }
 
 const CREW: Crew[] = [
@@ -118,6 +122,7 @@ const eventOn = (c: Crew, day: number) => Object.values(EVENTS[c.id] ?? {}).some
 
 /** A check-in is missed about 8% of days, never on a story day. Shared by all metrics of that person. */
 function missed(c: Crew, day: number) {
+  if (day <= (c.joinedDay ?? 0)) return true
   return !eventOn(c, day) && rng(`${c.id}:miss:${day}`)() < MISS_RATE
 }
 
@@ -198,14 +203,14 @@ function evalExercise(c: Crew, asOf: number): Reading {
   const def = { id: 'exercise', label: 'Exercise', zone: 'bone' as ZoneId, unit: 'sessions', decimals: 0, priority: 8 }
   const done = (day: number) => !missed(c, day) && rng(`${c.id}:ex:${day}`)() < (EVENTS[c.id]?.exercise?.[day] ? 0.15 : 0.85)
   const week = (end: number) => Array.from({ length: 7 }, (_, i) => end - i).filter((d) => d >= 1 && done(d)).length
-  if (asOf < 7) return reading(def, { level: 'learn', value: week(asOf), measured: 'Last 7 days · plan 6' })
+  if (asOf - (c.joinedDay ?? 0) < 7) return reading(def, { level: 'learn', value: week(asOf), measured: 'Last 7 days · plan 6' })
   const v = week(asOf)
   return reading(def, { level: v < 4 ? 'watch' : 'ok', value: v, trend: Array.from({ length: 7 }, (_, i) => week(asOf - 6 + i)), measured: 'Last 7 days · plan 6' })
 }
 
 /** PRD §5.3: career dose vs 600 mSv, projection at arrival, solar storm. Watch at ≥ 80% projected (PRD: OPEN, proposed). */
 /** Dosimeter reading for one day (mSv): transit rate ± noise, plus a spike on storm days. */
-const dailyDose = (c: Crew, day: number) => c.doseRate + (rng(`${c.id}:dose:${day}`)() - 0.5) * 0.2 + (STORM_DAYS.includes(day) ? 2.6 : 0)
+const dailyDose = (c: Crew, day: number) => day < (c.joinedDay ?? 0) ? 0 : c.doseRate + (rng(`${c.id}:dose:${day}`)() - 0.5) * 0.2 + (STORM_DAYS.includes(day) ? 2.6 : 0)
 const careerDose = (c: Crew, day: number) => c.priorDoseMsv + Array.from({ length: day }, (_, i) => dailyDose(c, i + 1)).reduce((a, b) => a + b, 0)
 /** PRD §5.3: rate = mean of the last 7 daily doses; projection hidden once arrived. */
 function projectedDose(c: Crew, asOf: number) {
@@ -335,6 +340,27 @@ function buildReport(c: Crew, asOf: number, days: number): ReportView {
   }
 }
 
+/** Crew board card: shared zones only, so private data never leaves this function. */
+function buildCard(c: Crew, asOf: number): CrewCard {
+  const readings = readingsFor(c, asOf).filter((r) => !isPrivateZone(r.zone))
+  const zones = Object.fromEntries(SHARED_ZONES.map((z) => [z.id, worst(readings.filter((r) => r.zone === z.id).map((r) => r.level))]))
+  let lastDay: number | null = null
+  for (let day = asOf; day >= 1 && lastDay === null; day--) if (!missed(c, day)) lastDay = day
+  return {
+    id: c.id,
+    name: c.name,
+    role: c.role,
+    initials: initialsOf(c.name),
+    sex: c.sex,
+    status: lastDay === null ? 'none' : worst(Object.values(zones)),
+    zones,
+    checkIn: { doneAt: lastDay === asOf ? checkInTime(c, asOf) : undefined, lastDay },
+    attention: readings.filter((r) => isFlagged(r.level)).sort(byAttention),
+  }
+}
+
+const current = () => CREW.filter((c) => c.removedAt === undefined)
+
 const findCrew = (crewId: string, day: number) => {
   const c = CREW.find((x) => x.id === crewId)
   if (!c) throw new Error(`Unknown crew member: ${crewId}`)
@@ -344,10 +370,39 @@ const findCrew = (crewId: string, day: number) => {
 
 /** In-browser implementation of the TodayApi contract, returning simulated data. Async like a real backend. */
 export const simulatedTodayApi: TodayApi = {
-  listCrew: async () => CREW.map(({ id, name, role }) => ({ id, name, role })),
+  listCrew: async () => current().map(({ id, name, role }) => ({ id, name, role })),
   getToday: async (crewId, day = MISSION.currentDay) => buildToday(findCrew(crewId, day), day),
   getReport: async (crewId, { day = MISSION.currentDay, days = 7 } = {}) => {
     if (days !== 7 && days !== 28) throw new Error(`Report period must be 7 or 28 days, got ${days}`)
     return buildReport(findCrew(crewId, day), day, days)
+  },
+}
+
+/** In-browser implementation of the CrewApi contract. Add and remove change this tab's memory only. */
+export const simulatedCrewApi: CrewApi = {
+  getBoard: async (day = MISSION.currentDay): Promise<CrewBoard> => {
+    if (!Number.isInteger(day) || day < 1 || day > MISSION.arrivalDay) throw new Error(`Mission day out of range: ${day}`)
+    return { missionDay: day, isSimulated: true, members: current().map((c) => buildCard(c, day)) }
+  },
+  addMember: async (m) => {
+    const errors = checkNewMember(m, current().map((c) => c.name))
+    if (Object.keys(errors).length || (m.sex !== 'F' && m.sex !== 'M')) throw new Error(Object.values(errors).join(' '))
+    const c: Crew = {
+      id: `crew-${CREW.length + 1}`, // removed members stay in CREW, so ids never repeat
+      name: m.name.trim(),
+      role: m.role.trim(),
+      sex: m.sex,
+      priorDoseMsv: 0,
+      doseRate: 1.85,
+      shift: {},
+      joinedDay: MISSION.currentDay,
+    }
+    CREW.push(c)
+    return { id: c.id, name: c.name, role: c.role }
+  },
+  removeMember: async (crewId) => {
+    const c = current().find((x) => x.id === crewId)
+    if (!c) throw new Error(`Unknown crew member: ${crewId}`)
+    c.removedAt = MISSION.currentDay // soft remove: Today and Report still find this person's data
   },
 }

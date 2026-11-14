@@ -28,7 +28,7 @@ import { Today, simulatedTodayApi } from './features/today'
 ```
 
 Every callback is optional, so you can wire them one feature at a time.
-To try it with no wiring: render `<TodayPreview />`. It has a Today / Report switch, a crew picker and a mission-day slider, and it prints each action the page emits.
+To try it with no wiring: render `<TodayPreview />`. It is a mini app shell: the crew avatar row on top, Crew / Today / Report tabs and a mission-day slider, and it prints each action the page emits.
 
 Good days to try in the preview:
 

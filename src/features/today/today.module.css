@@ -1,5 +1,7 @@
-/* shortcut: "A · Flight deck (dark)" tokens scoped to this screen; switch to the src/ui tokens once they land. */
-.root {
+/* shortcut: "A · Flight deck (dark)" tokens scoped to this screen; switch to the src/ui tokens once they land.
+   `.theme` carries the same tokens for pieces outside a page (avatar row, dialogs). */
+.root,
+.theme {
   --bg: #0b0f14; /* ground */
   --surface: #141b23; /* card */
   --surface-2: #1a232e;
@@ -18,7 +20,9 @@
   --heading: 'Space Grotesk', system-ui, sans-serif;
   --sans: Inter, system-ui, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
 
+.root {
   background: var(--bg);
   color: var(--text);
   font: 15px/1.5 var(--sans);

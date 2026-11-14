@@ -68,7 +68,7 @@ export function parseCrew(json: unknown): CrewSummary[] {
   })
 }
 
-function parseReading(r: unknown, i: number): Reading {
+export function parseReading(r: unknown, i: number): Reading {
   const at = `readings[${i}]`
   if (!isObj(r)) throw new BadData(at)
   if (!LEVELS.includes(r.level as Level)) throw new BadData(`${at}.level`)
