@@ -1,5 +1,5 @@
 // Check-in form logic (PRD F-03), pure: text in, answers or errors out. No React, no database.
-import type { CheckInAnswers } from '../../data/checkin'
+import type { CheckInAnswers, CheckInMetricId, CheckInResult } from '../../data/checkin'
 import type { Context, MetricId } from '../../data/types'
 
 /** What saveCheckIn() takes: one entry per metric the person filled in. Blank metrics are left out. */
@@ -108,4 +108,49 @@ export const DEMO_FORM: FormState = {
   text: { sleep: '6.5', hr: '66', spo2: '98', temp: '36.7', exercise: '45' },
   context: EMPTY_FORM.context,
   fluidsMl: 2000, mood: 4, symptoms: 0, vision: 0,
+}
+
+// ---------- after saving: what changed, most urgent first ----------
+
+/** One alert change from saveCheckIn(), in the words the result screen needs. */
+export interface Outcome {
+  metric: CheckInMetricId
+  label: string
+  level: 'ok' | 'watch' | 'alert' // ok = an alert was resolved
+  change: 'opened' | 'escalated' | 'resolved'
+  value: number | null
+  median: number | null // null for rule-only metrics (symptoms, vision) or while learning
+  rule: string | null // the engine's plain-language reason
+}
+
+export const METRIC_LABEL: Record<CheckInMetricId, string> = {
+  ...Object.fromEntries(Object.entries(FIELDS).map(([id, f]) => [id, f.label])),
+  sys: 'Blood pressure', dia: 'Blood pressure', mood: 'Mood', fluids: 'Fluids', symptoms: 'Symptoms', vision: 'Vision',
+} as Record<CheckInMetricId, string>
+
+/** PRD 5.2 metric priority (1 = most urgent): breaks ties between outcomes of the same level. */
+const PRIORITY: Partial<Record<CheckInMetricId, number>> = { spo2: 1, glucose: 2, hr: 3, sys: 3, dia: 3, temp: 4, symptoms: 5, vision: 6 }
+const RANK = { alert: 2, watch: 1, ok: 0 }
+
+export function toOutcomes(res: Pick<CheckInResult, 'changed'>): Outcome[] {
+  return res.changed
+    .map(({ metric_id, result }): Outcome => ({
+      metric: metric_id,
+      label: METRIC_LABEL[metric_id],
+      level: result.change === 'resolved' ? 'ok' : result.alert?.level ?? 'ok',
+      change: result.change as Outcome['change'],
+      value: result.eval.value,
+      median: result.eval.baseline?.median ?? null,
+      rule: result.eval.rule,
+    }))
+    .sort((a, b) => RANK[b.level] - RANK[a.level] || (PRIORITY[a.metric] ?? 8) - (PRIORITY[b.metric] ?? 8))
+}
+
+/** "Temperature is far above your usual", "Heart rate is back to normal for you", or the engine's rule. */
+export function outcomeHeadline(o: Outcome): string {
+  if (o.level === 'ok') return `${o.label} is back to normal for you`
+  if (o.value !== null && o.median !== null && o.value !== o.median) {
+    return `${o.label} is ${o.level === 'alert' ? 'far ' : ''}${o.value > o.median ? 'above' : 'below'} your usual`
+  }
+  return o.rule ?? `${o.label} needs a look`
 }

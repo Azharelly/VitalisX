@@ -31,7 +31,17 @@ export function AppPreview() {
         day={day}
         screens={{
           radiation: () => <RadiationScreen />, // the team's screen, still on its own mock data
-          checkin: ({ crewId, day, go }) => <CheckInPreview api={simulatedTodayApi} crewId={crewId} day={day} onDone={() => go('today')} />,
+          checkin: ({ crewId, day, go }) => (
+            <CheckInPreview
+              api={simulatedTodayApi}
+              crewId={crewId}
+              day={day}
+              onDone={() => go('today')}
+              onEmergency={() => log('onEmergency', crewId)}
+              onWhy={(m) => log('onWhy', m)}
+              onNoteForEarth={(m) => log('onNoteForEarth', crewId, m)}
+            />
+          ),
         }}
         onEmergency={(id) => log('onEmergency', id)}
         onWhy={(m) => log('onWhy', m)}

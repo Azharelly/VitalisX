@@ -1,10 +1,13 @@
 import { useRef, useState, type ReactNode } from 'react'
+import { actionFor } from '../../data/guidance'
 import type { Context, MetricId } from '../../data/types'
+import { LEVEL_WORD } from '../today/model'
+import { StatusIcon } from '../today/StatusIcon'
 import t from '../today/today.module.css'
 import s from './checkin.module.css'
 import {
-  CONTEXT_LABEL, DEMO_FORM, EMPTY_FORM, FIELDS, atypical, fromAnswers, toAnswers,
-  type CheckInAnswers, type ContextField, type FieldId, type FormState,
+  CONTEXT_LABEL, DEMO_FORM, EMPTY_FORM, FIELDS, atypical, fromAnswers, outcomeHeadline, toAnswers,
+  type CheckInAnswers, type ContextField, type FieldId, type FormState, type Outcome,
 } from './model'
 
 export interface CheckInScreenProps {
@@ -16,10 +19,14 @@ export interface CheckInScreenProps {
   existing?: CheckInAnswers
   /** Personal bands (median ± 1.5 × scale) from Today, to ask "are you sure?" on very unusual values. */
   usual?: Partial<Record<MetricId, [number, number]>>
-  /** Saves and recomputes (saveCheckIn). Resolves to plain-language alert changes, e.g. "Temperature: Alert opened". */
-  onSave: (answers: CheckInAnswers) => Promise<string[]>
+  /** Saves and recomputes. Wire as `async (a) => toOutcomes(await saveCheckIn(crewId, a, takenAt, day))`. */
+  onSave: (answers: CheckInAnswers) => Promise<Outcome[]>
   /** "Back to Today" after saving. */
   onDone?: () => void
+  /** Result screen buttons; each one shows only when its handler is given. */
+  onEmergency?: () => void
+  onWhy?: (metricId: string) => void
+  onNoteForEarth?: (metricId: string) => void
 }
 
 const MOODS = ['Very low', 'Low', 'Okay', 'Good', 'Great'] as const
@@ -36,7 +43,7 @@ const Face = ({ i }: { i: number }) => (
 const SEVERITY = ['None', 'Mild', 'Moderate', 'Severe'] as const
 const FLUID_STEP_ML = 250
 
-export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone }: CheckInScreenProps) {
+export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone, onEmergency, onWhy, onNoteForEarth }: CheckInScreenProps) {
   const [form, setForm] = useState<FormState>(() => (existing ? fromAnswers(existing) : EMPTY_FORM))
   const [editing, setEditing] = useState(existing !== undefined)
   const [touched, setTouched] = useState<Set<FieldId>>(new Set())
@@ -44,7 +51,7 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone 
   const [warnings, setWarnings] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
-  const [result, setResult] = useState<string[] | null>(null)
+  const [result, setResult] = useState<Outcome[] | null>(null)
   const busy = useRef(false) // a double click lands before React disables the button
 
   const { answers, errors } = toAnswers(form)
@@ -99,33 +106,18 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone 
 
   if (result !== null) {
     return (
-      <section className={`${t.root} ${s.page}`} aria-labelledby="ci-done">
+      <section className={`${t.root} ${s.page}`} aria-label={`Check-in result for ${name}`}>
         {header}
-        <div className={`${t.card} ${t.ok}`} role="status">
-          <p id="ci-done" className={s.doneTitle}>Check-in saved</p>
-          <p className={t.muted}>
-            {count} reading{count === 1 ? '' : 's'} saved. VitalisX compared them with {name.split(' ')[0]}'s usual.
-          </p>
-          {result.length > 0 ? (
-            <ul className={s.changes}>
-              {result.map((c) => (
-                <li key={c}>{c}</li>
-              ))}
-            </ul>
-          ) : (
-            <p>No alerts changed.</p>
-          )}
-          <div className={s.actions}>
-            {onDone && (
-              <button type="button" className={t.primaryBtn} onClick={onDone}>
-                Back to Today
-              </button>
-            )}
-            <button type="button" className={t.ghostBtn} onClick={() => setResult(null)}>
-              Edit check-in
-            </button>
-          </div>
-        </div>
+        <Result
+          outcomes={result}
+          first={name.split(' ')[0]}
+          count={count}
+          onDone={onDone}
+          onEdit={() => setResult(null)}
+          onEmergency={onEmergency}
+          onWhy={onWhy}
+          onNoteForEarth={onNoteForEarth}
+        />
       </section>
     )
   }
@@ -312,5 +304,96 @@ function Pills<V extends string | number>({ label, value, options, onChange, tog
         ))}
       </div>
     </div>
+  )
+}
+
+// The guidance texts still use the old blood-pressure ids.
+const GUIDE_ID: Record<string, string> = { sys: 'bp_sys', dia: 'bp_dia' }
+
+/** After saving: the most urgent change, what to do now and how to escalate (PRD F-03, 3-step ladder). */
+function Result({ outcomes, first, count, onDone, onEdit, onEmergency, onWhy, onNoteForEarth }: {
+  outcomes: Outcome[]; first: string; count: number; onDone?: () => void; onEdit: () => void
+} & Pick<CheckInScreenProps, 'onEmergency' | 'onWhy' | 'onNoteForEarth'>) {
+  const [top, ...rest] = outcomes
+  const level = top?.level ?? 'ok'
+  const flagged = level !== 'ok'
+  const act = top && flagged ? actionFor(GUIDE_ID[top.metric] ?? top.metric, level) : undefined
+  return (
+    <>
+      <article className={`${t.next} ${t[level]}`} role="status" aria-labelledby="ci-result">
+        <div className={t.nextHead}>
+          <p className={t.eyebrow}>Check-in saved · {first}</p>
+          {top && (
+            <span className={t.badge}>
+              <StatusIcon level={level} /> {top.level === 'ok' ? 'Resolved' : LEVEL_WORD[level]}
+            </span>
+          )}
+        </div>
+        <h2 id="ci-result" className={t.nextTitle}>
+          {top ? outcomeHeadline(top) : 'Nothing new to act on'}
+        </h2>
+        <p className={t.nextText}>
+          {top && flagged && top.rule && top.rule !== outcomeHeadline(top) ? `${top.rule} ` : ''}
+          {!top && `${count} reading${count === 1 ? '' : 's'} saved and compared with ${first}'s usual. Keep following your plan.`}
+        </p>
+        {act && (
+          <p className={s.doNow}>
+            <strong>Do this now:</strong> {act}
+          </p>
+        )}
+        {top && flagged && (
+          <div className={t.nextFoot}>
+            {level === 'alert' && onEmergency && (
+              <button type="button" className={s.danger} onClick={onEmergency}>
+                Get help now
+              </button>
+            )}
+            {onWhy && (
+              <button type="button" className={t.why} onClick={() => onWhy(top.metric)}>
+                Why am I seeing this?
+              </button>
+            )}
+            {onNoteForEarth && (
+              <button type="button" className={t.ghostBtn} onClick={() => onNoteForEarth(top.metric)}>
+                Message flight surgeon
+              </button>
+            )}
+          </div>
+        )}
+        {flagged && (
+          <div className={s.ladder}>
+            <span className={t.eyebrow}>If it does not settle</span>
+            <ol>
+              <li>Look after yourself (now)</li>
+              <li>Tell the crew medic</li>
+              <li>Message the flight surgeon</li>
+            </ol>
+          </div>
+        )}
+        {rest.length > 0 && (
+          <div className={t.then}>
+            <span>Also</span>
+            <ul>
+              {rest.map((o) => (
+                <li key={o.metric} className={t[o.level]}>
+                  <StatusIcon level={o.level} /> {outcomeHeadline(o)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <p className={t.fine}>Decision support, not a diagnosis. Follow mission procedures.</p>
+      </article>
+      <div className={`${s.actions} ${s.resultActions}`}>
+        {onDone && (
+          <button type="button" className={t.primaryBtn} onClick={onDone}>
+            Back to Today
+          </button>
+        )}
+        <button type="button" className={t.ghostBtn} onClick={onEdit}>
+          Edit check-in
+        </button>
+      </div>
+    </>
   )
 }

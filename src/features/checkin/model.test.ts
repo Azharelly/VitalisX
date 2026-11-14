@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEMO_FORM, EMPTY_FORM, atypical, fromAnswers, parseNumber, toAnswers, type FormState } from './model'
+import { DEMO_FORM, EMPTY_FORM, atypical, fromAnswers, outcomeHeadline, parseNumber, toAnswers, toOutcomes, type FormState } from './model'
 
 const form = (patch: Partial<FormState>): FormState => ({ ...EMPTY_FORM, ...patch })
 
@@ -42,5 +42,33 @@ describe('check-in form (PRD F-03)', () => {
     const usual = { temp: [36.7, 37.1] as [number, number] } // mid 36.9, half-width 0.2
     expect(atypical({ temp: { value: 37.2 } }, usual)).toEqual([])
     expect(atypical({ temp: { value: 39.5 } }, usual)[0]).toMatch(/far from your usual/)
+  })
+})
+
+describe('check-in result', () => {
+  // The parts of saveCheckIn()'s result that the screen reads.
+  const changed = (metric_id: string, change: string, level: string | null, value: number, median: number | null, rule: string | null = null) =>
+    ({ metric_id, result: { change, alert: level && { level }, eval: { value, rule, baseline: median === null ? null : { median } } } }) as never
+
+  it('puts the most urgent change first: level, then metric priority', () => {
+    const out = toOutcomes({
+      changed: [changed('sleep', 'opened', 'watch', 5.1, 6.5), changed('temp', 'opened', 'alert', 39.2, 36.9), changed('hr', 'opened', 'watch', 80, 66), changed('mood', 'resolved', null, 4, 4)],
+    })
+    expect(out.map((o) => `${o.metric}:${o.level}`)).toEqual(['temp:alert', 'hr:watch', 'sleep:watch', 'mood:ok'])
+  })
+
+  it('says which way a reading moved, falls back to the rule, and words a resolved alert', () => {
+    const [temp, symptoms, sleep, sys] = toOutcomes({ // sorted: alert, then watch by priority (symptoms 5 before sleep 8), then resolved
+      changed: [
+        changed('temp', 'opened', 'alert', 39.2, 36.9),
+        changed('sleep', 'escalated', 'watch', 5.1, 6.5),
+        changed('symptoms', 'opened', 'watch', 2, null, 'Symptoms reported (2 of 3).'),
+        changed('sys', 'resolved', null, 112, 113),
+      ],
+    })
+    expect(outcomeHeadline(temp)).toBe('Temperature is far above your usual')
+    expect(outcomeHeadline(sleep)).toBe('Sleep is below your usual')
+    expect(outcomeHeadline(symptoms)).toBe('Symptoms reported (2 of 3).')
+    expect(outcomeHeadline(sys)).toBe('Blood pressure is back to normal for you')
   })
 })
