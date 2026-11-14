@@ -5,7 +5,7 @@ import { GuidancePanel } from './GuidancePanel'
 import { AttentionCard, GoodNews, MyWeek, NextActionCard } from './sections'
 import { StatusIcon } from './StatusIcon'
 import { ZoneIcon } from './ZoneIcon'
-import { LEVEL_WORD, ZONES, byAttention, isFlagged, worst, type Level, type Reading, type TodayView, type ZoneId } from './model'
+import { LEVEL_WORD, ZONES, byAttention, isFlagged, usualText, worst, type Level, type Reading, type TodayView, type ZoneId } from './model'
 import s from './today.module.css'
 import { WhyModal } from '../why/WhyModal'
 import { fromReading } from '../why/evidence.ts'
@@ -140,17 +140,6 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
         </div>
 
         <div className={s.right}>
-          {!zone && (
-            <NextActionCard
-              data={data}
-              flagged={allFlagged}
-              onStart={(m) => actions.onStart?.(id, m)}
-              onWhy={onWhy}
-              onNoteForEarth={(m) => actions.onNoteForEarth?.(id, m)}
-              onStartCheckIn={() => actions.onStartCheckIn?.(id)}
-            />
-          )}
-
           {zone && (
             <section className={s.zoneDetail} aria-labelledby="today-zone">
               <div className={s.filter}>
@@ -166,8 +155,20 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
                 </button>
               </div>
               {headline[zone] && <GuidancePanel metricId={headline[zone]!.id} open />}
+              {headline[zone] && usualText(headline[zone]!) && (
+                <p className={s.zoneUsual}>{usualText(headline[zone]!)}</p>
+              )}
             </section>
           )}
+
+          <NextActionCard
+            data={data}
+            flagged={allFlagged}
+            onStart={(m) => actions.onStart?.(id, m)}
+            onWhy={onWhy}
+            onNoteForEarth={(m) => actions.onNoteForEarth?.(id, m)}
+            onStartCheckIn={() => actions.onStartCheckIn?.(id)}
+          />
 
           {shown.length === 0 && (
             <p className={s.empty}>{zone ? 'No readings for this zone yet.' : "No readings yet. Do today's check-in to start learning your normal."}</p>

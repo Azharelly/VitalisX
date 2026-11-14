@@ -748,6 +748,7 @@
   background: var(--surface);
 }
 .zoneDetail .filter { padding: 0; border: 0; background: none; }
+.zoneUsual { margin: 8px 0 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
 
 /* ── Good news ── */
 .goodWrap {
@@ -772,6 +773,9 @@
 }
 .goodCheck svg { width: 22px; height: 22px; }
 .goodWrap .goodTitle { font: 600 20px var(--heading); color: var(--ok); }
+.goodWrap.learning { border-color: var(--line-strong); background: var(--surface); }
+.goodWrap.learning .goodTitle { color: var(--muted); }
+.goodWrap.learning .goodCheck { background: color-mix(in srgb, var(--muted) 18%, transparent); color: var(--muted); box-shadow: 0 0 0 6px color-mix(in srgb, var(--muted) 7%, transparent); }
 
 .clearZones { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .clearZones li {
