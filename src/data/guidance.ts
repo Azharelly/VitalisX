@@ -54,7 +54,7 @@ export const GUIDANCE: Record<string, MetricGuidance> = {
     tell: 'Any new blur that lasts 2 checks.',
     measure: ["Read the near chart at arm's length.", 'Pick Same or Blurrier.'],
     why: 'Fluid shifts toward the head can change eyesight in flight.',
-    sources: ['Source pending'],
+    sources: ['Norsk et al. (2015)', 'Gew et al. (2026)', 'NASA HRP Evidence Report (SANS)'],
   },
   hr: {
     act: 'Rest 10 minutes strapped in, drink water, then measure again.',
@@ -102,8 +102,8 @@ export const GUIDANCE: Record<string, MetricGuidance> = {
     helps: ['Test again in 15 minutes', 'Note your last meal'],
     tell: 'Any reading below 54 or above 250, or a repeat out of range.',
     measure: ['Follow the crew procedure for the finger-prick.', 'Tag it: fasting, before meal or after meal.'],
-    why: 'Limits shown are Earth reference values (70 to 180 target).',
-    sources: ['Battelino et al. 2019 (Earth reference)', 'Source pending'],
+    why: 'Limits shown are Earth reference values (70 to 180 target) used as adjustable space placeholders until the flight surgeon sets mission-specific values.',
+    sources: ['Battelino et al. 2019 (Earth reference)', 'Earth reference / placeholder (adjustable by the flight surgeon)', 'Design rule: repeat out-of-range readings'],
   },
   fluids: {
     act: 'Drink 500 mL over the next hour.',
