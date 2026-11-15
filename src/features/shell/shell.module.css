@@ -151,7 +151,7 @@
   line-height: 1;
   text-align: center;
 }
-.countNumber { position: relative; top: 1px; }
+.countNumber { position: relative; top: 0.5px; }
 .mark {
   position: absolute;
   top: 3px;
