@@ -26,15 +26,17 @@ export function SourcesScreen() {
 
   useEffect(() => {
     let live = true
-    Promise.all([db.reference_source.toArray(), db.metric.toArray()]).then(
-      ([r, m]) => {
+    Promise.all([db.reference_source.toArray(), db.metric.toArray()])
+      .then(([r, m]) => {
         if (!live) return
         // APA 7 lists references alphabetically by author, then year, then title.
-        setRefs(r.filter((x) => x.id !== 'design_rule').sort((x, y) => x.citation.localeCompare(y.citation, 'en')))
+        // Rows saved before the citation field existed fall back to their short title instead of crashing.
+        const text = (x: ReferenceSource) => x.citation || x.title
+        setRefs(r.filter((x) => x.id !== 'design_rule').sort((x, y) => text(x).localeCompare(text(y), 'en')))
         setMetrics(m.filter((x) => x.abs_rule))
-      },
-      (e: unknown) => live && setError(e instanceof Error ? e.message : String(e)),
-    )
+      })
+      // .catch (not the second argument of .then) so an error while handling the rows is shown, not swallowed.
+      .catch((e: unknown) => live && setError(e instanceof Error ? e.message : String(e)))
     return () => {
       live = false
     }
@@ -89,7 +91,7 @@ export function SourcesScreen() {
             {refs.map((r) => (
               <li key={r.id}>
                 <span className={s.citation}>
-                  <Cite text={r.citation} />
+                  <Cite text={r.citation || r.title} />
                   {isLink(r.link_or_doi) && (
                     <>
                       {' '}
