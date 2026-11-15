@@ -184,7 +184,7 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
             {x.label}
             {x.id === 'crew' && needAttention > 0 && (
               <span className={s.count} aria-hidden="true">
-                {needAttention}
+                <span className={s.countNumber}>{needAttention}</span>
               </span>
             )}
             {x.id === 'today' && selected && isFlagged(selected.status) && (
