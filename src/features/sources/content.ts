@@ -16,4 +16,5 @@ export const LIBRARIES: { name: string; use: string; license: string }[] = [
  * The team's AI-use declaration (issue #31, dossier R-03). Written by the team, not generated.
  * Paragraphs separated by a blank line. null = not written yet: the section is then hidden in the published app.
  */
-export const AI_USE_DECLARATION: string | null = null
+export const AI_USE_DECLARATION: string | null =
+  'Our team designed, architected, and built VitalisX, including its product requirements, baseline algorithms, database schemas, scientific validations, and user flows and interface specifications. During development, we used GitHub Copilot, Claude, and Gemini strictly as productivity assistants to ensure a fluid flow in our code generation process. We also used these AI tools for debugging assistance, English grammar editing, and summarizing peer-reviewed literature. Our team wrote, tested, and verified all core logic, clinical rules, and design decisions. All crew health data in the application was created by our team and is simulated for demonstration purposes.'

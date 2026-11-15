@@ -36,7 +36,7 @@ export const GUIDANCE: Record<string, MetricGuidance> = {
     act: 'Bring lights-out 20 minutes earlier tonight and dim the cabin an hour before.',
     helps: ['Earlier lights-out, dim lights an hour before', 'Protect rest before critical tasks', 'Talk it through with a crewmate'],
     tell: 'Short sleep on 5 or more nights, or any sleep medication use.',
-    measure: ['Sleep comes from the wrist device.', 'Correct it in check-in if it looks wrong.'],
+    measure: ['Sleep comes from your daily check-in.', 'Correct it in check-in if it looks wrong.'],
     why: 'Crews on the ISS averaged about 6 hours of sleep against 8.5 scheduled.',
     sources: ['Barger et al., Lancet Neurology 2014'],
   },
