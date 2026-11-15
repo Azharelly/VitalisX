@@ -2,6 +2,35 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Technology and data sources
+
+### Languages
+
+- TypeScript for the application and detection engine
+- JavaScript (`.mjs`) for simulated-data generation and DONKI snapshot merging
+
+### Frameworks and libraries
+
+- React and React DOM
+- Vite
+- Dexie.js and Dexie React Hooks for client-side IndexedDB storage
+- Vitest for unit tests
+- Vite PWA for offline service-worker support
+- Bundled open-license fonts: Space Grotesk, Inter, and IBM Plex Mono
+
+### NASA data and references
+
+- NASA DONKI (CCMC) data for solar flares, CMEs, geomagnetic storms, and solar energetic particle events
+- Bundled DONKI snapshots so the app remains usable offline
+- NASA-STD-3001 references for radiation limits
+
+### Tools and deployment
+
+- Node.js and npm
+- GitHub for source control and collaboration
+- Vercel for deployment
+- Visual Studio Code for development
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
