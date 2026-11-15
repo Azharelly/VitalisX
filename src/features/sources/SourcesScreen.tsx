@@ -61,7 +61,7 @@ export function SourcesScreen() {
           <li>
             <strong>NASA DONKI</strong>, via the NASA Community Coordinated Modeling Center (CCMC): solar flares, coronal mass ejections,
             geomagnetic storms and solar particle events. Read live when online; a saved copy keeps the app working offline, and the
-            Radiation tab says which one you are seeing. Example queries (raw data): <a href="https://ccmc.gsfc.nasa.gov/DONKI-API/get/FLR?startDate=2026-11-01&amp;endDate=2026-11-14" target="_blank" rel="noreferrer">solar flares</a>, <a href="https://ccmc.gsfc.nasa.gov/DONKI-API/get/CME?startDate=2026-11-01&amp;endDate=2026-11-14" target="_blank" rel="noreferrer">coronal mass ejections</a>, <a href="https://ccmc.gsfc.nasa.gov/DONKI-API/get/GST?startDate=2026-11-01&amp;endDate=2026-11-14" target="_blank" rel="noreferrer">geomagnetic storms</a>, <a href="https://ccmc.gsfc.nasa.gov/DONKI-API/get/SEP?startDate=2026-07-30&amp;endDate=2026-09-05" target="_blank" rel="noreferrer">solar particle events</a>. More information:{' '}
+            Radiation tab says which one you are seeing. The data queries are listed in the References below.{' '}
             <a href="https://ccmc.gsfc.nasa.gov/tools/DONKI/" target="_blank" rel="noreferrer">
               ccmc.gsfc.nasa.gov
             </a>
