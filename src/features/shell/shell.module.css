@@ -101,6 +101,9 @@
   position: absolute; /* bottom bar: on the icon's corner */
   top: 2px;
   left: calc(50% + 8px);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
   min-width: 17px;
   height: 17px;
   padding: 0 4px;
@@ -110,9 +113,10 @@
   color: var(--bg);
   font-size: 10px;
   font-weight: 700;
-  line-height: 13px;
+  line-height: 1;
   text-align: center;
 }
+.countNumber { position: relative; top: 1px; }
 .mark {
   position: absolute;
   top: 3px;
