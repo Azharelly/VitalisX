@@ -180,10 +180,12 @@ export function GoodNews({ data, normal, zoneLevels }: { data: TodayView; normal
   const total = data.readings.filter((r) => r.level !== 'none').length
   const inRange = normal.filter((r) => r.level === 'ok').length
   const learning = normal.some((r) => r.level === 'learn')
-  const learningOnly = learning && inRange === 0
-  const title = learningOnly ? 'Still learning' : 'Good news'
+  const flaggedNow = data.readings.some((r) => r.level === 'watch' || r.level === 'alert')
+  // "Good news" only when nothing is flagged and nothing is still being learned.
+  const title = flaggedNow ? 'Still normal for you' : learning ? 'Still learning' : 'Good news'
+  const neutral = flaggedNow || learning
   return (
-    <section aria-labelledby="today-good" className={`${s.goodWrap} ${learningOnly ? s.learning : ''}`}>
+    <section aria-labelledby="today-good" className={`${s.goodWrap} ${neutral ? s.learning : ''}`}>
       <div className={s.goodHead}>
         <span className={s.goodCheck} aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">

@@ -76,3 +76,10 @@ describe('outbox countdown and readiness (#23)', () => {
     expect(arrivalLeftSec(m, Date.parse('2026-11-14T01:00:00.000Z'))).toBe(0)
   })
 })
+
+import { radiationLevel as _radLevel } from './summary.ts'
+describe('radiation with no dose data', () => {
+  it('is "none", not ok/0 mSv', () => {
+    expect(_radLevel({ priorMsv: 0, careerMsv: 0, projectedMsv: null, limitMsv: 600, arrivalDay: 210, daily: [], noData: true })).toBe('none')
+  })
+})

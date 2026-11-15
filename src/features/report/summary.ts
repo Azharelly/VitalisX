@@ -7,6 +7,7 @@ export const percentOf = (part: number, whole: number) => Math.round((part / who
 
 /** Radiation status for the report. Radiation is not in `metrics`; the Watch rule (80% projected) is the simulation's placeholder (PRD R-15). */
 export function radiationLevel(rad: ReportView['radiation']): Level {
+  if (rad.noData) return 'none'
   const pct = percentOf(rad.projectedMsv ?? rad.careerMsv, rad.limitMsv)
   return rad.daily.at(-1)?.storm || pct >= 100 ? 'alert' : pct >= 80 ? 'watch' : 'ok'
 }
