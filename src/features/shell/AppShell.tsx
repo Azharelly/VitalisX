@@ -16,6 +16,8 @@ import s from './shell.module.css'
 import { TABS, onHashChange, readTab, type TabId } from './tabs.ts'
 import { EmergencyProvider, useEmergency, type CrewMemberSummary } from '../emergency/EmergencyProvider'
 import { EmergencyScreen } from '../emergency/EmergencyScreen'
+import { isMedicRole } from '../emergency/roles'
+import { DEFAULT_COMMS_DELAY_SEC } from '../../data/outbox'
 
 /** A teammate's screen. It receives the chosen person and mission day, and can switch tabs. */
 export type ScreenSlot = (ctx: {
@@ -60,6 +62,8 @@ export function AppShell({ crewApi, day, ...rest }: AppShellProps) {
 const CONTENT_ID = 'vx-content'
 
 function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellProps, 'crewApi'>) {
+  // One-way Earth delay in minutes, from mission config (via commsDelaySec); not a number baked into the UI.
+  const oneWayDelayMinutes = (rest.commsDelaySec ?? DEFAULT_COMMS_DELAY_SEC) / 60
   const { board } = useCrew()
   const members = useMemo(() => (board.status === 'ready' ? board.board.members : []), [board])
   const [summaries, setSummaries] = useState<CrewMemberSummary[]>([])
@@ -82,7 +86,7 @@ function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellP
         return {
           id: member.id,
           name: member.name,
-          isMedic: /medic|doctor|physician/i.test(member.role),
+          isMedic: isMedicRole(member.role),
           baselineHr: baseline('hr', currentHr),
           baselineBpSys: baseline('bp_sys', baseline('sys', currentBpSys)),
           baselineBpDia: baseline('bp_dia', baseline('dia', currentBpDia)),
@@ -111,7 +115,7 @@ function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellP
       members.map((member) => ({
         id: member.id,
         name: member.name,
-        isMedic: /medic|doctor|physician/i.test(member.role),
+        isMedic: isMedicRole(member.role),
         baselineHr: 70,
         baselineBpSys: 120,
         baselineBpDia: 80,
@@ -129,7 +133,7 @@ function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellP
       : fallbackSummaries
 
   return (
-    <EmergencyProvider crew={activeSummaries} onPersistLog={onPersistLog} oneWayDelayMinutes={12}>
+    <EmergencyProvider crew={activeSummaries} onPersistLog={onPersistLog} oneWayDelayMinutes={oneWayDelayMinutes}>
       <Frame todayApi={todayApi} day={day} {...rest} />
     </EmergencyProvider>
   )
@@ -137,7 +141,7 @@ function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellP
 
 function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNoteForEarth, onSendSummary, outbox, send, commsDelaySec, demo }: Omit<AppShellProps, 'crewApi'>) {
   const { board, selected, addMember } = useCrew()
-  const { crew, openEmergency, session, elapsedSeconds } = useEmergency()
+  const { crew, openEmergency, session, elapsedSeconds, oneWayDelayMinutes } = useEmergency()
   const tab = useSyncExternalStore(onHashChange, readTab, () => 'crew' as TabId)
   const [adding, setAdding] = useState(false)
   const focusContent = () => document.getElementById(CONTENT_ID)?.focus({ preventScroll: true })
@@ -264,7 +268,7 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
         {tab === 'radiation' && slot('radiation', 'Radiation')}
       </main>
 
-      <EmergencyScreen crew={crew} oneWayDelayMinutes={12} />
+      <EmergencyScreen crew={crew} oneWayDelayMinutes={oneWayDelayMinutes} />
       <nav className={s.navBottom} aria-label="Main">
         {tabs}
         <button type="button" className={`${s.emergencyNavButton} ${session && !session.endedAtIso ? s.emergencyActive : ''}`} onClick={triggerEmergency}>

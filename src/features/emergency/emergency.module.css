@@ -428,3 +428,29 @@
   position: relative;
   z-index: 1;
 }
+/* --- added with the protocol/flow fixes --- */
+.escalationRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.escalateBtn {
+  min-height: 52px;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 2px solid #b91c1c;
+  background: #fef2f2;
+  color: #7f1d1d;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nextCheckOverdue {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #b91c1c;
+}

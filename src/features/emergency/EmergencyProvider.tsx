@@ -1,11 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type {
-  EmergencyCondition,
-  EmergencyRoleAssignment,
-  EmergencySession,
-  GroundMessagePacket,
-} from './model';
-import { EMERGENCY_PROTOCOLS, CONDITION_LABELS } from './protocols';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import type { EmergencyCondition, EmergencyRoleAssignment, EmergencySession } from './model';
+import * as flow from './session';
+import type { Transition } from './session';
 
 export interface CrewMemberSummary {
   id: string;
@@ -25,7 +21,9 @@ interface EmergencyContextValue {
   crew: CrewMemberSummary[];
   session: EmergencySession | null;
   elapsedSeconds: number;
+  /** Seconds until the next vitals check is due; 0 means due now (overdue). */
   vitalsCountdownSeconds: number;
+  oneWayDelayMinutes: number;
   isDrawerOpen: boolean;
   openEmergency: (defaultPatientId?: string) => void;
   closeDrawer: () => void;
@@ -36,6 +34,10 @@ interface EmergencyContextValue {
   completeCurrentStep: () => void;
   skipCurrentStep: () => void;
   goPreviousStep: () => void;
+  /** Jump to another protocol, e.g. "No pulse → start CPR". */
+  escalateTo: (condition: EmergencyCondition) => void;
+  /** Log a vitals check made outside a checklist step and restart the countdown. */
+  recordVitalsCheck: () => void;
   toggleWallMode: () => void;
   sendGroundMessage: (questions: string[], customNote?: string) => void;
   confirmGroundReplyReadBack: () => void;
@@ -52,7 +54,8 @@ export const useEmergency = () => {
 
 interface Props {
   crew: CrewMemberSummary[];
-  oneWayDelayMinutes: number; // e.g. 12 min from top status bar
+  /** One-way Earth–crew delay in minutes (comes from mission config via the shell). */
+  oneWayDelayMinutes: number;
   onPersistLog?: (entry: { timestampIso: string; event: string; sessionId: string }) => void;
   children: React.ReactNode;
 }
@@ -67,6 +70,10 @@ export const EmergencyProvider: React.FC<Props> = ({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
+  // The ref is the source of truth for event handlers, so two quick taps never read stale state
+  // and logging/persisting happens once per action, outside any state updater.
+  const sessionRef = useRef<EmergencySession | null>(null);
+
   // 1-second tick for live emergency timer and vitals check countdown
   useEffect(() => {
     if (!session || session.endedAtIso) return;
@@ -74,249 +81,71 @@ export const EmergencyProvider: React.FC<Props> = ({
     return () => window.clearInterval(id);
   }, [session]);
 
-  const appendLog = useCallback(
-    (current: EmergencySession, actor: string, event: string): EmergencySession => {
-      const timestampIso = new Date().toISOString();
-      const elapsedSec = Math.max(
-        0,
-        Math.floor((Date.now() - new Date(current.startedAtIso).getTime()) / 1000)
-      );
-      onPersistLog?.({ timestampIso, event, sessionId: current.id });
-      return {
-        ...current,
-        logEntries: [...current.logEntries, { timestampIso, elapsedSec, actor, event }],
-      };
+  const commit = useCallback(
+    (t: Transition, now: number) => {
+      const next = flow.stampLog(t.session, t.events, now);
+      sessionRef.current = next;
+      setSession(next);
+      setNowMs(now);
+      const timestampIso = new Date(now).toISOString();
+      for (const e of t.events) onPersistLog?.({ timestampIso, event: e.event, sessionId: next.id });
     },
-    [onPersistLog]
+    [onPersistLog],
   );
+
+  /** Runs one change on the open session. `make` returns null when the change does not apply. */
+  const dispatch = useCallback(
+    (make: (prev: EmergencySession, now: number) => Transition | null) => {
+      const prev = sessionRef.current;
+      if (!prev || prev.endedAtIso) return;
+      const now = Date.now();
+      const t = make(prev, now);
+      if (t) commit(t, now);
+    },
+    [commit],
+  );
+
+  const patientName = (s: EmergencySession) => crew.find((c) => c.id === s.patientId)?.name ?? 'patient';
 
   // Pressing EMERGENCY starts timer and log immediately (CREW 8 #5, CREW 9 #1)
   const openEmergency = useCallback(
     (defaultPatientId?: string) => {
       setIsDrawerOpen(true);
-      setSession((prev) => {
-        if (prev && !prev.endedAtIso) return prev;
-
-        const patient =
-          crew.find((c) => c.id === defaultPatientId) ?? crew[1] ?? crew[0];
-        const medic =
-          crew.find((c) => c.isMedic && c.id !== patient?.id) ??
-          crew.find((c) => c.isMedic) ??
-          crew[0];
-        const reader =
-          crew.find((c) => c.id !== patient?.id && c.id !== medic?.id) ?? crew[0];
-        const radio =
-          crew.find(
-            (c) => c.id !== patient?.id && c.id !== medic?.id && c.id !== reader?.id
-          ) ?? reader;
-
-        const startedAtIso = new Date().toISOString();
-        const nextVitalsCheckAtIso = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-        const id = `emg-${Date.now()}`;
-
-        onPersistLog?.({
-          timestampIso: startedAtIso,
-          event: 'EMERGENCY activated — timer and auto-log started',
-          sessionId: id,
-        });
-
-        return {
-          id,
-          startedAtIso,
-          patientId: patient?.id ?? 'unknown',
-          condition: 'bleeding',
-          roles: {
-            leaderId: medic?.id ?? '',
-            readerId: reader?.id ?? '',
-            radioLogId: radio?.id ?? '',
-          },
-          currentStepIndex: -1, // -1 = Role & Triage screen (CREW 9)
-          completedStepIds: [],
-          skippedStepIds: [],
-          nextVitalsCheckAtIso,
-          wallMode: false,
-          logEntries: [
-            {
-              timestampIso: startedAtIso,
-              elapsedSec: 0,
-              actor: 'System',
-              event: 'Emergency triggered. Patient readings opened to crew.',
-            },
-          ],
-        };
-      });
+      const current = sessionRef.current;
+      if (current && !current.endedAtIso) return; // already running: just reopen the drawer
+      const now = Date.now();
+      commit(flow.createSession(crew, defaultPatientId, now), now);
     },
-    [crew, onPersistLog]
+    [crew, commit],
   );
 
   const closeDrawer = () => setIsDrawerOpen(false);
 
-  const setPatient = (patientId: string) => {
-    setSession((prev) => {
-      if (!prev) return prev;
-      const pName = crew.find((c) => c.id === patientId)?.name ?? patientId;
-      // Re-suggest leader if current leader was selected as patient
-      const nextRoles = { ...prev.roles };
-      if (nextRoles.leaderId === patientId) {
-        const altMedic = crew.find((c) => c.isMedic && c.id !== patientId) ??
-          crew.find((c) => c.id !== patientId);
-        if (altMedic) nextRoles.leaderId = altMedic.id;
-      }
-      return appendLog(
-        { ...prev, patientId, roles: nextRoles },
-        'Crew',
-        `Patient set to ${pName}`
-      );
-    });
-  };
-
-  const setCondition = (condition: EmergencyCondition) => {
-    setSession((prev) => {
-      if (!prev) return prev;
-      return appendLog(
-        { ...prev, condition, currentStepIndex: -1 },
-        'Crew',
-        `Condition selected: ${CONDITION_LABELS[condition]}`
-      );
-    });
-  };
-
-  const updateRole = (role: keyof EmergencyRoleAssignment, crewId: string) => {
-    setSession((prev) => {
-      if (!prev) return prev;
-      const cName = crew.find((c) => c.id === crewId)?.name ?? crewId;
-      return appendLog(
-        { ...prev, roles: { ...prev.roles, [role]: crewId } },
-        'Crew',
-        `Role ${role} assigned to ${cName}`
-      );
-    });
-  };
-
-  const startSteps = () => {
-    setSession((prev) => {
-      if (!prev) return prev;
-      return appendLog(
-        { ...prev, currentStepIndex: 0 },
-        'Reader',
-        `Started ${CONDITION_LABELS[prev.condition]} checklist (Step 1)`
-      );
-    });
-  };
-
-  const completeCurrentStep = () => {
-    setSession((prev) => {
-      if (!prev) return prev;
-      const steps = EMERGENCY_PROTOCOLS[prev.condition];
-      const step = steps[prev.currentStepIndex];
-      if (!step) return prev;
-      const nextIndex = Math.min(prev.currentStepIndex + 1, steps.length - 1);
-      const updated = appendLog(
-        {
-          ...prev,
-          completedStepIds: Array.from(new Set([...prev.completedStepIds, step.id])),
-          currentStepIndex: nextIndex,
-        },
-        'Reader',
-        `DONE Step ${step.stepNumber}: ${step.title}`
-      );
-      return updated;
-    });
-  };
-
-  const skipCurrentStep = () => {
-    setSession((prev) => {
-      if (!prev) return prev;
-      const steps = EMERGENCY_PROTOCOLS[prev.condition];
-      const step = steps[prev.currentStepIndex];
-      if (!step) return prev;
-      const nextIndex = Math.min(prev.currentStepIndex + 1, steps.length - 1);
-      return appendLog(
-        {
-          ...prev,
-          skippedStepIds: Array.from(new Set([...prev.skippedStepIds, step.id])),
-          currentStepIndex: nextIndex,
-        },
-        'Reader',
-        `CAN'T DO Step ${step.stepNumber}: ${step.title}`
-      );
-    });
-  };
-
-  const goPreviousStep = () => {
-    setSession((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        currentStepIndex: Math.max(-1, prev.currentStepIndex - 1),
-      };
-    });
-  };
+  const setPatient = (patientId: string) => dispatch((prev) => flow.setPatient(prev, crew, patientId));
+  const setCondition = (condition: EmergencyCondition) => dispatch((prev) => flow.setCondition(prev, condition));
+  const updateRole = (role: keyof EmergencyRoleAssignment, crewId: string) =>
+    dispatch((prev) => flow.updateRole(prev, crew, role, crewId));
+  const startSteps = () => dispatch((prev) => flow.startSteps(prev));
+  const completeCurrentStep = () => dispatch((prev, now) => flow.completeStep(prev, now, patientName(prev)));
+  const skipCurrentStep = () => dispatch((prev, now) => flow.skipStep(prev, now, patientName(prev)));
+  const goPreviousStep = () => dispatch((prev) => flow.previousStep(prev));
+  const escalateTo = (condition: EmergencyCondition) => dispatch((prev) => flow.escalate(prev, condition));
+  const recordVitalsCheck = () => dispatch((prev, now) => flow.recordVitalsCheck(prev, now, patientName(prev)));
 
   const toggleWallMode = () => {
-    setSession((prev) => (prev ? { ...prev, wallMode: !prev.wallMode } : prev));
+    const prev = sessionRef.current;
+    if (!prev) return;
+    const next = { ...prev, wallMode: !prev.wallMode };
+    sessionRef.current = next;
+    setSession(next);
   };
 
-  const sendGroundMessage = (questions: string[], customNote?: string) => {
-    setSession((prev) => {
-      if (!prev) return prev;
-      const patient = crew.find((c) => c.id === prev.patientId);
-      const sentMs = Date.now();
-      const delayMs = oneWayDelayMinutes * 60 * 1000;
-
-      const completedTitles = EMERGENCY_PROTOCOLS[prev.condition]
-        .filter((s) => prev.completedStepIds.includes(s.id))
-        .map((s) => s.title.replace(/\.$/, ''))
-        .join(', ');
-
-      const packet: GroundMessagePacket = {
-        id: `pkt-${sentMs}`,
-        sentAtIso: new Date(sentMs).toISOString(),
-        arrivesAtIso: new Date(sentMs + delayMs).toISOString(),
-        earliestReplyAtIso: new Date(sentMs + delayMs * 2).toISOString(),
-        whatSummary: `${CONDITION_LABELS[prev.condition]} — ${patient?.name ?? 'Crew'}${
-          customNote ? ` (${customNote})` : ''
-        }`,
-        vitalsSummary: patient
-          ? `Heart ${patient.currentHr} | BP ${patient.currentBpSys}/${patient.currentBpDia} | O₂ ${patient.currentSpo2}%`
-          : 'Vitals pending',
-        doneSummary: completedTitles || 'Initial triage & role assignment',
-        questions: questions.filter((q) => q.trim().length > 0),
-        replyReadBack: false,
-      };
-
-      return appendLog(
-        { ...prev, groundPacket: packet },
-        'Radio + log',
-        `Sent structured packet to Flight Surgeon (${oneWayDelayMinutes} min one-way delay)`
-      );
-    });
-  };
-
-  const confirmGroundReplyReadBack = () => {
-    setSession((prev) => {
-      if (!prev?.groundPacket) return prev;
-      return appendLog(
-        {
-          ...prev,
-          groundPacket: { ...prev.groundPacket, replyReadBack: true },
-        },
-        'Reader',
-        'Flight Surgeon reply confirmed via crew read-back'
-      );
-    });
-  };
+  const sendGroundMessage = (questions: string[], customNote?: string) =>
+    dispatch((prev, now) => flow.sendGroundMessage(prev, crew, questions, customNote, oneWayDelayMinutes, now));
+  const confirmGroundReplyReadBack = () => dispatch((prev) => flow.confirmReadBack(prev));
 
   const endEmergency = () => {
-    setSession((prev) => {
-      if (!prev) return null;
-      const closed = appendLog(
-        { ...prev, endedAtIso: new Date().toISOString() },
-        'Crew',
-        'Emergency ended — incident log saved'
-      );
-      return closed;
-    });
+    dispatch((prev, now) => flow.endSession(prev, now));
     setIsDrawerOpen(false);
   };
 
@@ -345,6 +174,7 @@ export const EmergencyProvider: React.FC<Props> = ({
         session,
         elapsedSeconds,
         vitalsCountdownSeconds,
+        oneWayDelayMinutes,
         isDrawerOpen,
         openEmergency,
         closeDrawer,
@@ -355,6 +185,8 @@ export const EmergencyProvider: React.FC<Props> = ({
         completeCurrentStep,
         skipCurrentStep,
         goPreviousStep,
+        escalateTo,
+        recordVitalsCheck,
         toggleWallMode,
         sendGroundMessage,
         confirmGroundReplyReadBack,

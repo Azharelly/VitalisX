@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useEmergency } from './EmergencyProvider';
 import type { CrewMemberSummary } from './EmergencyProvider';
 import { EMERGENCY_PROTOCOLS, CONDITION_LABELS } from './protocols';
+import { doneTitles } from './session';
 import type { EmergencyCondition } from './model';
 import { HoldToEndButton } from './HoldToEndButton';
 import styles from './emergency.module.css';
@@ -18,6 +19,10 @@ function formatTimeHHMM(iso: string): string {
     .getMinutes()
     .toString()
     .padStart(2, '0')}`;
+}
+
+function formatMinutes(min: number): string {
+  return Number.isInteger(min) ? String(min) : min.toFixed(1);
 }
 
 interface Props {
@@ -39,6 +44,8 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
     completeCurrentStep,
     skipCurrentStep,
     goPreviousStep,
+    escalateTo,
+    recordVitalsCheck,
     toggleWallMode,
     sendGroundMessage,
     confirmGroundReplyReadBack,
@@ -62,11 +69,20 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
   const steps = EMERGENCY_PROTOCOLS[session.condition];
   const isRoleSetup = session.currentStepIndex < 0;
   const activeStep = !isRoleSetup ? steps[session.currentStepIndex] : null;
+  const isFinished = !isRoleSetup && session.currentStepIndex >= steps.length;
+  const isLastStep = session.currentStepIndex === steps.length - 1;
+  const vitalsOverdue = vitalsCountdownSeconds === 0;
+  const delayText = formatMinutes(oneWayDelayMinutes);
+  const replyDelayText = formatMinutes(oneWayDelayMinutes * 2);
+  const skippedSteps = steps.filter((s) => session.skippedStepIds.includes(s.id));
+  const completedCount = steps.filter((s) => session.completedStepIds.includes(s.id)).length;
 
   const cycleRole = (role: 'leaderId' | 'readerId' | 'radioLogId') => {
-    if (crew.length === 0) return;
-    const currentIdx = crew.findIndex((c) => c.id === session.roles[role]);
-    const nextCrew = crew[(currentIdx + 1) % crew.length];
+    // The patient can't hold a role, so cycle through everyone else.
+    const helpers = crew.filter((c) => c.id !== session.patientId);
+    if (helpers.length === 0) return;
+    const currentIdx = helpers.findIndex((c) => c.id === session.roles[role]);
+    const nextCrew = helpers[(currentIdx + 1) % helpers.length];
     if (nextCrew) updateRole(role, nextCrew.id);
   };
 
@@ -151,14 +167,16 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
           className={view === 'flow' ? styles.subNavActive : styles.subNavBtn}
           onClick={() => setView('flow')}
         >
-          {isRoleSetup ? '1. Roles & Triage' : `Steps (${session.currentStepIndex + 1}/${steps.length})`}
+          {isRoleSetup
+            ? '1. Roles & Triage'
+            : `Steps (${Math.min(session.currentStepIndex + 1, steps.length)}/${steps.length})`}
         </button>
         <button
           type="button"
           className={view === 'ground' ? styles.subNavActive : styles.subNavBtn}
           onClick={() => setView('ground')}
         >
-          Message to Ground ({oneWayDelayMinutes}m)
+          Message to Ground ({delayText}m)
         </button>
         <button
           type="button"
@@ -264,7 +282,7 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
               </div>
               {session.groundPacket && (
                 <div className={styles.wallDelayCard}>
-                  <div>Earth {oneWayDelayMinutes} min</div>
+                  <div>Earth {delayText} min</div>
                   <div>Reply from {formatTimeHHMM(session.groundPacket.earliestReplyAtIso)}</div>
                 </div>
               )}
@@ -294,8 +312,23 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
               className={styles.giantDoneBtn}
               onClick={completeCurrentStep}
             >
-              DONE · next step
+              {isLastStep ? 'DONE · finish checklist' : 'DONE · next step'}
             </button>
+
+            {activeStep.escalations && activeStep.escalations.length > 0 && (
+              <div className={styles.escalationRow}>
+                {activeStep.escalations.map((esc) => (
+                  <button
+                    key={esc.to}
+                    type="button"
+                    className={styles.escalateBtn}
+                    onClick={() => escalateTo(esc.to)}
+                  >
+                    {esc.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className={styles.secondaryStepRow}>
               <button
@@ -339,8 +372,8 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
             <aside className={styles.vitalsPanel}>
               <div className={styles.vitalsHeader}>
                 <strong>{patient.name} compared with own normal</strong>
-                <span className={styles.nextCheckTag}>
-                  next check {formatClock(vitalsCountdownSeconds)}
+                <span className={vitalsOverdue ? styles.nextCheckOverdue : styles.nextCheckTag}>
+                  {vitalsOverdue ? 'vitals check due now' : `next check ${formatClock(vitalsCountdownSeconds)}`}
                 </span>
               </div>
 
@@ -372,6 +405,10 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
                 </span>
               </div>
 
+              <button type="button" className={styles.secondaryBtn} onClick={recordVitalsCheck}>
+                Vitals checked ✓
+              </button>
+
               <div className={styles.groundFooterBar}>
                 {session.groundPacket ? (
                   <>
@@ -402,6 +439,40 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
         </main>
       )}
 
+      {/* Checklist finished: every step done or skipped. Not a dead end. */}
+      {view === 'flow' && isFinished && (
+        <main className={styles.mainBody}>
+          <section className={styles.stepCard}>
+            <h1 className={styles.stepTitle}>
+              {CONDITION_LABELS[session.condition]} checklist finished
+            </h1>
+            <p className={styles.stepDetail}>
+              {completedCount} of {steps.length} steps done
+              {skippedSteps.length > 0 ? `, ${skippedSteps.length} skipped` : ''}. Keep watching the
+              patient, recheck vitals when due, and update the Flight Surgeon.
+            </p>
+            {skippedSteps.length > 0 && (
+              <p className={styles.zeroGCallout}>
+                Skipped: {skippedSteps.map((s) => `Step ${s.stepNumber}`).join(', ')}. Go back to try again.
+              </p>
+            )}
+            <button type="button" className={styles.giantDoneBtn} onClick={() => setView('ground')}>
+              {session.groundPacket ? 'Open message to Flight Surgeon' : 'Message to Flight Surgeon'}
+            </button>
+            <div className={styles.secondaryStepRow}>
+              <button type="button" className={styles.secondaryBtn} onClick={goPreviousStep}>
+                Back
+              </button>
+              <button type="button" className={styles.secondaryBtn} onClick={recordVitalsCheck}>
+                Vitals checked ✓
+              </button>
+            </div>
+            {vitalsOverdue && <p className={styles.deltaWarn}>Vitals check due now</p>}
+            <HoldToEndButton onConfirmEnd={endEmergency} />
+          </section>
+        </main>
+      )}
+
       {/* VIEW 2: DELAY-AWARE MESSAGE TO GROUND (CREW 11) */}
       {view === 'ground' && (
         <main className={styles.mainBody}>
@@ -418,12 +489,7 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
             </p>
             <p>
               <strong>Done:</strong>{' '}
-              {session.completedStepIds.length > 0
-                ? EMERGENCY_PROTOCOLS[session.condition]
-                    .filter((s) => session.completedStepIds.includes(s.id))
-                    .map((s) => s.title.replace(/\.$/, ''))
-                    .join(', ')
-                : 'Initial triage'}
+              {session.completedStepIds.length > 0 ? doneTitles(session).join(', ') : 'Initial triage'}
             </p>
           </div>
 
@@ -459,11 +525,11 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
                 <strong>{formatTimeHHMM(session.groundPacket.sentAtIso)}</strong>
               </div>
               <div>
-                <span>arrives (+{oneWayDelayMinutes}m)</span>
+                <span>arrives (+{delayText}m)</span>
                 <strong>{formatTimeHHMM(session.groundPacket.arrivesAtIso)}</strong>
               </div>
               <div>
-                <span>earliest reply (+{oneWayDelayMinutes * 2}m)</span>
+                <span>earliest reply (+{replyDelayText}m)</span>
                 <strong>{formatTimeHHMM(session.groundPacket.earliestReplyAtIso)}</strong>
               </div>
             </div>
