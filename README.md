@@ -1,13 +1,11 @@
 # VitalisX
 
-Health monitoring for a crew on a long space mission. Each astronaut's daily readings are compared with **their own
-normal**, not Earth averages, and the app says what to do next, why, and how to tell Earth when a message takes
-12 minutes each way.
+Health monitoring for a crew on a long space mission. Each astronaut's daily readings are compared with **their own normal**, not Earth averages, and the app says what to do next, why, and how to tell Earth when a message takes 12 minutes each way.
 
 **Live demo:** https://vitalisx.vercel.app (no sign-up; works offline once loaded)
 
 > Hackathon prototype. Decision support, **not a medical device**. The crew and their readings are **simulated**.
-> It does not call anyone: in a real emergency the crew follows the mission's own procedures.
+> It does not call anyone: in a real emergency, the crew follows the mission's own procedures.
 
 ## What it does
 
@@ -18,12 +16,9 @@ normal**, not Earth averages, and the app says what to do next, why, and how to 
 - **Radiation**: career dose against the 600 mSv limit, plus live NASA DONKI space-weather data (saved copy offline).
 - **Report**: week or month in review, and a summary for the flight surgeon.
 - **Messages to Earth**: every message with its delay (sent, on its way, arrived, reply).
-- **Emergency**: who and what, one step at a time read aloud, roles, vitals against the person's usual, a message
-  to the flight surgeon, and a log of what happened.
+- **Emergency**: who and what, one step at a time read aloud, roles, vitals against the person's usual, a message to the flight surgeon, and a log of what happened.
 
-How a flag is decided: a person's normal is learned from their last 28 days (14 readings needed first). **Watch** is
-3 readings in a row clearly away from it; **Alert** is one reading far away, or a fixed safety limit. These limits are
-the team's own design rules; the app's **Sources & AI use** page lists every source and rule.
+How a flag is decided: a person's normal is learned from their last 28 days (14 readings needed first). **Watch** is 3 readings in a row clearly away from it; **Alert** is one reading far away, or a fixed safety limit. These limits are the team's own design rules; the app's **Sources & AI use** page lists every source and rule.
 
 ## Run it locally
 
@@ -67,8 +62,7 @@ docs/         contracts between the data layer and the screens
 - Vite PWA for offline service-worker support
 - Bundled open-license fonts: Space Grotesk, Inter, and IBM Plex Mono
 
-Licenses are listed in the app (Sources & AI use page): React, Vite, Vitest, vite-plugin-pwa and ESLint are MIT;
-Dexie and TypeScript are Apache-2.0; the fonts are SIL OFL 1.1.
+Licenses are listed in the app (Sources & AI use page): React, Vite, Vitest, vite-plugin-pwa and ESLint are MIT; Dexie and TypeScript are Apache-2.0; the fonts are SIL OFL 1.1.
 
 ### NASA data and references
 
@@ -90,5 +84,4 @@ The project presentation materials were created with Canva, Google Sheets, Flipa
 
 ## Sources and AI use
 
-The full list of references, the team's own design rules, the software licenses and the AI-use declaration are in the
-app on the **Sources & AI use** page (link at the bottom of every screen), and in `src/features/sources/`.
+The full list of references, the team's own design rules, the software licenses and the AI-use declaration are in the app on the **Sources & AI use** page (link at the bottom of every screen), and in `src/features/sources/`.
