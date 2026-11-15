@@ -52,6 +52,15 @@
   text-indent: -2em;
 }
 
+/* The link must not inherit the negative indent (that pulled a wrapped link left, over the text above it).
+   More specific than `.card a`, which makes links inline-block. A long DOI breaks onto the next line if it must. */
+.refs .citation a {
+  display: inline;
+  padding: 0;
+  text-indent: 0;
+  overflow-wrap: anywhere;
+}
+
 .meta {
   color: var(--muted);
   font-size: 13px;
