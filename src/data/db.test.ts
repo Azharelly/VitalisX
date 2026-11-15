@@ -25,7 +25,7 @@ const fixture = (): SeedData => ({
     id: 'temp', label: 'Temperature', unit: '°C', zone: 'immune', direction: 'high_is_bad', min_sd: 0.15,
     abs_low: null, abs_high: 37.9, abs_rule: 'Fever from 38.0', default_context: 'resting', decimals: 1, priority: 4, source_ids: [],
   }],
-  reference_source: [{ id: 'nasa-std-3001', title: 'NASA-STD-3001', finding: '600 mSv career limit', link_or_doi: '', used_for: 'radiation' }],
+  reference_source: [{ id: 'nasa-std-3001', title: 'NASA-STD-3001', citation: 'NASA-STD-3001', finding: '600 mSv career limit', link_or_doi: '', used_for: 'radiation' }],
   measurement: [
     { id: 1, crew_id: 1, metric_id: 'temp', mission_day: 1, taken_at: '2031-02-02T08:00:00Z', context: null, value: 36.6, source: 'checkin', is_simulated: true },
     { id: 2, crew_id: 1, metric_id: 'temp', mission_day: 2, taken_at: '2031-02-03T08:00:00Z', context: null, value: 36.7, source: 'checkin', is_simulated: true },
