@@ -60,7 +60,7 @@ export const EMERGENCY_PROTOCOLS: Record<EmergencyCondition, EmergencyStep[]> = 
     {
       id: 'bld-4',
       stepNumber: 4,
-      title: 'Check vitals & compare to in-flight normal.',
+      title: 'Check vitals and compare to in-flight normal.',
       detail: 'Measure Heart Rate, Blood Pressure, and SpO₂. Uninjured crew already carry lower plasma volume.',
       checklistRefId: 'MED-CHK-BLD-03',
       vitalsCheckRequired: true,
@@ -69,7 +69,7 @@ export const EMERGENCY_PROTOCOLS: Record<EmergencyCondition, EmergencyStep[]> = 
     {
       id: 'bld-5',
       stepNumber: 5,
-      title: 'Open Shock & IV Access Kit if bleeding persists or shock signs appear.',
+      title: 'Open Shock and IV Access Kit if bleeding persists or shock signs appear.',
       detail: 'Prepare pressure infusion cuff (gravity drip will not flow). Verify amounts in Medical Checklist.',
       checklistRefId: 'MED-CHK-SHK-04',
     },
@@ -98,7 +98,7 @@ export const EMERGENCY_PROTOCOLS: Record<EmergencyCondition, EmergencyStep[]> = 
     {
       id: 'col-3',
       stepNumber: 3,
-      title: 'Record baseline vitals & blood glucose.',
+      title: 'Record baseline vitals and blood glucose.',
       detail: 'Attach pulse oximeter, BP cuff, and check fingerstick glucose.',
       checklistRefId: 'MED-CHK-COL-03',
       vitalsCheckRequired: true,
@@ -247,7 +247,7 @@ export const EMERGENCY_PROTOCOLS: Record<EmergencyCondition, EmergencyStep[]> = 
     {
       id: 'fev-2',
       stepNumber: 2,
-      title: 'Rest, fluids, and keep some distance from the crew.',
+      title: 'Rest, drink fluids, and keep some distance from the crew.',
       detail: 'In a closed cabin an infection spreads easily. Mask on if the Checklist says so, and use a separate sleep area if possible.',
       checklistRefId: 'MED-CHK-FEV-02',
     },
@@ -276,7 +276,7 @@ export const EMERGENCY_PROTOCOLS: Record<EmergencyCondition, EmergencyStep[]> = 
     {
       id: 'oth-1',
       stepNumber: 1,
-      title: 'Ensure cabin safety & restrain patient.',
+      title: 'Ensure cabin safety and restrain the patient.',
       detail: 'Check cabin air/radiation status strip and secure patient to CMRS.',
       checklistRefId: 'MED-CHK-GEN-01',
       escalations: [
@@ -288,7 +288,7 @@ export const EMERGENCY_PROTOCOLS: Record<EmergencyCondition, EmergencyStep[]> = 
     {
       id: 'oth-2',
       stepNumber: 2,
-      title: 'Capture full vitals against personal baseline.',
+      title: 'Capture the patient\'s vital signs and compare them with their baseline.',
       detail: 'Measure Temp, HR, BP, SpO₂, and symptoms.',
       checklistRefId: 'MED-CHK-GEN-02',
       vitalsCheckRequired: true,
