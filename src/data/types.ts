@@ -121,9 +121,10 @@ export interface ActionLog {
 
 export interface ReferenceSource {
   id: string;                // PK (text)
-  title: string;
+  title: string;             // short label, e.g. "Barger et al., Lancet Neurology 2014"
+  citation: string;          // full APA 7 reference without the link; *asterisks* mark italics
   finding: string;
-  link_or_doi: string;
+  link_or_doi: string;       // DOI link, or the document URL (NASA); shown at the end of the citation
   used_for: string;
 }
 

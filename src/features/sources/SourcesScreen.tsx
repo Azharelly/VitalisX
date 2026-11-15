@@ -9,11 +9,10 @@ import s from './sources.module.css'
 import { AI_USE_DECLARATION, CONTRIBUTORS, LIBRARIES } from './content'
 
 const isLink = (x: string) => /^https?:\/\//.test(x.trim())
-/** "Vol. 1 Rev C, page 41: https://…" → the text before the link, and the link. */
-const splitLink = (x: string) => {
-  const m = x.match(/https?:\/\/\S+/)
-  return m ? { text: x.slice(0, m.index).replace(/[:\s]+$/, ''), href: m[0] } : { text: x, href: undefined }
-}
+/** The citation text marks italics with *asterisks* (APA 7: journal name and volume, titles of reports). */
+const Cite = ({ text }: { text: string }) => (
+  <>{text.split('*').map((part, i) => (i % 2 ? <i key={i}>{part}</i> : part))}</>
+)
 
 /**
  * F-11 / issue #31: where every number and fact comes from, which rules are our own, the software we use,
@@ -30,7 +29,8 @@ export function SourcesScreen() {
     Promise.all([db.reference_source.toArray(), db.metric.toArray()]).then(
       ([r, m]) => {
         if (!live) return
-        setRefs(r.filter((x) => x.id !== 'design_rule'))
+        // APA 7 lists references alphabetically by author, then year, then title.
+        setRefs(r.filter((x) => x.id !== 'design_rule').sort((x, y) => x.citation.localeCompare(y.citation, 'en')))
         setMetrics(m.filter((x) => x.abs_rule))
       },
       (e: unknown) => live && setError(e instanceof Error ? e.message : String(e)),
@@ -77,7 +77,7 @@ export function SourcesScreen() {
         <h2 id="src-refs" className={s.h2}>
           References
         </h2>
-        <p className={t.muted}>What each one is used for in the app. An entry still marked "to be confirmed" is being checked.</p>
+        <p className={t.muted}>Listed in APA 7 style, in alphabetical order. The line under each one says what it is used for in the app.</p>
         {error && (
           <p className={s.error} role="alert">
             Could not read the references: {error}
@@ -85,31 +85,25 @@ export function SourcesScreen() {
         )}
         {!refs && !error && <p className={t.muted}>Loading…</p>}
         {refs && (
-          <ol className={s.refs}>
-            {refs.map((r) => {
-              const { text, href } = splitLink(r.link_or_doi)
-              return (
-                <li key={r.id}>
-                  <strong>{r.title}</strong>
-                  <span className={t.muted}>{r.finding}</span>
-                  <span className={s.meta}>
-                    Used for: {r.used_for}
-                    {' · '}
-                    {href ? (
-                      <>
-                        {text && `${text} · `}
-                        <a href={href} target="_blank" rel="noreferrer">
-                          {isLink(r.link_or_doi) ? 'link' : 'source link'}
-                        </a>
-                      </>
-                    ) : (
-                      text
-                    )}
-                  </span>
-                </li>
-              )
-            })}
-          </ol>
+          <ul className={s.refs}>
+            {refs.map((r) => (
+              <li key={r.id}>
+                <span className={s.citation}>
+                  <Cite text={r.citation} />
+                  {isLink(r.link_or_doi) && (
+                    <>
+                      {' '}
+                      <a href={r.link_or_doi.trim()} target="_blank" rel="noreferrer">
+                        {r.link_or_doi.trim()}
+                      </a>
+                    </>
+                  )}
+                </span>
+                <span className={t.muted}>{r.finding}</span>
+                <span className={s.meta}>Used for: {r.used_for}</span>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 
