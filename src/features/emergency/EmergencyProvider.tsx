@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import type { EmergencyCondition, EmergencyRoleAssignment, EmergencySession } from './model';
 import * as flow from './session';
 import type { Transition } from './session';
+import { loadLatestEmergencySession, saveEmergencySession } from '../../data/emergencySessions';
 
 export interface CrewMemberSummary {
   id: string;
@@ -20,6 +21,8 @@ export interface CrewMemberSummary {
 interface EmergencyContextValue {
   crew: CrewMemberSummary[];
   session: EmergencySession | null;
+  isReady: boolean;
+  persistenceError: string | null;
   elapsedSeconds: number;
   /** Seconds until the next vitals check is due; 0 means due now (overdue). */
   vitalsCountdownSeconds: number;
@@ -40,12 +43,14 @@ interface EmergencyContextValue {
   recordVitalsCheck: () => void;
   toggleWallMode: () => void;
   sendGroundMessage: (questions: string[], customNote?: string) => void;
+  addGroundQuestion: (question: string) => void;
   confirmGroundReplyReadBack: () => void;
   endEmergency: () => void;
 }
 
 const EmergencyContext = createContext<EmergencyContextValue | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useEmergency = () => {
   const ctx = useContext(EmergencyContext);
   if (!ctx) throw new Error('useEmergency must be used inside EmergencyProvider');
@@ -68,11 +73,39 @@ export const EmergencyProvider: React.FC<Props> = ({
 }) => {
   const [session, setSession] = useState<EmergencySession | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   // The ref is the source of truth for event handlers, so two quick taps never read stale state
   // and logging/persisting happens once per action, outside any state updater.
   const sessionRef = useRef<EmergencySession | null>(null);
+  const persistenceQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  // Restore the latest emergency before allowing a new one to start. An active session opens
+  // automatically, and its timer continues from the saved start time.
+  useEffect(() => {
+    let live = true;
+    loadLatestEmergencySession().then(
+      (restored) => {
+        if (!live) return;
+        sessionRef.current = restored;
+        setSession(restored);
+        setIsDrawerOpen(Boolean(restored && !restored.endedAtIso));
+        setNowMs(Date.now());
+        setIsReady(true);
+      },
+      (error: unknown) => {
+        if (!live) return;
+        console.error('Could not restore emergency data', error);
+        setPersistenceError(error instanceof Error ? error.message : String(error));
+        setIsReady(true);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
 
   // 1-second tick for live emergency timer and vitals check countdown
   useEffect(() => {
@@ -87,6 +120,14 @@ export const EmergencyProvider: React.FC<Props> = ({
       sessionRef.current = next;
       setSession(next);
       setNowMs(now);
+      persistenceQueueRef.current = persistenceQueueRef.current
+        .catch(() => undefined)
+        .then(() => saveEmergencySession(next))
+        .then(() => setPersistenceError(null))
+        .catch((error: unknown) => {
+          console.error('Could not save emergency data', error);
+          setPersistenceError(error instanceof Error ? error.message : String(error));
+        });
       const timestampIso = new Date(now).toISOString();
       for (const e of t.events) onPersistLog?.({ timestampIso, event: e.event, sessionId: next.id });
     },
@@ -110,13 +151,14 @@ export const EmergencyProvider: React.FC<Props> = ({
   // Pressing EMERGENCY starts timer and log immediately (CREW 8 #5, CREW 9 #1)
   const openEmergency = useCallback(
     (defaultPatientId?: string) => {
+      if (!isReady) return;
       setIsDrawerOpen(true);
       const current = sessionRef.current;
       if (current && !current.endedAtIso) return; // already running: just reopen the drawer
       const now = Date.now();
       commit(flow.createSession(crew, defaultPatientId, now), now);
     },
-    [crew, commit],
+    [crew, commit, isReady],
   );
 
   const closeDrawer = () => setIsDrawerOpen(false);
@@ -138,10 +180,20 @@ export const EmergencyProvider: React.FC<Props> = ({
     const next = { ...prev, wallMode: !prev.wallMode };
     sessionRef.current = next;
     setSession(next);
+    persistenceQueueRef.current = persistenceQueueRef.current
+      .catch(() => undefined)
+      .then(() => saveEmergencySession(next))
+      .then(() => setPersistenceError(null))
+      .catch((error: unknown) => {
+        console.error('Could not save emergency data', error);
+        setPersistenceError(error instanceof Error ? error.message : String(error));
+      });
   };
 
   const sendGroundMessage = (questions: string[], customNote?: string) =>
     dispatch((prev, now) => flow.sendGroundMessage(prev, crew, questions, customNote, oneWayDelayMinutes, now));
+  const addGroundQuestion = (question: string) =>
+    dispatch((prev) => flow.addGroundQuestion(prev, question));
   const confirmGroundReplyReadBack = () => dispatch((prev) => flow.confirmReadBack(prev));
 
   const endEmergency = () => {
@@ -172,6 +224,8 @@ export const EmergencyProvider: React.FC<Props> = ({
       value={{
         crew,
         session,
+        isReady,
+        persistenceError,
         elapsedSeconds,
         vitalsCountdownSeconds,
         oneWayDelayMinutes,
@@ -189,6 +243,7 @@ export const EmergencyProvider: React.FC<Props> = ({
         recordVitalsCheck,
         toggleWallMode,
         sendGroundMessage,
+        addGroundQuestion,
         confirmGroundReplyReadBack,
         endEmergency,
       }}

@@ -72,7 +72,7 @@ describe('outbox countdown and readiness (#23)', () => {
   it('counts down from created_at + delay_sec', () => {
     const m = { createdAt: '2026-11-14T00:00:00.000Z', delaySec: 720 }
     expect(arrivalLeftSec(m, Date.parse('2026-11-14T00:00:00.000Z'))).toBe(720)
-    expect(arrivalLeftSec(m, Date.parse('2026-11-14T00:10:00.000Z'))).toBe(150)
+    expect(arrivalLeftSec(m, Date.parse('2026-11-14T00:10:00.000Z'))).toBe(120)
     expect(arrivalLeftSec(m, Date.parse('2026-11-14T01:00:00.000Z'))).toBe(0)
   })
 })

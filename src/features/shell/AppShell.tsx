@@ -141,7 +141,7 @@ function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellP
 
 function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNoteForEarth, onSendSummary, outbox, send, commsDelaySec, demo }: Omit<AppShellProps, 'crewApi'>) {
   const { board, selected, addMember } = useCrew()
-  const { crew, openEmergency, session, elapsedSeconds, oneWayDelayMinutes } = useEmergency()
+  const { crew, openEmergency, session, elapsedSeconds, oneWayDelayMinutes, isReady: emergencyReady } = useEmergency()
   const tab = useSyncExternalStore(onHashChange, readTab, () => 'crew' as TabId)
   const [adding, setAdding] = useState(false)
   const focusContent = () => document.getElementById(CONTENT_ID)?.focus({ preventScroll: true })
@@ -236,7 +236,7 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
           <nav className={s.navWide} aria-label="Main">
             {tabs}
           </nav>
-          <button type="button" className={`${s.emergency} ${session && !session.endedAtIso ? s.emergencyActive : ''}`} onClick={triggerEmergency}>
+          <button type="button" className={`${s.emergency} ${session && !session.endedAtIso ? s.emergencyActive : ''}`} onClick={triggerEmergency} disabled={!emergencyReady}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 3 22 20H2ZM12 10v4M12 17v.5" />
             </svg>
@@ -271,7 +271,7 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
       <EmergencyScreen crew={crew} oneWayDelayMinutes={oneWayDelayMinutes} />
       <nav className={s.navBottom} aria-label="Main">
         {tabs}
-        <button type="button" className={`${s.emergencyNavButton} ${session && !session.endedAtIso ? s.emergencyActive : ''}`} onClick={triggerEmergency}>
+        <button type="button" className={`${s.emergencyNavButton} ${session && !session.endedAtIso ? s.emergencyActive : ''}`} onClick={triggerEmergency} disabled={!emergencyReady}>
           <span aria-hidden="true">⯃</span>{' '}
           {emergencyLabel}
         </button>

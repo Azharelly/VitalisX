@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useEmergency } from './EmergencyProvider';
 import type { CrewMemberSummary } from './EmergencyProvider';
 import { EMERGENCY_PROTOCOLS, CONDITION_LABELS } from './protocols';
@@ -36,6 +36,7 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
     elapsedSeconds,
     vitalsCountdownSeconds,
     isDrawerOpen,
+    persistenceError,
     closeDrawer,
     setPatient,
     setCondition,
@@ -48,19 +49,32 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
     recordVitalsCheck,
     toggleWallMode,
     sendGroundMessage,
+    addGroundQuestion,
     confirmGroundReplyReadBack,
     endEmergency,
   } = useEmergency();
 
   const [view, setView] = useState<'flow' | 'ground' | 'log'>('flow');
-  const [questions, setQuestions] = useState<string[]>([
-    'Start IV fluids?',
-  ]);
   const [newQuestion, setNewQuestion] = useState('');
   const [checklistToast, setChecklistToast] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!isDrawerOpen) return;
+    const root = document.documentElement;
+    const body = document.body;
+    const previousRootOverflow = root.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    root.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    return () => {
+      root.style.overflow = previousRootOverflow;
+      body.style.overflow = previousBodyOverflow;
+    };
+  }, [isDrawerOpen]);
+
   if (!isDrawerOpen || !session || session.endedAtIso) return null;
 
+  const questions = session.groundQuestions ?? session.groundPacket?.questions ?? ['Start IV fluids?'];
   const patient = crew.find((c) => c.id === session.patientId) ?? crew[0];
   const leader = crew.find((c) => c.id === session.roles.leaderId);
   const reader = crew.find((c) => c.id === session.roles.readerId);
@@ -88,7 +102,7 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
 
   const handleAddQuestion = () => {
     if (!newQuestion.trim()) return;
-    setQuestions((q) => [...q, newQuestion.trim()]);
+    addGroundQuestion(newQuestion);
     setNewQuestion('');
   };
 
@@ -142,6 +156,11 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
           </button>
         </div>
       </header>
+      {persistenceError && (
+        <p className={styles.persistenceWarning} role="alert">
+          Emergency changes could not be saved on this device. Keep this screen open; check browser storage settings.
+        </p>
+      )}
 
       {/* Pinned Unread Reply Banner (CREW 11 #5) */}
       {session.groundPacket?.replyText && !session.groundPacket.replyReadBack && (
@@ -518,7 +537,7 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
             </div>
           </section>
 
-          {session.groundPacket ? (
+          {session.groundPacket && (
             <div className={styles.delayTimeline}>
               <div>
                 <span>sent</span>
@@ -533,15 +552,27 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
                 <strong>{formatTimeHHMM(session.groundPacket.earliestReplyAtIso)}</strong>
               </div>
             </div>
-          ) : (
-            <button
-              type="button"
-              className={styles.primaryActionBtn}
-              onClick={handleSendPacket}
-            >
-              Send packet to Flight Surgeon
-            </button>
           )}
+          {session.groundPacket && (
+            <section className={styles.packetHistory} aria-label="Sent packet history">
+              <strong>Sent packets ({session.groundPackets?.length ?? 1})</strong>
+              <ol>
+                {(session.groundPackets ?? [session.groundPacket]).map((packet, index) => (
+                  <li key={packet.id}>
+                    <span>Packet {index + 1} · {formatTimeHHMM(packet.sentAtIso)}</span>
+                    <span>{packet.questions.length ? packet.questions.join(' · ') : 'No questions added'}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+          <button
+            type="button"
+            className={styles.primaryActionBtn}
+            onClick={handleSendPacket}
+          >
+            {session.groundPacket ? 'Send updated packet to Flight Surgeon' : 'Send packet to Flight Surgeon'}
+          </button>
 
           <p className={styles.autonomousReminder}>
             Do not wait. Keep following the steps.

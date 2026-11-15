@@ -92,7 +92,7 @@ function Live({ mission }: { mission: MissionConfig }) {
                 day={day}
                 screens={{
                     radiation: ({ crewId, day: d = mission.today_mission_day }) => <LiveRadiation crewId={crewId} day={d} arrivalDay={mission.arrival_day} />,
-                    checkin: ({ crewId, day: d, go }) => (
+                    checkin: ({ crewId, day: d, go, noteForEarth }) => (
                         <CheckInConnected
                             todayApi={todayApi}
                             crewId={crewId}
@@ -101,7 +101,7 @@ function Live({ mission }: { mission: MissionConfig }) {
                             onDone={() => go('today')}
                             onEmergency={() => log('onEmergency', crewId)}
                             onWhy={(m) => log('onWhy', m)}
-                            onNoteForEarth={(m) => log('onNoteForEarth', crewId, m)}
+                            onNoteForEarth={noteForEarth}
                         />
                     ),
                 }}
