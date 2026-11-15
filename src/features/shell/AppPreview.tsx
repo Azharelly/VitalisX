@@ -54,6 +54,7 @@ export function AppPreview() {
         ),
       }}
       onEmergency={(id) => log('onEmergency', id)}
+      onPersistLog={(entry) => log('onPersistLog', entry.event, entry.sessionId)}
       onWhy={(m) => log('onWhy', m)}
       onStart={(id, m) => log('onStart', id, m)}
       onNoteForEarth={(id, m) => log('onNoteForEarth', id, m)}

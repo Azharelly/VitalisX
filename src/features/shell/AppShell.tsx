@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { AvatarRow } from '../crew/AvatarRow'
 import { CrewProvider } from '../crew/CrewProvider'
 import { CrewScreen } from '../crew/CrewScreen'
@@ -14,6 +14,8 @@ import { Today } from '../today/Today'
 import t from '../today/today.module.css'
 import s from './shell.module.css'
 import { TABS, onHashChange, readTab, type TabId } from './tabs.ts'
+import { EmergencyProvider, useEmergency, type CrewMemberSummary } from '../emergency/EmergencyProvider'
+import { EmergencyScreen } from '../emergency/EmergencyScreen'
 
 /** A teammate's screen. It receives the chosen person and mission day, and can switch tabs. */
 export type ScreenSlot = (ctx: {
@@ -39,6 +41,7 @@ export interface AppShellProps extends ReportOutbox {
   onSendSummary?: (crewId: string, days: number) => void
   /** Demo controls (AppPreview only), shown in the header next to the brand so they never cover the page. */
   demo?: ReactNode
+  onPersistLog?: (entry: { timestampIso: string; event: string; sessionId: string }) => void
 }
 
 /**
@@ -49,15 +52,92 @@ export interface AppShellProps extends ReportOutbox {
 export function AppShell({ crewApi, day, ...rest }: AppShellProps) {
   return (
     <CrewProvider api={crewApi} day={day}>
-      <Frame day={day} {...rest} />
+      <EmergencyShell day={day} {...rest} />
     </CrewProvider>
   )
 }
 
 const CONTENT_ID = 'vx-content'
 
+function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellProps, 'crewApi'>) {
+  const { board } = useCrew()
+  const members = useMemo(() => (board.status === 'ready' ? board.board.members : []), [board])
+  const [summaries, setSummaries] = useState<CrewMemberSummary[]>([])
+
+  useEffect(() => {
+    let live = true
+    Promise.all(
+      members.map(async (member) => {
+        const data = await todayApi.getToday(member.id, day)
+        const values = new Map(data.readings.map((reading) => [reading.id, reading]))
+        const value = (id: string, fallback: number) => values.get(id)?.value ?? fallback
+        const baseline = (id: string, current: number) => {
+          const reading = values.get(id)
+          return reading?.usual ? (reading.usual[0] + reading.usual[1]) / 2 : current
+        }
+        const currentHr = value('hr', 70)
+        const currentBpSys = value('bp_sys', value('sys', 120))
+        const currentBpDia = value('bp_dia', value('dia', 80))
+        const currentSpo2 = value('spo2', 98)
+        return {
+          id: member.id,
+          name: member.name,
+          isMedic: /medic|doctor|physician/i.test(member.role),
+          baselineHr: baseline('hr', currentHr),
+          baselineBpSys: baseline('bp_sys', baseline('sys', currentBpSys)),
+          baselineBpDia: baseline('bp_dia', baseline('dia', currentBpDia)),
+          baselineSpo2: baseline('spo2', currentSpo2),
+          currentHr,
+          currentBpSys,
+          currentBpDia,
+          currentSpo2,
+        }
+      }),
+    ).then(
+      (next) => {
+        if (live) setSummaries(next)
+      },
+      (error: unknown) => {
+        if (live) console.error('Could not load emergency vitals', error)
+      },
+    )
+    return () => {
+      live = false
+    }
+  }, [day, members, todayApi])
+
+  const fallbackSummaries = useMemo(
+    () =>
+      members.map((member) => ({
+        id: member.id,
+        name: member.name,
+        isMedic: /medic|doctor|physician/i.test(member.role),
+        baselineHr: 70,
+        baselineBpSys: 120,
+        baselineBpDia: 80,
+        baselineSpo2: 98,
+        currentHr: 70,
+        currentBpSys: 120,
+        currentBpDia: 80,
+        currentSpo2: 98,
+      })),
+    [members],
+  )
+  const activeSummaries =
+    summaries.length === members.length && summaries.every((summary, index) => summary.id === members[index]?.id)
+      ? summaries
+      : fallbackSummaries
+
+  return (
+    <EmergencyProvider crew={activeSummaries} onPersistLog={onPersistLog} oneWayDelayMinutes={12}>
+      <Frame todayApi={todayApi} day={day} {...rest} />
+    </EmergencyProvider>
+  )
+}
+
 function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNoteForEarth, onSendSummary, outbox, send, commsDelaySec, demo }: Omit<AppShellProps, 'crewApi'>) {
   const { board, selected, addMember } = useCrew()
+  const { crew, openEmergency, session, elapsedSeconds } = useEmergency()
   const tab = useSyncExternalStore(onHashChange, readTab, () => 'crew' as TabId)
   const [adding, setAdding] = useState(false)
   const focusContent = () => document.getElementById(CONTENT_ID)?.focus({ preventScroll: true })
@@ -80,6 +160,14 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
   const missionDay = board.status === 'ready' ? board.board.missionDay : day
   const needAttention = members.filter((m) => isFlagged(m.status)).length
   const id = selected?.id
+  const triggerEmergency = () => {
+    openEmergency(id)
+    onEmergency?.(id)
+  }
+  const emergencyLabel =
+    session && !session.endedAtIso
+      ? `EMERGENCY · ${Math.floor(elapsedSeconds / 60).toString().padStart(2, '0')}:${(elapsedSeconds % 60).toString().padStart(2, '0')}`
+      : 'EMERGENCY'
 
   const tabs = (
     <ul className={s.tabList}>
@@ -144,11 +232,11 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
           <nav className={s.navWide} aria-label="Main">
             {tabs}
           </nav>
-          <button type="button" className={s.emergency} onClick={() => onEmergency?.(id)}>
+          <button type="button" className={`${s.emergency} ${session && !session.endedAtIso ? s.emergencyActive : ''}`} onClick={triggerEmergency}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 3 22 20H2ZM12 10v4M12 17v.5" />
             </svg>
-            <span>Emergency</span>
+            <span>{emergencyLabel}</span>
           </button>
         </div>
         <div className={s.crewRow}>
@@ -176,8 +264,13 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
         {tab === 'radiation' && slot('radiation', 'Radiation')}
       </main>
 
+      <EmergencyScreen crew={crew} oneWayDelayMinutes={12} />
       <nav className={s.navBottom} aria-label="Main">
         {tabs}
+        <button type="button" className={`${s.emergencyNavButton} ${session && !session.endedAtIso ? s.emergencyActive : ''}`} onClick={triggerEmergency}>
+          <span aria-hidden="true">⯃</span>{' '}
+          {emergencyLabel}
+        </button>
       </nav>
 
       {adding && <AddMemberDialog currentNames={members.map((m) => m.name)} onAdd={addMember} onClose={() => setAdding(false)} />}

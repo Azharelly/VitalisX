@@ -1,0 +1,430 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #faf9f6;
+  color: #16181d;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.emergencyBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: #f4b8b4;
+  border-bottom: 2px solid #16181d;
+  color: #16181d;
+}
+
+.bannerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+}
+
+.stopOctagon {
+  font-size: 1.25rem;
+}
+
+.bannerTimer {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.45rem;
+  font-weight: 700;
+}
+
+.bannerRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.loggingBadge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  border: 1.5px solid #16181d;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.wallToggleBtn,
+.minimizeBtn {
+  padding: 0.45rem 0.7rem;
+  border: 1.5px solid #16181d;
+  border-radius: 6px;
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.unreadReplyBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  background: #fde08d;
+  border-bottom: 2px solid #16181d;
+}
+
+.readBackBtn {
+  padding: 0.55rem 0.9rem;
+  background: #16181d;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.subNav {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1.5px solid #d0d3da;
+  background: #f1efe9;
+}
+
+.subNavBtn,
+.subNavActive {
+  flex: 1;
+  padding: 0.65rem;
+  border-radius: 8px;
+  border: 1.5px solid #16181d;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.subNavBtn {
+  background: #fff;
+  color: #16181d;
+}
+
+.subNavActive {
+  background: #16181d;
+  color: #fff;
+}
+
+.mainBody {
+  flex: 1;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.wallGrid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 240px 1fr 280px;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.sectionTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.chipGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.6rem;
+}
+
+.chip,
+.chipSelected {
+  min-height: 54px;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 2px solid #16181d;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chip {
+  background: #fff;
+  color: #16181d;
+}
+
+.chipSelected {
+  background: #16181d;
+  color: #fff;
+}
+
+.roleList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.roleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 52px;
+  padding: 0.75rem 1rem;
+  border: 2px solid #16181d;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.stepCard {
+  background: #fff;
+  border: 2px solid #16181d;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.stepHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  color: #4b5262;
+}
+
+.stepTitle {
+  margin: 0;
+  font-size: 1.9rem;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.stepDetail {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.45;
+  color: #2c313c;
+}
+
+.zeroGCallout {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  background: #eef4fb;
+  border-left: 4px solid #2b6cb0;
+  font-weight: 600;
+}
+
+/* Oversized primary target for floating/gloved interaction (CREW 10 #3, CREW 12 #1) */
+.giantDoneBtn {
+  min-height: 78px;
+  width: 100%;
+  background: #16181d;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.45rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.secondaryStepRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.secondaryBtn,
+.primaryActionBtn {
+  min-height: 52px;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 2px solid #16181d;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondaryBtn {
+  background: #fff;
+  color: #16181d;
+}
+
+.primaryActionBtn {
+  background: #16181d;
+  color: #fff;
+  width: 100%;
+}
+
+.checklistHandoffBtn {
+  min-height: 48px;
+  padding: 0.65rem 0.9rem;
+  background: #f5f5f7;
+  border: 1.5px dashed #16181d;
+  border-radius: 8px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.checklistNotice {
+  padding: 0.65rem 0.85rem;
+  background: #fef3c7;
+  border: 1.5px solid #92400e;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.vitalsPanel,
+.packetCard,
+.wallSidebar {
+  background: #fff;
+  border: 2px solid #16181d;
+  border-radius: 10px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.vitalsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1.5px solid #e2e5ec;
+  padding-bottom: 0.5rem;
+}
+
+.nextCheckTag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+}
+
+.vitalRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.75rem;
+  align-items: center;
+  font-size: 1.05rem;
+}
+
+.deltaWarn {
+  font-weight: 700;
+  color: #b45309;
+}
+
+.deltaNeutral {
+  color: #4b5262;
+}
+
+.groundFooterBar {
+  margin-top: 0.5rem;
+  padding-top: 0.6rem;
+  border-top: 1.5px solid #e2e5ec;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.linkBtn {
+  background: none;
+  border: none;
+  text-decoration: underline;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.delayTimeline {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding: 0.85rem;
+  background: #fff;
+  border: 2px solid #16181d;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.delayTimeline span {
+  display: block;
+  font-size: 0.85rem;
+  color: #4b5262;
+}
+
+.delayTimeline strong {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.2rem;
+}
+
+.autonomousReminder {
+  margin: 0;
+  font-weight: 700;
+  text-align: center;
+}
+
+.addQuestionRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.questionInput {
+  flex: 1;
+  padding: 0.65rem;
+  border: 2px solid #16181d;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.auditList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.auditRow {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: #fff;
+  border: 1.5px solid #d0d3da;
+  border-radius: 6px;
+}
+
+.holdEndBtn {
+  position: relative;
+  overflow: hidden;
+  min-height: 54px;
+  width: 100%;
+  border: 2px solid #16181d;
+  border-radius: 8px;
+  background: #fff;
+  color: #16181d;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+
+.holdFill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #f4b8b4;
+  transition: width 50ms linear;
+}
+
+.holdLabel {
+  position: relative;
+  z-index: 1;
+}
