@@ -1,10 +1,8 @@
 # Check-in (F-03)
 
-The daily form for **one crew member on one mission day**. It turns what they type into readings, catches typos before
-they reach the engine, saves through `saveCheckIn()` and then shows what changed and what to do now.
+The daily form for **one crew member on one mission day**. It turns what they type into readings, catches typos before they reach the engine, saves through `saveCheckIn()` and then shows what changed and what to do now.
 
-> Status: done and tested on the seeded database (`connect.test.ts`). The app preview still uses simulated data and
-> stores nothing until `App.tsx` mounts `CheckInConnected` (issue #46). Owner: Omar. Spec: PRD §4.2 F-03, §5.2, R-07, R-08.
+> Status: done and tested on the seeded database (`connect.test.ts`). The app preview still uses simulated data and stores nothing until `App.tsx` mounts `CheckInConnected` (issue #46). Owner: Omar. Spec: PRD §4.2 F-03, §5.2, R-07, R-08.
 
 ---
 
@@ -49,11 +47,9 @@ import { CheckInConnected } from './features/checkin'
 | Result | `toOutcomes(result)`: alerts opened, escalated or resolved, **and alerts still open** for what was just logged (a repeated fever stays on screen; it is not "nothing new") |
 | Loading / error | "Loading the check-in…"; on failure the message and **Try again** |
 
-> ⚠️ If you build your own wiring with `CheckInScreen`, reuse the original `taken_at` for edits. A new time stamp adds a
-> **second** reading for the same day. `loadCheckIn()` and `saveAndExplain()` in `connect.ts` do this for you.
+> ⚠️ If you build your own wiring with `CheckInScreen`, reuse the original `taken_at` for edits. A new time stamp adds a **second** reading for the same day. `loadCheckIn()` and `saveAndExplain()` in `connect.ts` do this for you.
 
-`CheckInScreen` on its own takes everything as props (`name`, `day`, `existing`, `usual`, `onSave`), for other data
-sources. `CheckInPreview` is the simulated version used by `AppPreview`.
+`CheckInScreen` on its own takes everything as props (`name`, `day`, `existing`, `usual`, `onSave`), for other data sources. `CheckInPreview` is the simulated version used by `AppPreview`.
 
 ## Data contract (what `onSave` receives)
 
@@ -75,8 +71,7 @@ sources. `CheckInPreview` is the simulated version used by `AppPreview`.
 | `glucose` | number, optional section | mg/dL | 20–600 | fasting · after_meal · other |
 | `sys`, `dia` | two numbers, optional section | mmHg | 50–260 / 30–160 | one shared: resting · after_exercise |
 
-Plausible ranges catch typos (370 for 37.0) and are **not** clinical limits; those stay in the engine (`abs_low`,
-`abs_high`). Example payload:
+Plausible ranges catch typos (370 for 37.0) and are **not** clinical limits; those stay in the engine (`abs_low`, `abs_high`). Example payload:
 
 ```json
 { "sleep": { "value": 6.5 }, "hr": { "value": 64, "context": "resting" }, "temp": { "value": 37.2, "context": "resting" },
@@ -100,26 +95,21 @@ Plausible ranges catch typos (370 for 37.0) and are **not** clinical limits; tho
 
 **Result** (after saving), built from `saveCheckIn(...).results` by `toOutcomes()`:
 
-- Alerts the saved readings opened, escalated, resolved or kept open (systolic + diastolic shown once). Most urgent first: level (Alert, then Watch, then resolved), then PRD metric priority
-  (SpO₂ 1, glucose 2, heart rate / blood pressure 3, temperature 4, symptoms 5, vision 6, the rest 8).
-- Headline ("Temperature is far above your usual"), the engine's rule ("Fever from 38.0 °C."), **Do this now** from
-  `GUIDANCE` (`src/data/guidance.ts`), then **Get help now** (Alert only), **Why am I seeing this?**,
-  **Message flight surgeon**, the 3-step ladder, and "Also: …" for the other changes.
+- Alerts the saved readings opened, escalated, resolved or kept open (systolic + diastolic shown once). Most urgent first: level (Alert, then Watch, then resolved), then PRD metric priority (SpO₂ 1, glucose 2, heart rate / blood pressure 3, temperature 4, symptoms 5, vision 6, the rest 8).
+- Headline ("Temperature is far above your usual"), the engine's rule ("Fever from 38.0 °C."), **Do this now** from `GUIDANCE` (`src/data/guidance.ts`), then **Get help now** (Alert only), **Why am I seeing this?**, **Message flight surgeon**, the 3-step ladder, and "Also: …" for the other changes.
 - Nothing changed: "Nothing new to act on", N readings saved.
 - Anything left empty is named: "12 of 13 readings saved … Temperature was left empty." (also under an alert).
 - **Back to Today** remounts Today, so it refetches and shows the new state.
 
 ## Try it
 
-- `npm run dev`, open `/#checkin`. The preview (`CheckInPreview`) uses Today's simulated bands and a rough stand-in
-  for the engine; it stores nothing.
+- `npm run dev`, open `/#checkin`. The preview (`CheckInPreview`) uses Today's simulated bands and a rough stand-in for the engine; it stores nothing.
 - Ravi, day 142: Demo fill, temperature `39,2`, symptoms Moderate, Save → double-check → Save anyway → red Alert result.
 - Lucía, day 142: Demo fill, Save → "Nothing new to act on".
 
 ## Test it
 
-`npm test` runs `model.test.ts` (form rules, result ordering) and `connect.test.ts` (load and save on the seeded
-database) with the rest of the suite.
+`npm test` runs `model.test.ts` (form rules, result ordering) and `connect.test.ts` (load and save on the seeded database) with the rest of the suite.
 
 Manual checks before the demo (from the PRD's manual test list), once the real save is wired:
 
@@ -146,8 +136,6 @@ Manual checks before the demo (from the PRD's manual test list), once the real s
 
 ## Known gaps
 
-- **Which symptom** (headache, nausea…) is not stored: `measurement` holds only the 0–3 severity. The emergency
-  summary wants "last check-in and symptoms"; that needs a note field on the reading.
-- `GUIDANCE` still uses the old ids `bp_sys` / `bp_dia`; the result screen maps `sys` / `dia` to them. Rename them in
-  `src/data/guidance.ts` to drop the mapping.
+- **Which symptom** (headache, nausea…) is not stored: `measurement` holds only the 0–3 severity. The emergency summary wants "last check-in and symptoms"; that needs a note field on the reading.
+- `GUIDANCE` still uses the old ids `bp_sys` / `bp_dia`; the result screen maps `sys` / `dia` to them. Rename them in `src/data/guidance.ts` to drop the mapping.
 - The "Please double-check" step needs `usual`; without bands only the plausible ranges protect the data.

@@ -12,6 +12,15 @@ export const LIBRARIES: { name: string; use: string; license: string }[] = [
   { name: 'Inter, Space Grotesk, IBM Plex Mono', use: 'fonts, bundled through Fontsource', license: 'SIL OFL 1.1' },
 ]
 
+/** The people who built VitalisX, shown on the Sources & AI use page (first name, then family name). */
+export const CONTRIBUTORS: string[] = [
+  'Sofia Moita',
+  'Azharelly Cervantes',
+  'Dory Saint-Surin',
+  'Mohammad Omar Ghani',
+  'Meryem Elkhattabi',
+]
+
 /**
  * The team's AI-use declaration (issue #31, dossier R-03). Written by the team, not generated.
  * Paragraphs separated by a blank line. null = not written yet: the section is then hidden in the published app.

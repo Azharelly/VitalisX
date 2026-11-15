@@ -450,7 +450,15 @@ function PatientCard({ patient, formOpen, setFormOpen }: { patient: CrewMemberSu
         <span id="em-patient" className={t.eyebrow}>
           {firstName(patient.name)} now · against own usual
         </span>
-        <span className={due ? s.due : t.muted}>{due ? 'Check due now' : `Next check in ${formatClock(vitalsCountdownSeconds)}`}</span>
+        <span className={`${due ? s.due : t.muted} ${s.countdown}`}>
+          {due ? (
+            'Check due now'
+          ) : (
+            <>
+              Next check in <span className={t.mono}>{formatClock(vitalsCountdownSeconds)}</span>
+            </>
+          )}
+        </span>
       </div>
       {!last && (
         <p className={s.fineTight}>
