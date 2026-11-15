@@ -104,7 +104,7 @@ const okJson = (body: unknown) => ({ ok: true, status: 200, text: async () => (b
 const fakeFetch = (routes: Record<string, () => Response | Promise<Response>>): typeof fetch =>
   (async (input: RequestInfo | URL) => {
     const url = String(input);
-    const key = Object.keys(routes).find((k) => url.includes(`/DONKI/${k}?`));
+    const key = Object.keys(routes).find((k) => url.includes(`/get/${k}?`));
     if (!key) throw new Error(`unexpected url ${url}`);
     return routes[key]();
   }) as typeof fetch;
@@ -114,9 +114,9 @@ describe('fetchDonkiLive', () => {
   it('calls all four endpoints for the last 30 days and builds a snapshot', async () => {
     const urls: string[] = [];
     const f = (async (input: RequestInfo | URL) => { urls.push(String(input)); return okJson([]); }) as typeof fetch;
-    const snap = await fetchDonkiLive({ now, fetchFn: f, apiKey: 'K' });
+    const snap = await fetchDonkiLive({ now, fetchFn: f });
     expect(urls).toHaveLength(4);
-    expect(urls.every((u) => u.includes('startDate=2026-10-15') && u.includes('endDate=2026-11-14') && u.includes('api_key=K'))).toBe(true);
+    expect(urls.every((u) => u.includes('startDate=2026-10-15') && u.includes('endDate=2026-11-14') && u.startsWith('https://ccmc.gsfc.nasa.gov/DONKI-API/get/') && !u.includes('api_key'))).toBe(true);
     expect(snap.generated_at).toBe('2026-11-14');
     expect(snap.ranges.sep).toBe('2026-10-15/2026-11-14');
   });

@@ -13,6 +13,7 @@ import type { CrewMember, Measurement, Metric, MissionConfig, RadiationDose } fr
 import { baselineWindow, byTime, computeBaseline } from '../../engine/baseline'
 import { evaluate } from '../../engine/evaluate'
 import { careerDose, evaluateRadiation, type RadiationEval } from '../../engine/radiation'
+import { initialsOf, type CrewCard } from '../crew/model.ts'
 import type { CrewSummary, TodayApi } from './api.ts'
 import {
   ZONES,
@@ -267,10 +268,33 @@ function buildReport(ctx: Ctx, asOf: number, days: number): ReportView {
       careerMsv: Math.round(rad.careerMsv),
       projectedMsv: rad.projectionMsv === null ? null : Math.round(rad.projectionMsv),
       limitMsv: 600,
+      noData: rad.state === 'none',
       arrivalDay: ctx.mission.arrival_day,
       daily: period.map((day) => ({ day, msv: round(doseOn.get(day)?.dose_msv ?? 0, 2), storm: doseOn.get(day)?.sep_flag ?? false })),
     },
     events,
+  }
+}
+
+// ── crew board card (used by dexieCrewApi) ──────────────────────────────────────────────────
+
+
+/** One card of the Crew board. Every zone is visible to the whole crew, Mind & sleep included (decision D2). */
+export async function crewCardOf(database: VitalisDB, mission: MissionConfig, crewId: string, day: number): Promise<CrewCard> {
+  const ctx = await loadCtx(database, mission, crewId)
+  const entries = entriesAt(ctx, day)
+  const zones = zoneLevels(entries.map((e) => e.reading))
+  const lastDay = [...ctx.daysWithCheckIn].filter((d) => d <= day).sort((a, b) => b - a)[0] ?? null
+  return {
+    id: String(ctx.crew.id),
+    name: ctx.crew.name,
+    role: ctx.crew.role,
+    initials: ctx.crew.initials || initialsOf(ctx.crew.name),
+    sex: ctx.crew.sex,
+    status: lastDay === null ? 'none' : worst(Object.values(zones)),
+    zones,
+    checkIn: { doneAt: ctx.daysWithCheckIn.has(day) ? checkInClock(ctx, day) : undefined, lastDay },
+    attention: entries.filter((e) => isFlagged(e.reading.level)).sort(urgency).map((e) => e.reading),
   }
 }
 

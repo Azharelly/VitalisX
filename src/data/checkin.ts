@@ -29,7 +29,11 @@ export interface CheckInResult {
 
 /**
  * Saves a check-in.
- * @param takenAt ISO date-time of the check-in. Saving again with the same time corrects those readings.
+ * The whole check-in runs in ONE transaction, so two saves at the same time (a double click, two
+ * tabs) run one after the other: the second one sees the first one's readings and edits them
+ * instead of adding a second check-in. If any metric fails, nothing is saved.
+ * @param takenAt ISO date-time of the check-in. If the person already checked in on the mission day,
+ * the existing check-in timestamp is reused so a second timestamp cannot create another check-in.
  * @param missionDay mission day of the check-in.
  */
 export async function saveCheckIn(
@@ -39,17 +43,26 @@ export async function saveCheckIn(
   missionDay: number,
   database: VitalisDB = defaultDb,
 ): Promise<CheckInResult> {
-  const out: CheckInResult = { results: [], changed: [], skipped: [] };
-  for (const [metric, answer] of Object.entries(answers) as [CheckInMetricId, CheckInAnswer | undefined][]) {
-    if (!answer) continue;
-    if (!Number.isFinite(answer.value)) { out.skipped.push(metric); continue; }
-    const result = await recompute(crewId, metric, [{
-      mission_day: missionDay, taken_at: takenAt, context: answer.context ?? null,
-      value: answer.value, source: 'checkin', is_simulated: false,
-    }], database);
-    const entry = { metric_id: metric, result };
-    out.results.push(entry);
-    if (result.change !== 'unchanged' && result.change !== 'updated') out.changed.push(entry);
-  }
-  return out;
+  return database.transaction('rw', database.metric, database.measurement, database.alert, async () => {
+    const out: CheckInResult = { results: [], changed: [], skipped: [] };
+    const existingCheckIn = await database.measurement.where('crew_id').equals(crewId)
+      .filter((m) => m.mission_day === missionDay && m.source === 'checkin').toArray();
+    const existingTakenAt = existingCheckIn.reduce<string | undefined>(
+      (latest, measurement) => latest === undefined || measurement.taken_at > latest ? measurement.taken_at : latest,
+      undefined,
+    );
+    const checkInTakenAt = existingTakenAt ?? takenAt;
+    for (const [metric, answer] of Object.entries(answers) as [CheckInMetricId, CheckInAnswer | undefined][]) {
+      if (!answer) continue;
+      if (!Number.isFinite(answer.value)) { out.skipped.push(metric); continue; }
+      const result = await recompute(crewId, metric, [{
+        mission_day: missionDay, taken_at: checkInTakenAt, context: answer.context ?? null,
+        value: answer.value, source: 'checkin', is_simulated: false,
+      }], database);
+      const entry = { metric_id: metric, result };
+      out.results.push(entry);
+      if (result.change !== 'unchanged' && result.change !== 'updated') out.changed.push(entry);
+    }
+    return out;
+  });
 }

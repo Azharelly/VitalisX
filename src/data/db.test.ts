@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { VitalisDB } from './db';
 import { DATASET_VERSION, ensureSeeded, isSeeded, resetDemo, seedDatabase, type SeedData } from './seed';
 import Dexie from 'dexie';
-import { getActiveCrew, getCrew, getMeasurements, getOpenAlerts, getRadiationDoses, removeCrewMember } from './queries';
+import { getActiveCrew, getCrew, getLatestMeasurement, getMeasurements, getOpenAlerts, getRadiationDoses, removeCrewMember } from './queries';
 
 // minimal in-memory localStorage for the node test environment
 const store = new Map<string, string>();
@@ -57,6 +57,7 @@ describe('seeding', () => {
     expect(await db.measurement.count()).toBe(3);
     expect(await db.reference_source.count()).toBe(1);
     expect(await isSeeded(db)).toBe(true);
+    expect((await db.app_meta.get('dataset_version'))?.value).toBe(DATASET_VERSION);
     expect(store.get('vitalisx.dataset_version')).toBe(DATASET_VERSION);
   });
 
@@ -70,8 +71,40 @@ describe('seeding', () => {
 
   it('reseeds when the stored dataset version is old', async () => {
     await seedDatabase(fixture(), db);
-    store.set('vitalisx.dataset_version', 'old');
+    await db.app_meta.put({ key: 'dataset_version', value: 'old' });
     expect(await ensureSeeded(db, async () => fixture())).toBe('seeded');
+  });
+
+  it('preserves saved rows when the localStorage version marker was cleared', async () => {
+    await seedDatabase(fixture(), db);
+    await db.measurement.add({
+      crew_id: 1, metric_id: 'temp', mission_day: 9, taken_at: '2031-02-10T08:00:00Z',
+      context: null, value: 36.9, source: 'checkin', is_simulated: false,
+    } as never);
+    await db.app_meta.delete('dataset_version');
+    store.clear();
+    let loads = 0;
+    expect(await ensureSeeded(db, async () => { loads++; return fixture(); })).toBe('already-current');
+    expect(loads).toBe(0);
+    expect(await db.measurement.count()).toBe(4);
+    expect((await db.app_meta.get('dataset_version'))?.value).toBe(DATASET_VERSION);
+  });
+
+  it('preserves saved rows when localStorage is blocked', async () => {
+    await seedDatabase(fixture(), db);
+    await db.measurement.add({
+      crew_id: 1, metric_id: 'temp', mission_day: 9, taken_at: '2031-02-10T08:00:00Z',
+      context: null, value: 36.9, source: 'checkin', is_simulated: false,
+    } as never);
+    await db.app_meta.delete('dataset_version');
+    Object.defineProperty(globalThis, 'localStorage', {
+      get: () => { throw new Error('storage blocked'); },
+      configurable: true,
+    });
+    let loads = 0;
+    expect(await ensureSeeded(db, async () => { loads++; return fixture(); })).toBe('already-current');
+    expect(loads).toBe(0);
+    expect(await db.measurement.count()).toBe(4);
   });
 
   it('reseeds when the database was cleared but the version key remains', async () => {
@@ -142,6 +175,29 @@ describe('queries', () => {
     const a = await getOpenAlerts(1, db);
     expect(a).toHaveLength(1);
     expect(a[0].level).toBe('alert');
+  });
+  it('getMeasurements is empty (not an error) when there are no readings', async () => {
+    expect(await getMeasurements(99, 'temp', db)).toEqual([]);
+    expect(await getMeasurements(1, 'hr', db)).toEqual([]);
+  });
+  it('getMeasurements can keep one context; no context counts as the metric default', async () => {
+    await db.measurement.add({ id: 4, crew_id: 1, metric_id: 'temp', mission_day: 3, taken_at: '2031-02-04T08:00:00Z', context: 'after_exercise', value: 37.4, source: 'checkin', is_simulated: true });
+    expect((await getMeasurements(1, 'temp', db, 'resting')).map((x) => x.value)).toEqual([36.6, 36.7]);
+    expect((await getMeasurements(1, 'temp', db, 'after_exercise')).map((x) => x.value)).toEqual([37.4]);
+    expect(await getMeasurements(1, 'temp', db, 'fasting')).toEqual([]);
+  });
+  it('getLatestMeasurement returns the newest reading, or null when there is none', async () => {
+    expect((await getLatestMeasurement(1, 'temp', db))?.value).toBe(36.7);
+    expect(await getLatestMeasurement(99, 'temp', db)).toBeNull();
+  });
+  it('getLatestMeasurement can look at one context only', async () => {
+    await db.measurement.add({ id: 4, crew_id: 1, metric_id: 'temp', mission_day: 3, taken_at: '2031-02-04T08:00:00Z', context: 'after_exercise', value: 37.4, source: 'checkin', is_simulated: true });
+    expect((await getLatestMeasurement(1, 'temp', db))?.value).toBe(37.4);
+    expect((await getLatestMeasurement(1, 'temp', db, 'resting'))?.value).toBe(36.7);
+  });
+  it('getOpenAlerts is empty (not an error) when there are none', async () => {
+    expect(await getOpenAlerts(2, db)).toEqual([]);
+    expect(await getOpenAlerts(99, db)).toEqual([]);
   });
 });
 

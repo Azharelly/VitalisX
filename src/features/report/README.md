@@ -20,7 +20,7 @@ import { simulatedTodayApi } from './features/today'
   onSendSummary={(crewId, days) => log(crewId, days)}             // optional: still emitted
   outbox={dexieOutbox()}        // enables the SBAR editor + outbox (src/data/outbox.ts)
   send={sendToEarth}            // optional: delivery. Omitted = messages stay queued
-  commsDelaySec={750}           // optional: one-way delay shown to the crew
+  commsDelaySec={720}           // optional: one-way delay shown to the crew
   onWhy={(metricId) => openWhy(metricId)}                         // F-05
 />
 ```
@@ -88,6 +88,6 @@ Types: `ReportView`, `ReportMetric`, `DayPoint`, `ReportEvent` in [`../today/mod
 ## Next steps
 
 1. Replace `simulatedEarthLink` with the real Earth link when it lands (same `SendToEarth` signature).
-2. Read the comms delay from `mission_config.json` instead of the 750 s default.
+2. Read the comms delay from `mission_config.json` instead of the 720 s default.
 4. Real data: implement `getReport` over Dexie or the server.
 5. Charts: a "Why?" on any point (open F-05 for that day), if time allows.

@@ -20,8 +20,9 @@ describe('Radiation tab (#21)', () => {
     }
   });
 
-  it('says 250 mSv is the NASA short-term limit (exact wording)', () => {
-    expect(html).toContain('NASA short-term limit for a solar particle event: 250 mSv effective dose (design requirement based on the October 1989 event)');
+  it('calls 250 mSv a design target, never a short-term limit', () => {
+    expect(html).toContain('design target for a solar particle event: 250 mSv');
+    expect(html).not.toContain('short-term limit');
     expect(html).toContain('Real NASA data');
   });
 

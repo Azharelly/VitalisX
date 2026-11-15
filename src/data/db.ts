@@ -13,6 +13,7 @@ import Dexie, { type Table } from 'dexie';
 import type {
   ActionLog, Alert, CrewMember, Measurement, Metric, RadiationDose, ReferenceSource,
 } from './types';
+import type { EmergencySession } from '../features/emergency/model';
 
 /**
  * Why Dexie/IndexedDB:
@@ -30,6 +31,8 @@ export class VitalisDB extends Dexie {
   alert!: Table<Alert, number>;
   action_log!: Table<ActionLog, number>;
   reference_source!: Table<ReferenceSource, string>;
+  emergency_session!: Table<EmergencySession, string>;
+  app_meta!: Table<{ key: string; value: string }, string>;
 
   constructor(name = 'vitalisx') {
     super(name);
@@ -51,6 +54,19 @@ export class VitalisDB extends Dexie {
         if (c.removed_at === undefined) c.removed_at = null;
       }),
     );
+    // v3 adds durable emergency sessions and an IndexedDB-backed seed marker. The latter is
+    // important: localStorage can be unavailable or cleared while the user's app data remains.
+    this.version(3).stores({
+      crew_member: '++id',
+      metric: 'id',
+      measurement: '++id, crew_id, metric_id, [crew_id+metric_id+mission_day], &[crew_id+metric_id+taken_at]',
+      radiation_dose_log: '++id, crew_id, [crew_id+mission_day]',
+      alert: '++id, crew_id, metric_id, status, [crew_id+metric_id+status]',
+      action_log: '++id, crew_id, kind, status, alert_id',
+      reference_source: 'id',
+      emergency_session: 'id, startedAtIso, endedAtIso',
+      app_meta: 'key',
+    });
   }
 }
 

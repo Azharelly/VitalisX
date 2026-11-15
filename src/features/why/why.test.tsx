@@ -36,7 +36,7 @@ describe('source pending when guidance is missing (#22)', () => {
     expect(h).not.toContain('What to do, in 3 steps')
   })
   it('flags a tentative source as "not a citation"', () => {
-    expect(html({ ...base, id: 'vision', label: 'Vision', unit: '/3', decimals: 0 })).toContain('Source pending (not a citation)')
+    expect(html({ ...base, id: 'glucose', label: 'Glucose', unit: 'mg/dL', decimals: 0 })).toContain('Design rule: repeat out-of-range readings (not a citation)')
   })
 })
 

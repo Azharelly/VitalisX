@@ -50,7 +50,7 @@ export function draftSbar(report: ReportView): Sbar {
       const avg = m.avg === null ? '' : `, ${period} average ${m.avg.toFixed(m.decimals)} ${m.unit}`
       return `${m.label}: ${LEVEL_WORD[m.level]}${latest}${avg}${change ? ` (${change.toLowerCase()})` : ''}.`
     })
-  const radLine = `Radiation: ${rad.careerMsv} mSv career (${radPct}% of ${rad.limitMsv} mSv), status ${LEVEL_WORD[radiationLevel(rad)]}${
+  const radLine = rad.noData ? 'Radiation: no dose data recorded yet.' : `Radiation: ${rad.careerMsv} mSv career (${radPct}% of ${rad.limitMsv} mSv), status ${LEVEL_WORD[radiationLevel(rad)]}${
     rad.projectedMsv !== null ? `; ${rad.projectedMsv} mSv projected at arrival (${percentOf(rad.projectedMsv, rad.limitMsv)}%)` : ''
   }.`
   const assessment = [...lines, radLine].join('\n')

@@ -1,6 +1,6 @@
 // src/data/seed.ts
 // Loads the simulated JSON files (public/data/*.json) into IndexedDB, and resets the demo.
-// Versioned: if DATASET_VERSION changes, the next start wipes and reseeds (PRD R-10).
+// Versioned: a confirmed dataset-version change reseeds (PRD R-10); a missing localStorage key does not.
 // No network is needed after the files are cached by the PWA.
 
 import type {
@@ -9,7 +9,7 @@ import type {
 import { db as defaultDb, STORE_NAMES, type VitalisDB } from './db';
 
 /** Bump this whenever the simulated data or the schema changes. */
-export const DATASET_VERSION = '2026-11-14.3';
+export const DATASET_VERSION = '2026-11-14.4';
 const VERSION_KEY = 'vitalisx.dataset_version';
 
 export interface SeedData {
@@ -22,7 +22,7 @@ export interface SeedData {
   action_log: ActionLog[];
 }
 
-// ---------- stored dataset version (localStorage may be missing or blocked: R-25) ----------
+// ---------- stored dataset version ----------
 function readVersion(): string | null {
   try { return globalThis.localStorage?.getItem(VERSION_KEY) ?? null; } catch { return null; }
 }
@@ -30,7 +30,18 @@ function writeVersion(v: string | null): void {
   try {
     if (v === null) globalThis.localStorage?.removeItem(VERSION_KEY);
     else globalThis.localStorage?.setItem(VERSION_KEY, v);
-  } catch { /* storage blocked: we will simply reseed next time */ }
+  } catch { /* the durable IndexedDB marker remains authoritative */ }
+}
+
+async function storedVersion(database: VitalisDB): Promise<string | null> {
+  const marker = await database.app_meta.get('dataset_version');
+  // Read the old marker once for databases created before the IndexedDB-backed marker existed.
+  return marker?.value ?? readVersion();
+}
+
+async function hasAnySavedData(database: VitalisDB): Promise<boolean> {
+  const counts = await Promise.all(STORE_NAMES.map((name) => database.table(name).count()));
+  return counts.some((count) => count > 0);
 }
 
 // ---------- loading the JSON files ----------
@@ -61,16 +72,17 @@ export async function loadMissionConfig(base = `${import.meta.env.BASE_URL}data/
  */
 export async function seedDatabase(data: SeedData, database: VitalisDB = defaultDb): Promise<void> {
   const tables = STORE_NAMES.map((n) => database.table(n));
-  await database.transaction('rw', tables, async () => {
+  await database.transaction('rw', [...tables, database.app_meta], async () => {
     for (const t of tables) await t.clear();
     for (const name of STORE_NAMES) await database.table(name).bulkAdd(data[name]);
+    await database.app_meta.put({ key: 'dataset_version', value: DATASET_VERSION });
   });
   writeVersion(DATASET_VERSION);
 }
 
 /** True if the data in this browser is current (right version and not empty). */
 export async function isSeeded(database: VitalisDB = defaultDb): Promise<boolean> {
-  return readVersion() === DATASET_VERSION && (await database.crew_member.count()) > 0;
+  return (await storedVersion(database)) === DATASET_VERSION && (await database.crew_member.count()) > 0;
 }
 
 /**
@@ -81,7 +93,17 @@ export async function ensureSeeded(
   database: VitalisDB = defaultDb,
   load: () => Promise<SeedData> = loadSeedFiles,
 ): Promise<'already-current' | 'seeded'> {
-  if (await isSeeded(database)) return 'already-current';
+  const version = await storedVersion(database);
+  if (version === DATASET_VERSION && (await database.crew_member.count()) > 0) return 'already-current';
+
+  // localStorage may be cleared or blocked independently of IndexedDB. Existing records mean
+  // this is not a fresh install; preserve them and establish the new durable marker instead
+  // of replacing check-ins, crew, alerts, and queued messages with demo rows.
+  if (version === null && await hasAnySavedData(database)) {
+    await database.app_meta.put({ key: 'dataset_version', value: DATASET_VERSION });
+    writeVersion(DATASET_VERSION);
+    return 'already-current';
+  }
   await seedDatabase(await load(), database);
   return 'seeded';
 }
@@ -92,5 +114,6 @@ export async function resetDemo(
   load: () => Promise<SeedData> = loadSeedFiles,
 ): Promise<void> {
   writeVersion(null);
+  await database.emergency_session.clear();
   await seedDatabase(await load(), database);
 }

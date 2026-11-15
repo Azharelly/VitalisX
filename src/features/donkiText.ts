@@ -7,5 +7,5 @@ export const windowText = (range: string) => range.split('/').join(' to ');
  * Required wording (#21), verbatim, on its own line in the Radiation tab. The NASA-STD-3001 citation is a separate
  * sentence (DESIGN_TARGET_SOURCE) so this sentence stays exactly as required.
  */
-export const STORM_TARGET_WORDING = 'NASA short-term limit for a solar particle event: 250 mSv effective dose (design requirement based on the October 1989 event)';
+export const STORM_TARGET_WORDING = 'Spacecraft storm-shelter design target for a solar particle event: 250 mSv effective dose (a design requirement based on the October 1989 event, not a crew dose limit)';
 export const DESIGN_TARGET_SOURCE = 'Source: NASA-STD-3001.';

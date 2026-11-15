@@ -83,9 +83,9 @@ export interface DonkiLoad {
   liveError: string | null;
 }
 
-const DONKI_API = 'https://api.nasa.gov/DONKI';
-/** NASA's shared demo key works but is rate limited. Set VITE_NASA_API_KEY for a real one (api.nasa.gov, free). */
-const DEFAULT_API_KEY = 'DEMO_KEY';
+/** Since 30 Sep 2026 NASA serves DONKI here, with no key. */
+const DONKI_API = 'https://ccmc.gsfc.nasa.gov/DONKI-API/get';
+
 export const LIVE_TIMEOUT_MS = 8000;
 /** Same length as the 30-day default NASA uses for DONKI queries. */
 export const LIVE_WINDOW_DAYS = 30;
@@ -93,7 +93,6 @@ export const LIVE_WINDOW_DAYS = 30;
 export interface LiveOptions {
   now?: Date;
   fetchFn?: typeof fetch;
-  apiKey?: string;
   timeoutMs?: number;
   windowDays?: number;
 }
@@ -111,7 +110,6 @@ function asList<T>(body: unknown, what: string): T[] {
 export async function fetchDonkiLive(opts: LiveOptions = {}): Promise<DonkiSnapshot> {
   const now = opts.now ?? new Date();
   const fetchFn = opts.fetchFn ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
-  const apiKey = opts.apiKey ?? (import.meta.env.VITE_NASA_API_KEY as string | undefined) ?? DEFAULT_API_KEY;
   const timeoutMs = opts.timeoutMs ?? LIVE_TIMEOUT_MS;
   const windowDays = opts.windowDays ?? LIVE_WINDOW_DAYS;
 
@@ -123,7 +121,7 @@ export async function fetchDonkiLive(opts: LiveOptions = {}): Promise<DonkiSnaps
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
 
   const get = async <T>(type: 'FLR' | 'CME' | 'GST' | 'SEP'): Promise<T[]> => {
-    const url = `${DONKI_API}/${type}?startDate=${startDate}&endDate=${endDate}&api_key=${encodeURIComponent(apiKey)}`;
+    const url = `${DONKI_API}/${type}?startDate=${startDate}&endDate=${endDate}`;
     const res = await fetchFn(url, { signal: ctl.signal });
     if (!res.ok) throw new Error(res.status === 429 ? 'NASA rate limit reached (HTTP 429)' : `NASA answered HTTP ${res.status}`);
     const text = await res.text();
@@ -138,7 +136,7 @@ export async function fetchDonkiLive(opts: LiveOptions = {}): Promise<DonkiSnaps
       get<DonkiSnapshot['sep'][number]>('SEP'),
     ]);
     return {
-      source: 'NASA CCMC DONKI (api.nasa.gov/DONKI), live',
+      source: 'NASA CCMC DONKI (ccmc.gsfc.nasa.gov/DONKI-API), live',
       generated_at: ymd(now),
       ranges: { flares: range, cme: range, gst: range, sep: range },
       flares, cme, gst, sep,

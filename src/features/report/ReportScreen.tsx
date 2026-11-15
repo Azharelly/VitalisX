@@ -106,7 +106,7 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
         <Kpi label="Days logged" value={report.logged} suffix={`of ${span}`} />
         <Kpi label="Check-in streak" value={report.streakDays} suffix={report.streakDays === 1 ? 'day' : 'days'} />
         <Kpi label="Open now" value={openItems.length} suffix={openItems.length === 1 ? 'item' : 'items'} level={openItems[0]?.level} />
-        <Kpi label="Career dose" value={radPct} suffix={`% of ${rad.limitMsv} mSv`} level={radLevel} />
+        <Kpi label="Career dose" value={rad.noData ? 'No data' : radPct} suffix={rad.noData ? '' : `% of ${rad.limitMsv} mSv`} level={radLevel} />
       </div>
 
       <section className={s.panel} aria-labelledby="report-summary">
@@ -123,8 +123,12 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
               : `Every reading ended the ${period} normal for you.`}
           </li>
           <li>
-            Radiation: {rad.careerMsv} mSv ({radPct}% of {rad.limitMsv})
-            {rad.projectedMsv !== null && `, ${rad.projectedMsv} mSv projected at arrival (${projPct}%)`}.
+            {rad.noData ? 'Radiation: no dose data recorded yet.' : (
+              <>
+                Radiation: {rad.careerMsv} mSv ({radPct}% of {rad.limitMsv})
+                {rad.projectedMsv !== null && `, ${rad.projectedMsv} mSv projected at arrival (${projPct}%)`}.
+              </>
+            )}
           </li>
         </ul>
       </section>
@@ -191,6 +195,12 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
             )}
           </span>
         </div>
+        {rad.noData ? (
+          <p className={s.radBig}>
+            No data
+            <span className={s.unit}>no dosimeter readings recorded yet</span>
+          </p>
+        ) : (<>
         <p className={s.radBig}>
           {rad.careerMsv}
           <span className={s.unit}>
@@ -200,6 +210,7 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
         <BudgetBar r={rad} />
         <h3 className={s.h3}>Daily dose · mSv</h3>
         <DoseChart r={rad} lastDay={report.missionDay} />
+        </>)}
         <p className={s.fine}>The app records dosimeter readings; it does not measure radiation. Limit: NASA-STD-3001 Vol. 1.</p>
       </section>
       {sbarOpen && outbox && (
@@ -214,7 +225,7 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
   )
 }
 
-function Kpi({ label, value, suffix, level }: { label: string; value: number; suffix: string; level?: Level }) {
+function Kpi({ label, value, suffix, level }: { label: string; value: number | string; suffix: string; level?: Level }) {
   const tone = level && isFlagged(level) ? s[level] : ''
   return (
     <div className={`${s.kpi} ${tone}`}>

@@ -22,4 +22,4 @@ The Radiation tab has no stored alert, so `radiationEvidence()` re-evaluates ear
 The PRD text was not available when this was written. These follow the code comments and the existing guidance fields:
 
 - **The 3 steps** are Self-care / Crew check-in / Note for Earth (#22).
-- **250 mSv wording** (`donkiText.ts`): "250 mSv is NASA's short-term (30-day) dose limit for blood-forming organs, not a career limit." (#21). One constant: `STORM_TARGET_WORDING`.
+- **250 mSv wording** (`donkiText.ts`): "250 mSv is a spacecraft storm-shelter design target, not a crew dose limit." (#21). One constant: `STORM_TARGET_WORDING`.
