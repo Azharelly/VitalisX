@@ -463,10 +463,16 @@
 .holdFill {
   position: absolute;
   inset: 0 auto 0 0;
+  width: 0;
   background: #ef4444;
   opacity: 0.38;
-  transition: width 16ms linear;
+  transition: none;
   pointer-events: none;
+}
+
+.holdEndBtn[data-holding='true'] .holdFill {
+  width: 100%;
+  transition: width var(--hold-duration, 2000ms) linear;
 }
 
 .holdLabel {
