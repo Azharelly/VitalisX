@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { VitalisDB } from './db';
 import { DATASET_VERSION, ensureSeeded, isSeeded, resetDemo, seedDatabase, type SeedData } from './seed';
 import Dexie from 'dexie';
-import { getActiveCrew, getCrew, getMeasurements, getOpenAlerts, getRadiationDoses, removeCrewMember } from './queries';
+import { getActiveCrew, getCrew, getLatestMeasurement, getMeasurements, getOpenAlerts, getRadiationDoses, removeCrewMember } from './queries';
 
 // minimal in-memory localStorage for the node test environment
 const store = new Map<string, string>();
@@ -142,6 +142,29 @@ describe('queries', () => {
     const a = await getOpenAlerts(1, db);
     expect(a).toHaveLength(1);
     expect(a[0].level).toBe('alert');
+  });
+  it('getMeasurements is empty (not an error) when there are no readings', async () => {
+    expect(await getMeasurements(99, 'temp', db)).toEqual([]);
+    expect(await getMeasurements(1, 'hr', db)).toEqual([]);
+  });
+  it('getMeasurements can keep one context; no context counts as the metric default', async () => {
+    await db.measurement.add({ id: 4, crew_id: 1, metric_id: 'temp', mission_day: 3, taken_at: '2031-02-04T08:00:00Z', context: 'after_exercise', value: 37.4, source: 'checkin', is_simulated: true });
+    expect((await getMeasurements(1, 'temp', db, 'resting')).map((x) => x.value)).toEqual([36.6, 36.7]);
+    expect((await getMeasurements(1, 'temp', db, 'after_exercise')).map((x) => x.value)).toEqual([37.4]);
+    expect(await getMeasurements(1, 'temp', db, 'fasting')).toEqual([]);
+  });
+  it('getLatestMeasurement returns the newest reading, or null when there is none', async () => {
+    expect((await getLatestMeasurement(1, 'temp', db))?.value).toBe(36.7);
+    expect(await getLatestMeasurement(99, 'temp', db)).toBeNull();
+  });
+  it('getLatestMeasurement can look at one context only', async () => {
+    await db.measurement.add({ id: 4, crew_id: 1, metric_id: 'temp', mission_day: 3, taken_at: '2031-02-04T08:00:00Z', context: 'after_exercise', value: 37.4, source: 'checkin', is_simulated: true });
+    expect((await getLatestMeasurement(1, 'temp', db))?.value).toBe(37.4);
+    expect((await getLatestMeasurement(1, 'temp', db, 'resting'))?.value).toBe(36.7);
+  });
+  it('getOpenAlerts is empty (not an error) when there are none', async () => {
+    expect(await getOpenAlerts(2, db)).toEqual([]);
+    expect(await getOpenAlerts(99, db)).toEqual([]);
   });
 });
 

@@ -1,6 +1,6 @@
-import { AppPreview } from './features/shell'
+import { AppLive } from './features/shell'
 
-// shortcut: full app on simulated data (Radiation sits in its slot); swap to <AppShell> with the Dexie TodayApi when #46 lands.
+// The full app on the local database (Dexie): seeds on first run. The simulated demo is still available as <AppPreview />.
 export default function App() {
-  return <AppPreview />
+  return <AppLive />
 }

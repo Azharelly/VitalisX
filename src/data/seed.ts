@@ -9,7 +9,7 @@ import type {
 import { db as defaultDb, STORE_NAMES, type VitalisDB } from './db';
 
 /** Bump this whenever the simulated data or the schema changes. */
-export const DATASET_VERSION = '2026-11-14.3';
+export const DATASET_VERSION = '2026-11-14.4';
 const VERSION_KEY = 'vitalisx.dataset_version';
 
 export interface SeedData {
