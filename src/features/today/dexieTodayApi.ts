@@ -268,6 +268,7 @@ function buildReport(ctx: Ctx, asOf: number, days: number): ReportView {
       careerMsv: Math.round(rad.careerMsv),
       projectedMsv: rad.projectionMsv === null ? null : Math.round(rad.projectionMsv),
       limitMsv: 600,
+      noData: rad.state === 'none',
       arrivalDay: ctx.mission.arrival_day,
       daily: period.map((day) => ({ day, msv: round(doseOn.get(day)?.dose_msv ?? 0, 2), storm: doseOn.get(day)?.sep_flag ?? false })),
     },

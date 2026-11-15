@@ -8,6 +8,7 @@ import c from './crew.module.css'
 import { AddMemberDialog, RemoveMemberDialog } from './dialogs'
 import { checkInText, summarize, type CrewCard } from './model.ts'
 import { useCrew } from './useCrew.ts'
+import { useEmergency } from '../emergency/EmergencyProvider'
 
 export interface CrewActions {
   /** Open one person's Today page (the person is already selected when this fires). */
@@ -29,6 +30,7 @@ function LevelTag({ level }: { level: Level }) {
 /** The Crew tab: overview, needs attention, one card per person (or the zone grid), add and remove. */
 export function CrewScreen({ onOpenPerson }: CrewActions) {
   const { board, selected, select, addMember, removeMember } = useCrew()
+  const { session, crew: emergencyCrew } = useEmergency()
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<CrewCard>()
   const [view, setView] = useState<'cards' | 'grid'>('cards')
@@ -119,6 +121,7 @@ export function CrewScreen({ onOpenPerson }: CrewActions) {
                     viewing={m.id === selected?.id}
                     onOpen={() => open(m.id)}
                     onRemove={() => setRemoving(m)}
+                    emergencyVitals={session && !session.endedAtIso && session.patientId === m.id ? emergencyCrew.find((c) => c.id === m.id) : undefined}
                   />
                 ))}
               </ul>
@@ -249,10 +252,16 @@ interface CardProps {
   viewing: boolean
   onOpen: () => void
   onRemove: () => void
+  emergencyVitals?: {
+    currentHr: number
+    currentBpSys: number
+    currentBpDia: number
+    currentSpo2: number
+  }
 }
 
 /** One person: ring, state, check-in, the most urgent reading and their zones. */
-function PersonCard({ m, i, day, viewing, onOpen, onRemove }: CardProps) {
+function PersonCard({ m, i, day, viewing, onOpen, onRemove, emergencyVitals }: CardProps) {
   const top = m.attention[0]
   const quiet =
     m.status === 'none' ? 'Waiting for the first check-in' : m.status === 'learn' ? 'Learning their normal' : 'All readings normal for them'
@@ -267,8 +276,14 @@ function PersonCard({ m, i, day, viewing, onOpen, onRemove }: CardProps) {
           <span className={t.muted}>{m.role || 'Crew'}</span>
         </div>
         <span className={`${t.pill} ${c.statePill}`}>
-          <StatusIcon level={m.status} />
-          {LEVEL_WORD[m.status]}
+          {emergencyVitals ? (
+            `HR ${emergencyVitals.currentHr} · BP ${emergencyVitals.currentBpSys}/${emergencyVitals.currentBpDia} · O₂ ${emergencyVitals.currentSpo2}%`
+          ) : (
+            <>
+              <StatusIcon level={m.status} />
+              {LEVEL_WORD[m.status]}
+            </>
+          )}
         </span>
       </div>
 
@@ -282,6 +297,11 @@ function PersonCard({ m, i, day, viewing, onOpen, onRemove }: CardProps) {
       </p>
 
       <div className={`${c.topItem} ${t[top?.level ?? m.status]}`}>
+        {emergencyVitals && (
+          <p>
+            In an emergency, the patient's readings open to the crew automatically
+          </p>
+        )}
         {top ? (
           <>
             <span className={c.topLabel}>

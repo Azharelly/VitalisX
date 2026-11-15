@@ -6,7 +6,7 @@ import { db as defaultDb, type VitalisDB } from './db';
 import { VALID_STATUS, type ActionLog } from './types';
 
 /** One-way Earth-Mars delay used when the caller does not know better (mission_config.comms_delay_sec). */
-export const DEFAULT_COMMS_DELAY_SEC = 750;
+export const DEFAULT_COMMS_DELAY_SEC = 720;
 
 export interface OutboxMessage {
   id: number;

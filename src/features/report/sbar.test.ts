@@ -70,9 +70,16 @@ import { MIN_CHECKIN_DAYS } from './SbarDialog'
 describe('outbox countdown and readiness (#23)', () => {
   it('needs 3 check-in days', () => expect(MIN_CHECKIN_DAYS).toBe(3))
   it('counts down from created_at + delay_sec', () => {
-    const m = { createdAt: '2026-11-14T00:00:00.000Z', delaySec: 750 }
-    expect(arrivalLeftSec(m, Date.parse('2026-11-14T00:00:00.000Z'))).toBe(750)
+    const m = { createdAt: '2026-11-14T00:00:00.000Z', delaySec: 720 }
+    expect(arrivalLeftSec(m, Date.parse('2026-11-14T00:00:00.000Z'))).toBe(720)
     expect(arrivalLeftSec(m, Date.parse('2026-11-14T00:10:00.000Z'))).toBe(150)
     expect(arrivalLeftSec(m, Date.parse('2026-11-14T01:00:00.000Z'))).toBe(0)
+  })
+})
+
+import { radiationLevel as _radLevel } from './summary.ts'
+describe('radiation with no dose data', () => {
+  it('is "none", not ok/0 mSv', () => {
+    expect(_radLevel({ priorMsv: 0, careerMsv: 0, projectedMsv: null, limitMsv: 600, arrivalDay: 210, daily: [], noData: true })).toBe('none')
   })
 })

@@ -72,6 +72,7 @@
 .emergency svg { width: 18px; height: 18px; }
 .emergency:hover { background: color-mix(in srgb, var(--alert) 22%, transparent); }
 .emergency:active { background: #d93636; border-color: #d93636; color: #fff; }
+.emergencyActive { animation: emergencyPulse 1.6s ease-in-out infinite; }
 
 .crewRow {
   padding: 0 22px 8px;
@@ -176,6 +177,26 @@
 }
 .navBottom .tabIcon { width: 56px; height: 30px; border-radius: 999px; transition: background 0.15s; }
 .navBottom .tab[aria-current='page'] .tabIcon { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.emergencyNavButton {
+  display: none;
+  border: 0;
+  background: transparent;
+  color: var(--alert);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+@keyframes emergencyPulse {
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--alert) 18%, transparent); }
+}
+@media (max-width: 1023px) {
+  .navBottom .emergencyNavButton {
+    display: block;
+    min-height: 56px;
+    padding: 6px 8px 4px;
+  }
+}
 
 /* ── Content ── */
 .content { display: block; min-width: 0; overflow-x: clip; } /* safety net: a too-wide element is cut, never makes the page drag sideways */
@@ -207,7 +228,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tab, .emergency, .navBottom .tabIcon { transition: none; }
+  .tab, .emergency, .emergencyNavButton, .navBottom .tabIcon { transition: none; }
+  .emergencyActive { animation: none; }
 }
 
 /* ── Demo controls (AppPreview only): a chip in the header; floating over the page they covered content ── */

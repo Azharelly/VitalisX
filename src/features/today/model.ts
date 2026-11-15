@@ -167,6 +167,7 @@ export interface ReportView {
     careerMsv: number // total so far
     projectedMsv: number | null // at arrival; null once arrived
     limitMsv: number
+    noData?: boolean // true when no dosimeter reading exists yet
     arrivalDay: number
     daily: { day: number; msv: number; storm: boolean }[] // one per day in the period
     alert?: FrozenEvidence // present while radiation is Watch / Alert
