@@ -4,6 +4,7 @@ import type {
   EmergencyRoleAssignment,
   EmergencySession,
   GroundMessagePacket,
+  VitalsReading,
 } from './model';
 import { ALL_STEPS_BY_ID, CONDITION_LABELS, EMERGENCY_PROTOCOLS } from './protocols';
 import { pickRoles, reassignRole } from './roles';
@@ -18,10 +19,11 @@ export interface CrewRef {
   id: string;
   name: string;
   isMedic?: boolean;
-  currentHr: number;
-  currentBpSys: number;
-  currentBpDia: number;
-  currentSpo2: number;
+  // null = no reading yet: never show a made-up number in an emergency
+  currentHr: number | null;
+  currentBpSys: number | null;
+  currentBpDia: number | null;
+  currentSpo2: number | null;
 }
 
 export interface LogEvent {
@@ -34,6 +36,7 @@ export interface Transition {
   events: LogEvent[];
 }
 
+const ROLE_WORD: Record<keyof EmergencyRoleAssignment, string> = { leaderId: 'Lead', readerId: 'Reader', radioLogId: 'Radio and log' };
 const nameOf = (crew: readonly CrewRef[], id: string) => crew.find((c) => c.id === id)?.name ?? id;
 const stepsOf = (condition: EmergencyCondition) => EMERGENCY_PROTOCOLS[condition];
 const without = (ids: string[], id: string) => ids.filter((x) => x !== id);
@@ -54,6 +57,7 @@ export function createSession(
   crew: readonly CrewRef[],
   defaultPatientId: string | undefined,
   now: number,
+  condition: EmergencyCondition = 'bleeding',
 ): Transition {
   const patient = crew.find((c) => c.id === defaultPatientId) ?? crew[1] ?? crew[0];
   const patientId = patient?.id ?? 'unknown';
@@ -63,18 +67,17 @@ export function createSession(
       id: `emg-${now}`,
       startedAtIso,
       patientId,
-      condition: 'bleeding',
+      condition,
       roles: pickRoles(crew, patientId),
       currentStepIndex: -1, // Role & Triage screen (CREW 9)
       completedStepIds: [],
       skippedStepIds: [],
       nextVitalsCheckAtIso: new Date(now + VITALS_CHECK_INTERVAL_MS).toISOString(),
-      wallMode: false,
       groundQuestions: ['Start IV fluids?'],
       groundPackets: [],
       logEntries: [],
     },
-    events: [{ actor: 'System', event: 'EMERGENCY activated — timer and auto-log started. Patient readings opened to crew.' }],
+    events: [{ actor: 'System', event: 'Emergency started. Timer and log running; patient readings open to the crew.' }],
   };
 }
 
@@ -104,7 +107,7 @@ export function updateRole(
   if (!roles) return null;
   return {
     session: { ...prev, roles },
-    events: [{ actor: 'Crew', event: `Role ${role} assigned to ${nameOf(crew, crewId)}` }],
+    events: [{ actor: 'Crew', event: `${ROLE_WORD[role]}: ${nameOf(crew, crewId)}` }],
   };
 }
 
@@ -141,7 +144,7 @@ function advance(
     skippedStepIds: done ? without(prev.skippedStepIds, step.id) : withId(prev.skippedStepIds, step.id),
     currentStepIndex: prev.currentStepIndex + 1,
   };
-  const events: LogEvent[] = [{ actor: 'Reader', event: `${verb} Step ${step.stepNumber}: ${step.title}` }];
+  const events: LogEvent[] = [{ actor: 'Reader', event: `${done ? 'Done' : 'Could not do'} step ${step.stepNumber}: ${step.title}` }];
 
   if (done && step.vitalsCheckRequired) {
     session.nextVitalsCheckAtIso = new Date(now + VITALS_CHECK_INTERVAL_MS).toISOString();
@@ -168,7 +171,7 @@ export function previousStep(prev: EmergencySession): Transition | null {
   const step = stepsOf(prev.condition)[index];
   return {
     session: { ...prev, currentStepIndex: index },
-    events: [{ actor: 'Reader', event: step ? `Went back to Step ${step.stepNumber}` : 'Went back to Roles & Triage' }],
+    events: [{ actor: 'Reader', event: step ? `Went back to Step ${step.stepNumber}` : 'Went back to change who or what' }],
   };
 }
 
@@ -183,11 +186,31 @@ export function escalate(prev: EmergencySession, to: EmergencyCondition): Transi
   };
 }
 
-/** Records a vitals check outside a checklist step and restarts the countdown. */
-export function recordVitalsCheck(prev: EmergencySession, now: number, patientName: string): Transition {
+/** "Heart 120 · BP 90/60 · O₂ 94%", leaving out what was not measured; '' when nothing was. */
+export function vitalsText(v: Omit<VitalsReading, 'atIso'>): string {
+  return [
+    v.hr !== undefined && `Heart ${v.hr}`,
+    (v.sys !== undefined || v.dia !== undefined) && `BP ${v.sys ?? '—'}/${v.dia ?? '—'}`,
+    v.spo2 !== undefined && `O₂ ${v.spo2}%`,
+  ].filter(Boolean).join(' · ');
+}
+
+/** Records a vitals check (with the numbers, when measured) and restarts the countdown. */
+export function recordVitalsCheck(
+  prev: EmergencySession,
+  now: number,
+  patientName: string,
+  values: Omit<VitalsReading, 'atIso'> = {},
+): Transition {
+  const text = vitalsText(values);
+  const next = VITALS_CHECK_INTERVAL_MS / 60000;
   return {
-    session: { ...prev, nextVitalsCheckAtIso: new Date(now + VITALS_CHECK_INTERVAL_MS).toISOString() },
-    events: [{ actor: 'Reader', event: `Vitals checked for ${patientName}; next check in ${VITALS_CHECK_INTERVAL_MS / 60000} min` }],
+    session: {
+      ...prev,
+      nextVitalsCheckAtIso: new Date(now + VITALS_CHECK_INTERVAL_MS).toISOString(),
+      vitals: text ? [...(prev.vitals ?? []), { atIso: new Date(now).toISOString(), ...values }] : prev.vitals,
+    },
+    events: [{ actor: 'Reader', event: `Vitals checked for ${patientName}${text ? `: ${text}` : ''}; next check in ${next} min` }],
   };
 }
 
@@ -215,9 +238,7 @@ export function sendGroundMessage(
     arrivesAtIso: new Date(now + delayMs).toISOString(),
     earliestReplyAtIso: new Date(now + delayMs * 2).toISOString(),
     whatSummary: `${CONDITION_LABELS[prev.condition]} — ${patient?.name ?? 'Crew'}${customNote ? ` (${customNote})` : ''}`,
-    vitalsSummary: patient
-      ? `Heart ${patient.currentHr} | BP ${patient.currentBpSys}/${patient.currentBpDia} | O₂ ${patient.currentSpo2}%`
-      : 'Vitals pending',
+    vitalsSummary: latestVitalsSummary(prev, patient),
     doneSummary: doneTitles(prev).join(', ') || 'Initial triage & role assignment',
     questions: cleanQuestions,
     replyReadBack: false,
@@ -227,9 +248,26 @@ export function sendGroundMessage(
     session: { ...prev, groundQuestions: cleanQuestions, groundPacket: packet, groundPackets: [...groundPackets, packet] },
     events: [{
       actor: 'Radio + log',
-      event: `${groundPackets.length ? 'Re-sent updated' : 'Sent structured'} packet to Flight Surgeon (${oneWayDelayMinutes} min one-way delay)`,
+      event: `${groundPackets.length ? 'Update' : 'Message'} sent to the flight surgeon (arrives in ${oneWayDelayMinutes} min)`,
     }],
   };
+}
+
+/** The newest vitals measured in the emergency; otherwise the last check-in, said as such so Earth never mistakes it for now. */
+export function latestVitalsSummary(session: EmergencySession, patient: CrewRef | undefined): string {
+  const last = session.vitals?.at(-1);
+  if (last) {
+    const d = new Date(last.atIso);
+    return `${vitalsText(last)} (measured ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')})`;
+  }
+  if (!patient) return 'Vitals pending';
+  const fromCheckIn = vitalsText({
+    hr: patient.currentHr ?? undefined,
+    sys: patient.currentBpSys ?? undefined,
+    dia: patient.currentBpDia ?? undefined,
+    spo2: patient.currentSpo2 ?? undefined,
+  });
+  return fromCheckIn ? `${fromCheckIn} (last check-in, not measured since)` : 'Not measured yet';
 }
 
 export function addGroundQuestion(prev: EmergencySession, question: string): Transition | null {

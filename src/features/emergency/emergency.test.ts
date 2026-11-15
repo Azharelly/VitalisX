@@ -85,6 +85,16 @@ describe('protocols', () => {
     expect(steps[0]!.title).toMatch(/glucose/i);
     expect(steps.findIndex((s) => /Administer/.test(s.title))).toBeGreaterThan(0);
   });
+
+  it('chest pain and fever leave medicine to the Medical Checklist and can escalate', () => {
+    for (const c of ['chest_pain', 'fever'] as const) {
+      const steps = EMERGENCY_PROTOCOLS[c];
+      expect(steps.some((x) => /Medical Checklist/.test(x.title))).toBe(true);
+      expect(steps.some((x) => x.escalations?.length)).toBe(true);
+      expect(steps.some((x) => x.vitalsCheckRequired)).toBe(true);
+    }
+    expect(EMERGENCY_PROTOCOLS.chest_pain[0]!.escalations!.map((e) => e.to)).toContain('cardiac_arrest');
+  });
 });
 
 describe('roles', () => {
@@ -237,6 +247,29 @@ describe('session flow', () => {
     expect(s.groundPackets?.[0]?.questions).toEqual(['Start IV fluids?']);
     expect(s.groundPacket?.questions).toEqual(['Start IV fluids?', 'Should we repeat the reading?']);
     expect(s.groundPacket?.sentAtIso).toBe(new Date(T0 + 60_000).toISOString());
+  });
+
+  it('starts on the chosen category, and never invents vitals that are missing', () => {
+    const noData = crew.map((c) => (c.id === '2' ? { ...c, currentHr: null, currentBpSys: null, currentBpDia: null, currentSpo2: null } : c));
+    const s = apply(flow.createSession(noData, '2', T0, 'fever'), T0);
+    expect(s.condition).toBe('fever');
+    const p = apply(flow.sendGroundMessage(s, noData, [], undefined, 12, T0), T0).groundPacket!;
+    expect(p.vitalsSummary).toBe('Not measured yet');
+  });
+
+  it('sends the vitals measured during the emergency, with their time, instead of the check-in ones', () => {
+    let s = fresh();
+    expect(flow.latestVitalsSummary(s, crew[1])).toBe('Heart 70 · BP 120/80 · O₂ 98% (last check-in, not measured since)');
+    const later = T0 + 3 * 60_000;
+    s = apply(flow.recordVitalsCheck(s, later, 'Crew 2', { hr: 128, spo2: 93 }), later);
+    expect(s.vitals).toHaveLength(1);
+    expect(s.nextVitalsCheckAtIso).toBe(new Date(later + VITALS_CHECK_INTERVAL_MS).toISOString());
+    expect(s.logEntries.at(-1)!.event).toContain('Heart 128 · O₂ 93%');
+    const packet = apply(flow.sendGroundMessage(s, crew, [], undefined, 12, later), later).groundPacket!;
+    expect(packet.vitalsSummary).toMatch(/^Heart 128 · O₂ 93% \(measured \d\d:\d\d\)$/);
+    // "Checked" with no numbers restarts the countdown but stores no reading
+    s = apply(flow.recordVitalsCheck(s, later + 60_000, 'Crew 2'), later + 60_000);
+    expect(s.vitals).toHaveLength(1);
   });
 
   it('read-back needs a packet', () => {

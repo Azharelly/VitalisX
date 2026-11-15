@@ -41,13 +41,13 @@ export function AppPreview() {
       screens={{
         // the team's screen, fed the chosen person's simulated doses up to the chosen day
         radiation: ({ crewId, day: d = MISSION.currentDay }) => <RadiationScreen key={crewId} {...simulatedDoses(crewId, d)} currentDay={d} arrivalDay={MISSION.arrivalDay} />,
-        checkin: ({ crewId, day, go, noteForEarth }) => (
+        checkin: ({ crewId, day, go, noteForEarth, emergency }) => (
           <CheckInPreview
             api={simulatedTodayApi}
             crewId={crewId}
             day={day}
             onDone={() => go('today')}
-            onEmergency={() => log('onEmergency', crewId)}
+            onEmergency={emergency}
             onWhy={(m) => log('onWhy', m)}
             onNoteForEarth={noteForEarth}
           />

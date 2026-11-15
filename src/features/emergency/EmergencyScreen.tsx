@@ -1,29 +1,40 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useEmergency } from './EmergencyProvider';
 import type { CrewMemberSummary } from './EmergencyProvider';
-import { EMERGENCY_PROTOCOLS, CONDITION_LABELS } from './protocols';
-import { doneTitles } from './session';
-import type { EmergencyCondition } from './model';
+import { EMERGENCY_PROTOCOLS, CONDITION_LABELS, EXAMPLE_CONTENT_NOTE } from './protocols';
+import { doneTitles, latestVitalsSummary } from './session';
+import type { EmergencyCondition, EmergencyRoleAssignment, VitalsReading } from './model';
+import { FIELDS, parseNumber } from '../checkin/model';
 import { HoldToEndButton } from './HoldToEndButton';
-import styles from './emergency.module.css';
+import { LEVEL_WORD, formatValue, isFlagged, type Reading } from '../today/model';
+import { StatusIcon } from '../today/StatusIcon';
+import t from '../today/today.module.css';
+import s from './emergency.module.css';
 
 function formatClock(sec: number): string {
   const m = Math.floor(sec / 60).toString().padStart(2, '0');
-  const s = (sec % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
+  const ss = (sec % 60).toString().padStart(2, '0');
+  return `${m}:${ss}`;
 }
 
 function formatTimeHHMM(iso: string): string {
   const d = new Date(iso);
-  return `${d.getHours().toString().padStart(2, '0')}:${d
-    .getMinutes()
-    .toString()
-    .padStart(2, '0')}`;
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
 }
 
-function formatMinutes(min: number): string {
-  return Number.isInteger(min) ? String(min) : min.toFixed(1);
-}
+const formatMinutes = (min: number) => (Number.isInteger(min) ? String(min) : min.toFixed(1));
+const firstName = (name: string) => name.split(' ')[0] ?? name;
+const initials = (name: string) => name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+const CONDITIONS = Object.keys(CONDITION_LABELS) as EmergencyCondition[];
+
+/** Fixed notice (dossier F-08, D13): always on screen while the emergency view is open. */
+const NOTICE = 'Decision support only. Follow your mission’s emergency procedures. This app does not call anyone.';
+
+const ROLES: { key: keyof EmergencyRoleAssignment; label: string }[] = [
+  { key: 'leaderId', label: 'Lead · hands on patient' },
+  { key: 'readerId', label: 'Reader · reads the steps aloud' },
+  { key: 'radioLogId', label: 'Radio and log' },
+];
 
 interface Props {
   crew: CrewMemberSummary[];
@@ -31,33 +42,16 @@ interface Props {
 }
 
 export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) => {
-  const {
-    session,
-    elapsedSeconds,
-    vitalsCountdownSeconds,
-    isDrawerOpen,
-    persistenceError,
-    closeDrawer,
-    setPatient,
-    setCondition,
-    updateRole,
-    startSteps,
-    completeCurrentStep,
-    skipCurrentStep,
-    goPreviousStep,
-    escalateTo,
-    recordVitalsCheck,
-    toggleWallMode,
-    sendGroundMessage,
-    addGroundQuestion,
-    confirmGroundReplyReadBack,
-    endEmergency,
-  } = useEmergency();
-
+  const em = useEmergency();
+  const { session, isDrawerOpen, justEnded, closeDrawer } = em;
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [view, setView] = useState<'flow' | 'ground' | 'log'>('flow');
-  const [newQuestion, setNewQuestion] = useState('');
-  const [checklistToast, setChecklistToast] = useState<string | null>(null);
+  const [vitalsOpen, setVitalsOpen] = useState(false);
 
+  const active = !!session && !session.endedAtIso;
+  const mode = active ? 'active' : justEnded && session ? 'ended' : 'armed';
+
+  // Lock the page behind and land focus on the heading.
   useEffect(() => {
     if (!isDrawerOpen) return;
     const root = document.documentElement;
@@ -72,539 +66,716 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
     };
   }, [isDrawerOpen]);
 
-  if (!isDrawerOpen || !session || session.endedAtIso) return null;
+  useEffect(() => {
+    if (isDrawerOpen) headingRef.current?.focus({ preventScroll: true });
+  }, [isDrawerOpen, mode, view]);
 
-  const questions = session.groundQuestions ?? session.groundPacket?.questions ?? ['Start IV fluids?'];
-  const patient = crew.find((c) => c.id === session.patientId) ?? crew[0];
-  const leader = crew.find((c) => c.id === session.roles.leaderId);
-  const reader = crew.find((c) => c.id === session.roles.readerId);
-  const radioLog = crew.find((c) => c.id === session.roles.radioLogId);
+  if (!isDrawerOpen) return null;
 
-  const steps = EMERGENCY_PROTOCOLS[session.condition];
-  const isRoleSetup = session.currentStepIndex < 0;
-  const activeStep = !isRoleSetup ? steps[session.currentStepIndex] : null;
-  const isFinished = !isRoleSetup && session.currentStepIndex >= steps.length;
-  const isLastStep = session.currentStepIndex === steps.length - 1;
-  const vitalsOverdue = vitalsCountdownSeconds === 0;
-  const delayText = formatMinutes(oneWayDelayMinutes);
-  const replyDelayText = formatMinutes(oneWayDelayMinutes * 2);
-  const skippedSteps = steps.filter((s) => session.skippedStepIds.includes(s.id));
-  const completedCount = steps.filter((s) => session.completedStepIds.includes(s.id)).length;
-
-  const cycleRole = (role: 'leaderId' | 'readerId' | 'radioLogId') => {
-    // The patient can't hold a role, so cycle through everyone else.
-    const helpers = crew.filter((c) => c.id !== session.patientId);
-    if (helpers.length === 0) return;
-    const currentIdx = helpers.findIndex((c) => c.id === session.roles[role]);
-    const nextCrew = helpers[(currentIdx + 1) % helpers.length];
-    if (nextCrew) updateRole(role, nextCrew.id);
+  // Hiding keeps the timer and log running; the next opening starts on the steps.
+  const hide = () => {
+    setView('flow');
+    setVitalsOpen(false);
+    closeDrawer();
   };
-
-  const handleAddQuestion = () => {
-    if (!newQuestion.trim()) return;
-    addGroundQuestion(newQuestion);
-    setNewQuestion('');
+  const openVitals = () => {
+    setView('flow');
+    setVitalsOpen(true);
   };
+  const vitalsDue = mode === 'active' && em.vitalsCountdownSeconds === 0;
 
-  const handleSendPacket = () => {
-    sendGroundMessage(questions);
-  };
-
-  const hrDelta = patient ? patient.currentHr - patient.baselineHr : 0;
-  const bpDelta = patient ? patient.currentBpSys - patient.baselineBpSys : 0;
+  const patient = session ? crew.find((c) => c.id === session.patientId) : undefined;
+  const condition = session ? CONDITION_LABELS[session.condition] : '';
 
   return (
     <div
-      className={`${styles.overlay} ${session.wallMode ? styles.wallLayout : ''}`}
+      className={`${t.theme} ${s.overlay}`}
       role="dialog"
       aria-modal="true"
-      aria-label="Emergency Protocol"
+      aria-labelledby="em-heading"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && mode === 'active') hide();
+        else if (e.key === 'Escape') closeDrawer();
+      }}
     >
-      {/* Top Emergency Banner (CREW 9 #1, CREW 12 #5) */}
-      <header className={styles.emergencyBanner}>
-        <div className={styles.bannerLeft}>
-          <span className={styles.stopOctagon} aria-hidden="true">⯃</span>
-          <strong>EMERGENCY</strong>
-          {!isRoleSetup && patient && (
-            <span className={styles.patientTag}>
-              · {patient.name} ({CONDITION_LABELS[session.condition].toLowerCase()})
+      <header className={s.top}>
+        <div className={`${s.bar} ${mode === 'ended' ? s.barEnded : ''}`}>
+          <span className={`${s.barMark} ${t.alert}`}>
+            <StatusIcon level="alert" />
+          </span>
+          {/* Two lines, so who and what are never cut off on a phone. */}
+          <p className={s.barTitle}>
+            <strong>{mode === 'ended' ? 'Emergency ended' : 'Emergency'}</strong>
+            <span className={s.barWho}>
+              {mode === 'armed' ? 'Not started yet' : patient ? `${patient.name} · ${condition}` : condition}
+            </span>
+          </p>
+          {mode === 'active' && (
+            <span className={s.timer} role="timer" aria-label={`Running for ${formatClock(em.elapsedSeconds)}`}>
+              {formatClock(em.elapsedSeconds)}
             </span>
           )}
+          {mode === 'active' && (
+            <button type="button" className={s.barBtn} onClick={hide} title="Hide this screen. The timer and log keep running.">
+              Hide
+            </button>
+          )}
+          {mode === 'armed' && (
+            <button type="button" className={s.barBtn} onClick={closeDrawer}>
+              Cancel
+            </button>
+          )}
         </div>
-
-        <div className={styles.bannerTimer} aria-live="off">
-          {formatClock(elapsedSeconds)}
-        </div>
-
-        <div className={styles.bannerRight}>
-          <span className={styles.loggingBadge}>logging</span>
-          <button
-            type="button"
-            className={styles.wallToggleBtn}
-            onClick={toggleWallMode}
-            title="Switch between handheld and wall tablet landscape view"
-          >
-            {session.wallMode ? 'Handheld' : 'Wall view'}
-          </button>
-          <button
-            type="button"
-            className={styles.minimizeBtn}
-            onClick={closeDrawer}
-            title="Minimize (timer and logging continue)"
-          >
-            Hide
-          </button>
-        </div>
+        {vitalsDue && (
+          <div className={s.dueStrip} role="status">
+            <span>
+              <StatusIcon level="alert" /> Vitals due now
+            </span>
+            <button type="button" className={s.dueBtn} onClick={openVitals}>
+              Record vitals
+            </button>
+          </div>
+        )}
       </header>
-      {persistenceError && (
-        <p className={styles.persistenceWarning} role="alert">
-          Emergency changes could not be saved on this device. Keep this screen open; check browser storage settings.
+
+      <p className={s.notice}>{NOTICE}</p>
+      {em.persistenceError && (
+        <p className={s.warning} role="alert">
+          This emergency could not be saved on this device. Keep this screen open.
         </p>
       )}
 
-      {/* Pinned Unread Reply Banner (CREW 11 #5) */}
-      {session.groundPacket?.replyText && !session.groundPacket.replyReadBack && (
-        <div className={styles.unreadReplyBanner} role="alert">
+      <div className={s.body}>
+        {mode === 'armed' && <Armed crew={crew} headingRef={headingRef} />}
+        {mode === 'ended' && session && <Ended crew={crew} headingRef={headingRef} />}
+        {mode === 'active' && session && (
+          <>
+            {session.groundPacket?.replyText && !session.groundPacket.replyReadBack && (
+              <div className={s.reply} role="alert">
+                <p>
+                  <strong>Flight surgeon replied:</strong> {session.groundPacket.replyText}
+                </p>
+                <button type="button" className={t.primaryBtn} onClick={em.confirmGroundReplyReadBack}>
+                  Read back to crew ✓
+                </button>
+              </div>
+            )}
+            {view === 'flow' && (
+              <Flow
+                crew={crew}
+                headingRef={headingRef}
+                oneWayDelayMinutes={oneWayDelayMinutes}
+                onGround={() => setView('ground')}
+                onLog={() => setView('log')}
+                vitalsOpen={vitalsOpen}
+                setVitalsOpen={setVitalsOpen}
+              />
+            )}
+            {view === 'ground' && <Ground crew={crew} headingRef={headingRef} oneWayDelayMinutes={oneWayDelayMinutes} onBack={() => setView('flow')} />}
+            {view === 'log' && <Log headingRef={headingRef} onBack={() => setView('flow')} />}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+type HeadingRef = React.RefObject<HTMLHeadingElement | null>;
+
+/* ── Before it starts: who and what. Nothing is saved until a category is chosen. ── */
+function Armed({ crew, headingRef }: { crew: CrewMemberSummary[]; headingRef: HeadingRef }) {
+  const { armedPatientId, startEmergency, closeDrawer } = useEmergency();
+  const [who, setWho] = useState(() => (crew.some((c) => c.id === armedPatientId) ? armedPatientId : undefined));
+
+  return (
+    <div className={s.page}>
+      <h1 id="em-heading" ref={headingRef} tabIndex={-1} className={s.title}>
+        Who needs help?
+      </h1>
+      {crew.length === 0 ? (
+        <p className={t.muted}>Loading the crew…</p>
+      ) : (
+        <div className={s.tiles} role="group" aria-label="Who needs help">
+          {crew.map((c) => (
+            <PersonTile key={c.id} person={c} pressed={who === c.id} onClick={() => setWho(c.id)} />
+          ))}
+        </div>
+      )}
+
+      <h2 className={s.subtitle}>What is happening?</h2>
+      {who ? (
+        <div className={s.chips} role="group" aria-label="What is happening">
+          {CONDITIONS.map((c) => (
+            <button key={c} type="button" className={s.chip} onClick={() => startEmergency(who, c)}>
+              {CONDITION_LABELS[c]}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className={t.muted}>Tap the person first.</p>
+      )}
+      <p className={s.hint}>The timer and the log start when you choose what is happening. Nothing is saved before that.</p>
+
+      <div>
+        <button type="button" className={t.ghostBtn} onClick={closeDrawer}>
+          Not an emergency, go back
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PersonTile({ person, pressed, onClick }: { person: CrewMemberSummary; pressed: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className={s.tile} aria-pressed={pressed} onClick={onClick}>
+      <span className={s.avatar} aria-hidden="true">
+        {initials(person.name)}
+      </span>
+      <span className={s.tileName}>{person.name}</span>
+      <span className={s.tileRole}>{person.role || 'Crew'}</span>
+    </button>
+  );
+}
+
+/* ── While it runs: one step at a time, with roles, the patient and the flight surgeon beside it. ── */
+function Flow({ crew, headingRef, oneWayDelayMinutes, onGround, onLog, vitalsOpen, setVitalsOpen }: {
+  crew: CrewMemberSummary[]; headingRef: HeadingRef; oneWayDelayMinutes: number; onGround: () => void; onLog: () => void;
+  vitalsOpen: boolean; setVitalsOpen: (open: boolean) => void;
+}) {
+  const em = useEmergency();
+  const session = em.session!;
+  const patient = crew.find((c) => c.id === session.patientId);
+  const steps = EMERGENCY_PROTOCOLS[session.condition];
+  const index = session.currentStepIndex;
+  const step = index >= 0 ? steps[index] : undefined;
+  const finished = index >= steps.length;
+
+  // Back from step 1, or a saved emergency whose patient is no longer in the crew: change who or what.
+  if (index < 0 || !patient) {
+    return (
+      <div className={s.page}>
+        <h1 id="em-heading" ref={headingRef} tabIndex={-1} className={s.title}>
+          {patient ? 'Change who or what' : 'Who needs help?'}
+        </h1>
+        <div className={s.tiles} role="group" aria-label="Who needs help">
+          {crew.map((c) => (
+            <PersonTile key={c.id} person={c} pressed={session.patientId === c.id} onClick={() => em.setPatient(c.id)} />
+          ))}
+        </div>
+        <h2 className={s.subtitle}>What is happening?</h2>
+        <div className={s.chips} role="group" aria-label="What is happening">
+          {CONDITIONS.map((c) => (
+            <button key={c} type="button" className={s.chip} aria-pressed={session.condition === c} onClick={() => em.setCondition(c)}>
+              {CONDITION_LABELS[c]}
+            </button>
+          ))}
+        </div>
+        <div className={s.row}>
+          <button type="button" className={s.doneBtn} disabled={!patient} onClick={em.startSteps}>
+            Go to step 1
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const completed = steps.filter((x) => session.completedStepIds.includes(x.id)).length;
+  const skipped = steps.filter((x) => session.skippedStepIds.includes(x.id));
+
+  return (
+    <div className={s.grid}>
+      <section className={`${t.next} ${t.alert} ${s.stepCard}`} aria-labelledby="em-heading">
+        {step && (
+          <>
+            <div className={t.nextHead}>
+              <span className={t.eyebrow}>
+                Step {step.stepNumber} of {steps.length} · read aloud
+              </span>
+              {session.completedStepIds.includes(step.id) && <span className={`${t.badge} ${t.ok}`}>Done before</span>}
+            </div>
+            <h1 id="em-heading" ref={headingRef} tabIndex={-1} className={s.stepTitle}>
+              {step.title}
+            </h1>
+            <p className={s.stepDetail}>{step.detail}</p>
+            {step.zeroGNote && <p className={s.zeroG}>{step.zeroGNote}</p>}
+
+            <button type="button" className={s.doneBtn} onClick={em.completeCurrentStep}>
+              {index === steps.length - 1 ? 'Done, finish the checklist' : 'Done, next step'}
+            </button>
+            {step.escalations && step.escalations.length > 0 && (
+              <div className={s.escalations}>
+                <span className={t.eyebrow}>If you find</span>
+                {step.escalations.map((x) => (
+                  <button key={x.to} type="button" className={s.escalateBtn} onClick={() => em.escalateTo(x.to)}>
+                    {x.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className={s.row}>
+              <button type="button" className={t.ghostBtn} onClick={em.skipCurrentStep}>
+                Can’t do this
+              </button>
+              <button type="button" className={t.ghostBtn} onClick={em.goPreviousStep}>
+                Back
+              </button>
+            </div>
+            <p className={s.fine}>
+              Medical Checklist {step.checklistRefId}. {EXAMPLE_CONTENT_NOTE}
+            </p>
+          </>
+        )}
+        {finished && (
+          <>
+            <span className={t.eyebrow}>Checklist finished</span>
+            <h1 id="em-heading" ref={headingRef} tabIndex={-1} className={s.stepTitle}>
+              Keep watching {firstName(patient.name)}
+            </h1>
+            <p className={s.stepDetail}>
+              {completed} of {steps.length} steps done{skipped.length > 0 ? `, ${skipped.length} not done` : ''}. Recheck vitals when due and keep the flight surgeon updated.
+            </p>
+            {skipped.length > 0 && <p className={s.zeroG}>Not done: {skipped.map((x) => `step ${x.stepNumber}`).join(', ')}. Tap Back to try again.</p>}
+            <button type="button" className={s.doneBtn} onClick={onGround}>
+              {session.groundPacket ? 'Update the flight surgeon' : 'Message the flight surgeon'}
+            </button>
+            <div className={s.row}>
+              <button type="button" className={t.ghostBtn} onClick={em.goPreviousStep}>
+                Back
+              </button>
+            </div>
+          </>
+        )}
+      </section>
+
+      <div className={s.side}>
+        <PatientCard patient={patient} formOpen={vitalsOpen} setFormOpen={setVitalsOpen} />
+
+        <section className={s.card}>
+          <span className={t.eyebrow}>Flight surgeon</span>
+          {session.groundPacket ? (
+            <p>
+              Sent {formatTimeHHMM(session.groundPacket.sentAtIso)}, arrives {formatTimeHHMM(session.groundPacket.arrivesAtIso)}.{' '}
+              <span className={t.muted}>Earliest reply {formatTimeHHMM(session.groundPacket.earliestReplyAtIso)}. Keep going.</span>
+            </p>
+          ) : (
+            <p className={t.muted}>
+              A message takes {formatMinutes(oneWayDelayMinutes)} min to reach Earth, so a reply takes at least {formatMinutes(oneWayDelayMinutes * 2)} min. Do not wait for it.
+            </p>
+          )}
           <div>
-            <strong>UNREAD FLIGHT SURGEON REPLY:</strong>{' '}
-            {session.groundPacket.replyText}
+            <button type="button" className={t.why} onClick={onGround}>
+              {session.groundPacket ? 'Open the message' : 'Prepare the message'}
+            </button>
           </div>
-          <button
-            type="button"
-            className={styles.readBackBtn}
-            onClick={confirmGroundReplyReadBack}
-          >
-            Confirm read-back ✓
+        </section>
+
+        <section className={s.card}>
+          <span className={t.eyebrow}>Who does what · tap to change</span>
+          {ROLES.map(({ key, label }) => (
+            <RoleRow key={key} role={key} label={label} crew={crew} />
+          ))}
+        </section>
+
+        <section className={s.card}>
+          <button type="button" className={s.linkBtn} onClick={onLog}>
+            Log so far ({session.logEntries.length})
+          </button>
+          <HoldToEndButton onConfirmEnd={em.endEmergency} />
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/** Tapping cycles through everyone but the patient. */
+function RoleRow({ role, label, crew }: { role: keyof EmergencyRoleAssignment; label: string; crew: CrewMemberSummary[] }) {
+  const { session, updateRole } = useEmergency();
+  const helpers = crew.filter((c) => c.id !== session!.patientId);
+  const holder = crew.find((c) => c.id === session!.roles[role]);
+  const next = () => {
+    if (helpers.length === 0) return;
+    const i = helpers.findIndex((c) => c.id === holder?.id);
+    updateRole(role, helpers[(i + 1) % helpers.length]!.id);
+  };
+  return (
+    <button type="button" className={s.roleRow} onClick={next} disabled={helpers.length === 0} aria-label={`${label}: ${holder?.name ?? 'nobody'}. Tap to change.`}>
+      <span className={t.muted}>{label}</span>
+      <strong>{holder ? firstName(holder.name) : helpers.length ? 'Tap to set' : 'Nobody else on board'}</strong>
+    </button>
+  );
+}
+
+const VITALS = ['hr', 'spo2', 'temp', 'glucose'];
+
+/** The patient against their own usual (dossier D4: everything, Mind included). Newest measured vitals win over the check-in. */
+function PatientCard({ patient, formOpen, setFormOpen }: { patient: CrewMemberSummary; formOpen: boolean; setFormOpen: (open: boolean) => void }) {
+  const { session, vitalsCountdownSeconds } = useEmergency();
+  const today = patient.today;
+  const byId = (id: string) => today?.readings.find((r) => r.id === id || r.id === `bp_${id}`);
+  const sys = byId('sys');
+  const dia = byId('dia');
+  const vitals = VITALS.map(byId).filter((r): r is Reading => !!r);
+  const shown = new Set([...vitals, sys, dia].filter(Boolean));
+  const otherFlagged = today?.readings.filter((r) => isFlagged(r.level) && !shown.has(r)) ?? [];
+  const symptoms = byId('symptoms');
+  const radiation = today?.readings.find((r) => r.zone === 'radiation' && r.note);
+  const due = vitalsCountdownSeconds === 0;
+  const hasData = today?.readings.some((r) => r.value !== null);
+
+  // Newest value measured during the emergency for each vital, else the check-in one.
+  const measured = session?.vitals ?? [];
+  const latest = (key: 'hr' | 'sys' | 'dia' | 'spo2') => [...measured].reverse().find((v) => v[key] !== undefined);
+  const now = (r: Reading | undefined, key: 'hr' | 'sys' | 'dia' | 'spo2') => {
+    const m = latest(key);
+    return m
+      ? { text: String(m[key]), at: formatTimeHHMM(m.atIso), level: undefined, side: sideOf(m[key]!, r?.usual) }
+      : r
+        ? { text: formatValue(r), at: undefined, level: r.level, side: undefined }
+        : undefined;
+  };
+  const last = measured.at(-1);
+
+  return (
+    <section className={s.card} aria-labelledby="em-patient">
+      <div className={s.cardHead}>
+        <span id="em-patient" className={t.eyebrow}>
+          {firstName(patient.name)} now · against own usual
+        </span>
+        <span className={due ? s.due : t.muted}>{due ? 'Check due now' : `Next check in ${formatClock(vitalsCountdownSeconds)}`}</span>
+      </div>
+      {!last && (
+        <p className={s.fineTight}>
+          {today?.checkIn.doneAt ? `From the check-in at ${today.checkIn.doneAt}. Not measured since.` : 'Not measured since the emergency started.'}
+        </p>
+      )}
+
+      {formOpen && <VitalsForm onClose={() => setFormOpen(false)} />}
+      {!formOpen && (
+        <div>
+          <button type="button" className={due ? t.primaryBtn : t.ghostBtn} onClick={() => setFormOpen(true)}>
+            Record vitals
           </button>
         </div>
       )}
 
-      {/* Sub-navigation between Steps, Ground Packet, and Auto-Log */}
-      <nav className={styles.subNav} aria-label="Emergency views">
-        <button
-          type="button"
-          className={view === 'flow' ? styles.subNavActive : styles.subNavBtn}
-          onClick={() => setView('flow')}
-        >
-          {isRoleSetup
-            ? '1. Roles & Triage'
-            : `Steps (${Math.min(session.currentStepIndex + 1, steps.length)}/${steps.length})`}
-        </button>
-        <button
-          type="button"
-          className={view === 'ground' ? styles.subNavActive : styles.subNavBtn}
-          onClick={() => setView('ground')}
-        >
-          Message to Ground ({delayText}m)
-        </button>
-        <button
-          type="button"
-          className={view === 'log' ? styles.subNavActive : styles.subNavBtn}
-          onClick={() => setView('log')}
-        >
-          Auto-Log ({session.logEntries.length})
-        </button>
-      </nav>
-
-      {/* VIEW 1: ROLES (CREW 9) OR ONE STEP AT A TIME (CREW 10 & 12) */}
-      {view === 'flow' && isRoleSetup && (
-        <main className={styles.mainBody}>
-          <section className={styles.sectionBlock}>
-            <h2 className={styles.sectionTitle}>Who is hurt?</h2>
-            <div className={styles.chipGrid}>
-              {crew.map((member) => (
-                <button
-                  key={member.id}
-                  type="button"
-                  className={
-                    session.patientId === member.id ? styles.chipSelected : styles.chip
-                  }
-                  onClick={() => setPatient(member.id)}
-                >
-                  {member.name}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className={styles.sectionBlock}>
-            <h2 className={styles.sectionTitle}>What do you see?</h2>
-            <div className={styles.chipGrid}>
-              {(Object.keys(CONDITION_LABELS) as EmergencyCondition[]).map((cond) => (
-                <button
-                  key={cond}
-                  type="button"
-                  className={
-                    session.condition === cond ? styles.chipSelected : styles.chip
-                  }
-                  onClick={() => setCondition(cond)}
-                >
-                  {CONDITION_LABELS[cond]}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className={styles.sectionBlock}>
-            <h2 className={styles.sectionTitle}>Who does what? (tap to change)</h2>
-            <div className={styles.roleList}>
-              <button
-                type="button"
-                className={styles.roleRow}
-                onClick={() => cycleRole('leaderId')}
-              >
-                <span>Leader · hands on patient</span>
-                <strong>{leader?.name ?? 'Assign'}</strong>
-              </button>
-              <button
-                type="button"
-                className={styles.roleRow}
-                onClick={() => cycleRole('readerId')}
-              >
-                <span>Reader · reads steps aloud</span>
-                <strong>{reader?.name ?? 'Assign'}</strong>
-              </button>
-              <button
-                type="button"
-                className={styles.roleRow}
-                onClick={() => cycleRole('radioLogId')}
-              >
-                <span>Radio + log</span>
-                <strong>{radioLog?.name ?? 'Assign'}</strong>
-              </button>
-            </div>
-          </section>
-
-          <div className={styles.footerActions}>
-            <button
-              type="button"
-              className={styles.primaryActionBtn}
-              onClick={startSteps}
-            >
-              Start the steps
-            </button>
-            <HoldToEndButton onConfirmEnd={endEmergency} />
-          </div>
-        </main>
-      )}
-
-      {view === 'flow' && !isRoleSetup && activeStep && (
-        <main className={session.wallMode ? styles.wallGrid : styles.mainBody}>
-          {/* Wall Mode Left Column: Persistent Roles (CREW 12 #3) */}
-          {session.wallMode && (
-            <aside className={styles.wallSidebar}>
-              <h3>Who does what</h3>
-              <div className={styles.wallRoleCard}>
-                <div>Leader: <strong>{leader?.name}</strong></div>
-                <div>Reader: <strong>{reader?.name}</strong></div>
-                <div>Radio + Log: <strong>{radioLog?.name}</strong></div>
-              </div>
-              {session.groundPacket && (
-                <div className={styles.wallDelayCard}>
-                  <div>Earth {delayText} min</div>
-                  <div>Reply from {formatTimeHHMM(session.groundPacket.earliestReplyAtIso)}</div>
-                </div>
-              )}
-            </aside>
-          )}
-
-          {/* Center Column: Single Giant Step + Oversized DONE Button (CREW 10 #1-4) */}
-          <section className={styles.stepCard}>
-            <div className={styles.stepHeader}>
-              <span className={styles.readAloudTag}>
-                Step {activeStep.stepNumber} of {steps.length} · read aloud
-              </span>
-              {session.completedStepIds.includes(activeStep.id) && (
-                <span className={styles.doneBadge}>✓ Logged</span>
-              )}
-            </div>
-
-            <h1 className={styles.stepTitle}>{activeStep.title}</h1>
-            <p className={styles.stepDetail}>{activeStep.detail}</p>
-
-            {activeStep.zeroGNote && (
-              <p className={styles.zeroGCallout}>{activeStep.zeroGNote}</p>
-            )}
-
-            <button
-              type="button"
-              className={styles.giantDoneBtn}
-              onClick={completeCurrentStep}
-            >
-              {isLastStep ? 'DONE · finish checklist' : 'DONE · next step'}
-            </button>
-
-            {activeStep.escalations && activeStep.escalations.length > 0 && (
-              <div className={styles.escalationRow}>
-                {activeStep.escalations.map((esc) => (
-                  <button
-                    key={esc.to}
-                    type="button"
-                    className={styles.escalateBtn}
-                    onClick={() => escalateTo(esc.to)}
-                  >
-                    {esc.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className={styles.secondaryStepRow}>
-              <button
-                type="button"
-                className={styles.secondaryBtn}
-                onClick={skipCurrentStep}
-              >
-                Can&apos;t do
-              </button>
-              <button
-                type="button"
-                className={styles.secondaryBtn}
-                onClick={goPreviousStep}
-              >
-                Back
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className={styles.checklistHandoffBtn}
-              onClick={() =>
-                setChecklistToast(
-                  `Opened Medical Checklist [${activeStep.checklistRefId}] — verify exact doses/volumes in official binder.`
-                )
-              }
-            >
-              Open Medical Checklist: {CONDITION_LABELS[session.condition].toLowerCase()} [
-              {activeStep.checklistRefId}]
-            </button>
-
-            {checklistToast && (
-              <div className={styles.checklistNotice} role="status">
-                {checklistToast}
-              </div>
-            )}
-          </section>
-
-          {/* Right/Bottom Column: Patient Vitals vs Own In-Flight Normal (CREW 10 #5-7) */}
-          {patient && (
-            <aside className={styles.vitalsPanel}>
-              <div className={styles.vitalsHeader}>
-                <strong>{patient.name} compared with own normal</strong>
-                <span className={vitalsOverdue ? styles.nextCheckOverdue : styles.nextCheckTag}>
-                  {vitalsOverdue ? 'vitals check due now' : `next check ${formatClock(vitalsCountdownSeconds)}`}
-                </span>
-              </div>
-
-              <div className={styles.vitalRow}>
-                <span>Heart</span>
-                <strong>{patient.currentHr}</strong>
-                <span className={hrDelta > 15 ? styles.deltaWarn : styles.deltaNeutral}>
-                  {hrDelta >= 0 ? `up ${hrDelta}` : `down ${Math.abs(hrDelta)}`}
-                </span>
-              </div>
-
-              <div className={styles.vitalRow}>
-                <span>Blood pressure</span>
-                <strong>
-                  {patient.currentBpSys}/{patient.currentBpDia}
-                </strong>
-                <span className={bpDelta < -15 ? styles.deltaWarn : styles.deltaNeutral}>
-                  {bpDelta >= 0 ? `up ${bpDelta}` : `down ${Math.abs(bpDelta)}`}
-                </span>
-              </div>
-
-              <div className={styles.vitalRow}>
-                <span>Oxygen</span>
-                <strong>{patient.currentSpo2}%</strong>
-                <span className={styles.deltaNeutral}>
-                  {patient.currentSpo2 === patient.baselineSpo2
-                    ? 'same'
-                    : `${patient.currentSpo2 - patient.baselineSpo2}%`}
-                </span>
-              </div>
-
-              <button type="button" className={styles.secondaryBtn} onClick={recordVitalsCheck}>
-                Vitals checked ✓
-              </button>
-
-              <div className={styles.groundFooterBar}>
-                {session.groundPacket ? (
-                  <>
-                    <span>
-                      Ground: sent {formatTimeHHMM(session.groundPacket.sentAtIso)} · reply
-                      from {formatTimeHHMM(session.groundPacket.earliestReplyAtIso)}
-                    </span>
-                    <button
-                      type="button"
-                      className={styles.linkBtn}
-                      onClick={() => setView('ground')}
-                    >
-                      Open packet
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className={styles.primaryActionBtn}
-                    onClick={() => setView('ground')}
-                  >
-                    Prepare message to Flight Surgeon
-                  </button>
-                )}
-              </div>
-            </aside>
-          )}
-        </main>
-      )}
-
-      {/* Checklist finished: every step done or skipped. Not a dead end. */}
-      {view === 'flow' && isFinished && (
-        <main className={styles.mainBody}>
-          <section className={styles.stepCard}>
-            <h1 className={styles.stepTitle}>
-              {CONDITION_LABELS[session.condition]} checklist finished
-            </h1>
-            <p className={styles.stepDetail}>
-              {completedCount} of {steps.length} steps done
-              {skippedSteps.length > 0 ? `, ${skippedSteps.length} skipped` : ''}. Keep watching the
-              patient, recheck vitals when due, and update the Flight Surgeon.
-            </p>
-            {skippedSteps.length > 0 && (
-              <p className={styles.zeroGCallout}>
-                Skipped: {skippedSteps.map((s) => `Step ${s.stepNumber}`).join(', ')}. Go back to try again.
-              </p>
-            )}
-            <button type="button" className={styles.giantDoneBtn} onClick={() => setView('ground')}>
-              {session.groundPacket ? 'Open message to Flight Surgeon' : 'Message to Flight Surgeon'}
-            </button>
-            <div className={styles.secondaryStepRow}>
-              <button type="button" className={styles.secondaryBtn} onClick={goPreviousStep}>
-                Back
-              </button>
-              <button type="button" className={styles.secondaryBtn} onClick={recordVitalsCheck}>
-                Vitals checked ✓
-              </button>
-            </div>
-            {vitalsOverdue && <p className={styles.deltaWarn}>Vitals check due now</p>}
-            <HoldToEndButton onConfirmEnd={endEmergency} />
-          </section>
-        </main>
-      )}
-
-      {/* VIEW 2: DELAY-AWARE MESSAGE TO GROUND (CREW 11) */}
-      {view === 'ground' && (
-        <main className={styles.mainBody}>
-          <h2 className={styles.sectionTitle}>Message to flight surgeon</h2>
-
-          <div className={styles.packetCard}>
-            <p>
-              <strong>What:</strong> {CONDITION_LABELS[session.condition]}, {patient?.name}{' '}
-              {formatTimeHHMM(session.startedAtIso)}
-            </p>
-            <p>
-              <strong>Now:</strong> Heart {patient?.currentHr} · BP {patient?.currentBpSys}/
-              {patient?.currentBpDia} · Oxygen {patient?.currentSpo2}%
-            </p>
-            <p>
-              <strong>Done:</strong>{' '}
-              {session.completedStepIds.length > 0 ? doneTitles(session).join(', ') : 'Initial triage'}
-            </p>
-          </div>
-
-          <section className={styles.sectionBlock}>
-            <h3 className={styles.sectionTitle}>Our questions (clear &amp; numbered)</h3>
-            <ol className={styles.questionList}>
-              {questions.map((q, idx) => (
-                <li key={idx}>{q}</li>
-              ))}
-            </ol>
-            <div className={styles.addQuestionRow}>
-              <input
-                type="text"
-                value={newQuestion}
-                onChange={(e) => setNewQuestion(e.target.value)}
-                placeholder="Add specific question for Flight Surgeon…"
-                className={styles.questionInput}
+      {!today && <p className={t.muted}>Loading readings…</p>}
+      {today && !hasData && measured.length === 0 && <p className={t.muted}>No readings yet for {firstName(patient.name)}. Measure now.</p>}
+      {today && (hasData || measured.length > 0) && (
+        <ul className={s.vitals}>
+          {(sys || latest('sys')) && (() => {
+            const top = now(sys, 'sys');
+            const bottom = now(dia, 'dia');
+            return (
+              <VitalRow
+                label="Blood pressure"
+                value={`${top?.text ?? '—'}/${bottom?.text ?? '—'}`}
+                unit="mmHg"
+                usual={sys?.usual && dia?.usual ? `${sys.usual[0]}–${sys.usual[1]} / ${dia.usual[0]}–${dia.usual[1]}` : undefined}
+                level={top?.level ?? 'none'}
+                at={top?.at}
+                side={top?.side ?? bottom?.side}
               />
-              <button
-                type="button"
-                className={styles.secondaryBtn}
-                onClick={handleAddQuestion}
-              >
-                + Add
-              </button>
-            </div>
-          </section>
-
-          {session.groundPacket && (
-            <div className={styles.delayTimeline}>
-              <div>
-                <span>sent</span>
-                <strong>{formatTimeHHMM(session.groundPacket.sentAtIso)}</strong>
-              </div>
-              <div>
-                <span>arrives (+{delayText}m)</span>
-                <strong>{formatTimeHHMM(session.groundPacket.arrivesAtIso)}</strong>
-              </div>
-              <div>
-                <span>earliest reply (+{replyDelayText}m)</span>
-                <strong>{formatTimeHHMM(session.groundPacket.earliestReplyAtIso)}</strong>
-              </div>
-            </div>
-          )}
-          {session.groundPacket && (
-            <section className={styles.packetHistory} aria-label="Sent packet history">
-              <strong>Sent packets ({session.groundPackets?.length ?? 1})</strong>
-              <ol>
-                {(session.groundPackets ?? [session.groundPacket]).map((packet, index) => (
-                  <li key={packet.id}>
-                    <span>Packet {index + 1} · {formatTimeHHMM(packet.sentAtIso)}</span>
-                    <span>{packet.questions.length ? packet.questions.join(' · ') : 'No questions added'}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
-          <button
-            type="button"
-            className={styles.primaryActionBtn}
-            onClick={handleSendPacket}
-          >
-            {session.groundPacket ? 'Send updated packet to Flight Surgeon' : 'Send packet to Flight Surgeon'}
-          </button>
-
-          <p className={styles.autonomousReminder}>
-            Do not wait. Keep following the steps.
-          </p>
-
-          <button
-            type="button"
-            className={styles.secondaryBtn}
-            onClick={() => setView('flow')}
-          >
-            Back to the steps
-          </button>
-        </main>
+            );
+          })()}
+          {vitals.map((r) => {
+            const key = r.id === 'hr' || r.id === 'spo2' ? r.id : undefined;
+            const v = key ? now(r, key) : { text: formatValue(r), at: undefined, level: r.level, side: undefined };
+            return (
+              <VitalRow
+                key={r.id}
+                label={r.id === 'hr' ? 'Heart rate' : r.label}
+                value={v?.text ?? '—'}
+                unit={r.unit}
+                usual={r.usual && `${r.usual[0].toFixed(r.decimals)}–${r.usual[1].toFixed(r.decimals)}`}
+                level={v?.level ?? 'none'}
+                at={v?.at}
+                side={v?.side}
+              />
+            );
+          })}
+        </ul>
       )}
-
-      {/* VIEW 3: AUTOMATIC INCIDENT LOG (CREW 9 #1) */}
-      {view === 'log' && (
-        <main className={styles.mainBody}>
-          <h2 className={styles.sectionTitle}>Automatic Incident Log</h2>
-          <ul className={styles.auditList}>
-            {session.logEntries.map((entry, idx) => (
-              <li key={idx} className={styles.auditRow}>
-                <code>+{formatClock(entry.elapsedSec)}</code>
-                <span>
-                  <strong>[{entry.actor}]</strong> {entry.event}
-                </span>
+      {otherFlagged.length > 0 && (
+        <div className={t.then}>
+          <span>Also flagged</span>
+          <ul>
+            {otherFlagged.map((r) => (
+              <li key={r.id} className={t[r.level]}>
+                <StatusIcon level={r.level} /> {r.label} · {LEVEL_WORD[r.level]}
               </li>
             ))}
           </ul>
-          <HoldToEndButton onConfirmEnd={endEmergency} />
-        </main>
+        </div>
+      )}
+      {today && (
+        <p className={s.fineTight}>
+          {today.checkIn.doneAt ? `Checked in ${today.checkIn.doneAt}` : 'Not checked in today'}
+          {symptoms?.note && symptoms.value ? ` · ${symptoms.note.replace(/\.$/, '')}` : ''}
+          {radiation ? ` · Radiation: ${radiation.note}` : ''}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** Same plausible ranges as the check-in (typos, not clinical limits). Blank = not measured. */
+const VITAL_FIELDS = [
+  { key: 'hr', ...FIELDS.hr },
+  { key: 'sys', ...FIELDS.sys },
+  { key: 'dia', ...FIELDS.dia },
+  { key: 'spo2', ...FIELDS.spo2 },
+] as const;
+
+function VitalsForm({ onClose }: { onClose: () => void }) {
+  const { recordVitalsCheck } = useEmergency();
+  const [text, setText] = useState<Record<string, string>>({});
+  const [error, setError] = useState('');
+  const first = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    first.current?.scrollIntoView({ block: 'center' });
+    first.current?.focus({ preventScroll: true });
+  }, []);
+
+  const save = () => {
+    const values: Omit<VitalsReading, 'atIso'> = {};
+    for (const f of VITAL_FIELDS) {
+      const v = parseNumber(text[f.key] ?? '');
+      if (v === undefined) continue;
+      if (Number.isNaN(v) || v < f.min || v > f.max) return setError(`${f.label} must be a number between ${f.min} and ${f.max} ${f.unit}.`);
+      values[f.key] = v;
+    }
+    if ((values.sys === undefined) !== (values.dia === undefined)) return setError('Blood pressure needs both numbers.');
+    recordVitalsCheck(values);
+    onClose();
+  };
+
+  return (
+    <form
+      className={s.vitalsForm}
+      onSubmit={(e) => {
+        e.preventDefault();
+        save();
+      }}
+    >
+      <div className={s.vitalsInputs}>
+        {VITAL_FIELDS.map((f, i) => (
+          <label key={f.key} className={s.vitalInput}>
+            <span>{f.label}</span>
+            <span className={s.inputWrap}>
+              <input
+                ref={i === 0 ? first : undefined}
+                className={s.input}
+                inputMode="decimal"
+                autoComplete="off"
+                value={text[f.key] ?? ''}
+                onChange={(e) => {
+                  setText({ ...text, [f.key]: e.target.value });
+                  setError('');
+                }}
+              />
+              <span className={t.muted}>{f.unit}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {error && (
+        <p className={s.formError} role="alert">
+          {error}
+        </p>
+      )}
+      <p className={s.fineTight}>Leave blank what you did not measure. Saving restarts the 5-minute countdown.</p>
+      <div className={s.row}>
+        <button type="submit" className={t.primaryBtn}>
+          Save vitals
+        </button>
+        <button type="button" className={t.ghostBtn} onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Where a value typed in during the emergency sits against the usual band. Not an engine judgment, just the range. */
+const sideOf = (value: number, usual?: [number, number]) =>
+  !usual ? undefined : value > usual[1] ? ('above' as const) : value < usual[0] ? ('below' as const) : undefined;
+
+function VitalRow({ label, value, unit, usual, level, at, side }: {
+  label: string; value: string; unit: string; usual?: string; level: Reading['level']; at?: string; side?: 'above' | 'below';
+}) {
+  // Values measured during the emergency carry their time, and "above/below usual" instead of an engine Watch/Alert.
+  const flagged = isFlagged(level);
+  return (
+    <li className={`${s.vital} ${t[side ? 'alert' : level]} ${side ? s.vitalOut : ''}`}>
+      <span>
+        {label}
+        <span className={s.usual}>
+          {usual ? `usual ${usual}` : value === '—' ? 'no reading' : 'still learning'}
+          {at && ` · measured ${at}`}
+        </span>
+      </span>
+      <span className={s.vitalRight}>
+        <span className={s.vitalValue}>
+          {flagged && <StatusIcon level={level} />}
+          <strong>{value}</strong> <span className={t.muted}>{value === '—' ? '' : unit}</span>
+          {flagged && <span className={t.srOnly}>, {LEVEL_WORD[level]}</span>}
+        </span>
+        {side && <span className={s.outside}>{side} usual</span>}
+      </span>
+    </li>
+  );
+}
+
+/* ── Message to the flight surgeon: what, now, done, and numbered questions. ── */
+function Ground({ crew, headingRef, oneWayDelayMinutes, onBack }: { crew: CrewMemberSummary[]; headingRef: HeadingRef; oneWayDelayMinutes: number; onBack: () => void }) {
+  const { session, sendGroundMessage, addGroundQuestion } = useEmergency();
+  const [draft, setDraft] = useState('');
+  const sess = session!;
+  const patient = crew.find((c) => c.id === sess.patientId);
+  const questions = sess.groundQuestions ?? sess.groundPacket?.questions ?? [];
+  const packets = sess.groundPackets ?? (sess.groundPacket ? [sess.groundPacket] : []);
+  const add = () => {
+    if (!draft.trim()) return;
+    addGroundQuestion(draft);
+    setDraft('');
+  };
+
+  return (
+    <div className={s.page}>
+      <div>
+        <button type="button" className={s.linkBtn} onClick={onBack}>
+          ← Back to the steps
+        </button>
+      </div>
+      <h1 id="em-heading" ref={headingRef} tabIndex={-1} className={s.title}>
+        Message to the flight surgeon
+      </h1>
+      <p className={t.muted}>
+        It reaches Earth in {formatMinutes(oneWayDelayMinutes)} min; a reply takes at least {formatMinutes(oneWayDelayMinutes * 2)} min. Keep following the steps while you wait.
+      </p>
+
+      <section className={s.card}>
+        <dl className={s.packet}>
+          <dt>What</dt>
+          <dd>
+            {CONDITION_LABELS[sess.condition]}, {patient?.name ?? 'patient'}, since {formatTimeHHMM(sess.startedAtIso)}
+          </dd>
+          <dt>Now</dt>
+          <dd>{latestVitalsSummary(sess, patient)}</dd>
+          <dt>Done</dt>
+          <dd>{sess.completedStepIds.length > 0 ? doneTitles(sess).join(', ') : 'Nothing yet'}</dd>
+        </dl>
+      </section>
+
+      <section className={s.card}>
+        <span className={t.eyebrow}>Our questions</span>
+        {questions.length > 0 ? (
+          <ol className={s.questions}>
+            {questions.map((q, i) => (
+              <li key={i}>{q}</li>
+            ))}
+          </ol>
+        ) : (
+          <p className={t.muted}>No questions yet.</p>
+        )}
+        <form
+          className={s.addRow}
+          onSubmit={(e) => {
+            e.preventDefault();
+            add();
+          }}
+        >
+          <label className={t.srOnly} htmlFor="em-question">
+            Add a question
+          </label>
+          <input id="em-question" className={s.input} value={draft} maxLength={200} onChange={(e) => setDraft(e.target.value)} placeholder="Add a question" />
+          <button type="submit" className={t.ghostBtn}>
+            Add
+          </button>
+        </form>
+      </section>
+
+      <div className={s.row}>
+        <button type="button" className={s.doneBtn} onClick={() => sendGroundMessage(questions)}>
+          {sess.groundPacket ? 'Send the update' : 'Send to the flight surgeon'}
+        </button>
+      </div>
+
+      {packets.length > 0 && (
+        <section className={s.card} aria-label="Sent messages">
+          <span className={t.eyebrow}>Sent</span>
+          <ol className={s.sent}>
+            {packets.map((p, i) => (
+              <li key={p.id}>
+                <strong>
+                  Message {i + 1} · sent {formatTimeHHMM(p.sentAtIso)}
+                </strong>
+                <span className={t.muted}>
+                  Arrives {formatTimeHHMM(p.arrivesAtIso)} · earliest reply {formatTimeHHMM(p.earliestReplyAtIso)}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
     </div>
   );
-};
+}
+
+function LogList() {
+  const { session } = useEmergency();
+  return (
+    <ol className={s.log}>
+      {session!.logEntries.map((entry, i) => (
+        <li key={i}>
+          <span className={t.mono}>+{formatClock(entry.elapsedSec)}</span>
+          <span>{entry.event}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function Log({ headingRef, onBack }: { headingRef: HeadingRef; onBack: () => void }) {
+  return (
+    <div className={s.page}>
+      <div>
+        <button type="button" className={s.linkBtn} onClick={onBack}>
+          ← Back to the steps
+        </button>
+      </div>
+      <h1 id="em-heading" ref={headingRef} tabIndex={-1} className={s.title}>
+        Log so far
+      </h1>
+      <p className={t.muted}>Written automatically as you go.</p>
+      <section className={s.card}>
+        <LogList />
+      </section>
+    </div>
+  );
+}
+
+/* ── After "End emergency": what happened, then close. ── */
+function Ended({ crew, headingRef }: { crew: CrewMemberSummary[]; headingRef: HeadingRef }) {
+  const { session, elapsedSeconds, closeDrawer } = useEmergency();
+  const patient = crew.find((c) => c.id === session!.patientId);
+  return (
+    <div className={s.page}>
+      <h1 id="em-heading" ref={headingRef} tabIndex={-1} className={s.title}>
+        What happened
+      </h1>
+      <p className={t.muted}>
+        {patient?.name ?? 'Patient'} · {CONDITION_LABELS[session!.condition]} · {formatClock(elapsedSeconds)} long. Saved on this device.
+      </p>
+      <section className={s.card}>
+        <LogList />
+      </section>
+      <div>
+        <button type="button" className={t.primaryBtn} onClick={closeDrawer}>
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}

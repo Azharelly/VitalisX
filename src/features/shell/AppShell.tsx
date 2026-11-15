@@ -26,6 +26,8 @@ export type ScreenSlot = (ctx: {
   go: (tab: TabId) => void
   /** Opens the Earth summary on Report (or only emits onNoteForEarth when there is no outbox). */
   noteForEarth: (metricId?: string) => void
+  /** Opens the emergency flow for this person ("Get help now"). */
+  emergency: () => void
 }) => ReactNode
 
 export interface AppShellProps extends ReportOutbox {
@@ -71,30 +73,16 @@ function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellP
   useEffect(() => {
     let live = true
     Promise.all(
-      members.map(async (member) => {
-        const data = await todayApi.getToday(member.id, day)
-        const values = new Map(data.readings.map((reading) => [reading.id, reading]))
-        const value = (id: string, fallback: number) => values.get(id)?.value ?? fallback
-        const baseline = (id: string, current: number) => {
-          const reading = values.get(id)
-          return reading?.usual ? (reading.usual[0] + reading.usual[1]) / 2 : current
-        }
-        const currentHr = value('hr', 70)
-        const currentBpSys = value('bp_sys', value('sys', 120))
-        const currentBpDia = value('bp_dia', value('dia', 80))
-        const currentSpo2 = value('spo2', 98)
+      members.map(async (member): Promise<CrewMemberSummary> => {
+        const today = await todayApi.getToday(member.id, day)
+        const value = (...ids: string[]) => today.readings.find((r) => ids.includes(r.id) && r.value !== null)?.value ?? null
         return {
-          id: member.id,
-          name: member.name,
-          isMedic: isMedicRole(member.role),
-          baselineHr: baseline('hr', currentHr),
-          baselineBpSys: baseline('bp_sys', baseline('sys', currentBpSys)),
-          baselineBpDia: baseline('bp_dia', baseline('dia', currentBpDia)),
-          baselineSpo2: baseline('spo2', currentSpo2),
-          currentHr,
-          currentBpSys,
-          currentBpDia,
-          currentSpo2,
+          ...summaryOf(member),
+          today,
+          currentHr: value('hr'),
+          currentBpSys: value('sys', 'bp_sys'),
+          currentBpDia: value('dia', 'bp_dia'),
+          currentSpo2: value('spo2'),
         }
       }),
     ).then(
@@ -110,23 +98,8 @@ function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellP
     }
   }, [day, members, todayApi])
 
-  const fallbackSummaries = useMemo(
-    () =>
-      members.map((member) => ({
-        id: member.id,
-        name: member.name,
-        isMedic: isMedicRole(member.role),
-        baselineHr: 70,
-        baselineBpSys: 120,
-        baselineBpDia: 80,
-        baselineSpo2: 98,
-        currentHr: 70,
-        currentBpSys: 120,
-        currentBpDia: 80,
-        currentSpo2: 98,
-      })),
-    [members],
-  )
+  // Until Today data arrives: names and roles only, no vitals (never invented numbers).
+  const fallbackSummaries = useMemo(() => members.map(summaryOf), [members])
   const activeSummaries =
     summaries.length === members.length && summaries.every((summary, index) => summary.id === members[index]?.id)
       ? summaries
@@ -138,6 +111,17 @@ function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellP
     </EmergencyProvider>
   )
 }
+
+const summaryOf = (member: { id: string; name: string; role: string }): CrewMemberSummary => ({
+  id: member.id,
+  name: member.name,
+  role: member.role,
+  isMedic: isMedicRole(member.role),
+  currentHr: null,
+  currentBpSys: null,
+  currentBpDia: null,
+  currentSpo2: null,
+})
 
 function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNoteForEarth, onSendSummary, outbox, send, commsDelaySec, demo }: Omit<AppShellProps, 'crewApi'>) {
   const { board, selected, addMember } = useCrew()
@@ -208,7 +192,7 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
     )
   const slot = (key: 'checkin' | 'radiation', label: string) => {
     const render = screens[key]
-    return needsPerson(render ? render({ crewId: id!, day, go, noteForEarth: (m) => noteForEarth(id!, m) }) : <Note title={label} text="This screen is being built by the team." />)
+    return needsPerson(render ? render({ crewId: id!, day, go, noteForEarth: (m) => noteForEarth(id!, m), emergency: triggerEmergency }) : <Note title={label} text="This screen is being built by the team." />)
   }
 
   return (

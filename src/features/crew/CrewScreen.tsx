@@ -253,10 +253,10 @@ interface CardProps {
   onOpen: () => void
   onRemove: () => void
   emergencyVitals?: {
-    currentHr: number
-    currentBpSys: number
-    currentBpDia: number
-    currentSpo2: number
+    currentHr: number | null
+    currentBpSys: number | null
+    currentBpDia: number | null
+    currentSpo2: number | null
   }
 }
 
@@ -277,7 +277,7 @@ function PersonCard({ m, i, day, viewing, onOpen, onRemove, emergencyVitals }: C
         </div>
         <span className={`${t.pill} ${c.statePill}`}>
           {emergencyVitals ? (
-            `HR ${emergencyVitals.currentHr} · BP ${emergencyVitals.currentBpSys}/${emergencyVitals.currentBpDia} · O₂ ${emergencyVitals.currentSpo2}%`
+            `HR ${emergencyVitals.currentHr ?? '—'} · BP ${emergencyVitals.currentBpSys ?? '—'}/${emergencyVitals.currentBpDia ?? '—'} · O₂ ${emergencyVitals.currentSpo2 ?? '—'}%`
           ) : (
             <>
               <StatusIcon level={m.status} />
