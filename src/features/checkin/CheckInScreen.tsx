@@ -6,7 +6,7 @@ import { StatusIcon } from '../today/StatusIcon'
 import t from '../today/today.module.css'
 import s from './checkin.module.css'
 import {
-  CONTEXT_LABEL, DEMO_FORM, EMPTY_FORM, FIELDS, atypical, fromAnswers, outcomeHeadline, toAnswers,
+  CONTEXT_LABEL, DEMO_FORM, EMPTY_FORM, FIELDS, atypical, fromAnswers, outcomeHeadline, savedSummary, toAnswers,
   type CheckInAnswers, type ContextField, type FieldId, type FormState, type Outcome,
 } from './model'
 
@@ -111,7 +111,7 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone,
         <Result
           outcomes={result}
           first={name.split(' ')[0]}
-          count={count}
+          summary={savedSummary(answers)}
           onDone={onDone}
           onEdit={() => setResult(null)}
           onEmergency={onEmergency}
@@ -316,8 +316,8 @@ function Pills<V extends string | number>({ label, ariaLabel, value, options, on
 const GUIDE_ID: Record<string, string> = { sys: 'bp_sys', dia: 'bp_dia' }
 
 /** After saving: the most urgent change, what to do now and how to escalate (PRD F-03, 3-step ladder). */
-function Result({ outcomes, first, count, onDone, onEdit, onEmergency, onWhy, onNoteForEarth }: {
-  outcomes: Outcome[]; first: string; count: number; onDone?: () => void; onEdit: () => void
+function Result({ outcomes, first, summary, onDone, onEdit, onEmergency, onWhy, onNoteForEarth }: {
+  outcomes: Outcome[]; first: string; summary: ReturnType<typeof savedSummary>; onDone?: () => void; onEdit: () => void
 } & Pick<CheckInScreenProps, 'onEmergency' | 'onWhy' | 'onNoteForEarth'>) {
   const [top, ...rest] = outcomes
   const level = top?.level ?? 'ok'
@@ -339,7 +339,8 @@ function Result({ outcomes, first, count, onDone, onEdit, onEmergency, onWhy, on
         </h2>
         <p className={t.nextText}>
           {top && flagged && top.rule && top.rule !== outcomeHeadline(top) ? `${top.rule} ` : ''}
-          {!top && `${count} reading${count === 1 ? '' : 's'} saved and compared with ${first}'s usual. Keep following your plan.`}
+          {!top && `${summary.saved} saved and compared with ${first}'s usual. ${summary.empty ? `${summary.empty} ` : ''}Keep following your plan.`}
+          {top && summary.empty && `${summary.saved} saved. ${summary.empty}`}
         </p>
         {act && (
           <p className={s.doNow}>
