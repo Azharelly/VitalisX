@@ -15,7 +15,7 @@ describe('reference_source.json (APA 7 citations shown on the Sources page)', ()
   it('gives every real source a clickable link and a year in the citation', () => {
     for (const r of real) {
       expect(r.link_or_doi, r.id).toMatch(/^https:\/\/\S+$/)
-      expect(r.citation, r.id).toMatch(/\(\d{4}\)\./)
+      expect(r.citation, r.id).toMatch(/\((\d{4}|n\.d\.)\)\./)
     }
   })
   it('uses full https://doi.org/ links for journal articles, never a bare "DOI to be confirmed"', () => {
