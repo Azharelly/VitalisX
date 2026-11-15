@@ -24,7 +24,7 @@ error, bad data). It throws only if both fail.
 It never blocks the screen: errors are a state.
 
 Live calls use one request per event type (FLR, CME, GST, SEP) over the last 30 days, with an 8 s timeout.
-The key is `VITE_NASA_API_KEY`, or NASA's shared `DEMO_KEY`, which is rate limited (HTTP 429).
+No API key is needed: since 30 Sep 2026 NASA serves DONKI at `ccmc.gsfc.nasa.gov/DONKI-API/get/<type>` The site's Content Security Policy (`vercel.json` and `netlify.toml`) must list that host in `connect-src`, or the browser blocks the call and the app silently falls back to the saved snapshot.
 
 ## 2. The snapshot (`DonkiSnapshot`)
 
