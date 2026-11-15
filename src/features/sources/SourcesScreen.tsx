@@ -6,7 +6,7 @@ import { ALERT_Z, WATCH_MAX_GAP_DAYS, WATCH_RUN, WATCH_Z } from '../../engine/ev
 import { WATCH_PROJECTION_FRACTION } from '../../engine/radiation'
 import t from '../today/today.module.css'
 import s from './sources.module.css'
-import { AI_USE_DECLARATION, LIBRARIES } from './content'
+import { AI_USE_DECLARATION, CONTRIBUTORS, LIBRARIES } from './content'
 
 const isLink = (x: string) => /^https?:\/\//.test(x.trim())
 /** "Vol. 1 Rev C, page 41: https://…" → the text before the link, and the link. */
@@ -172,6 +172,18 @@ export function SourcesScreen() {
           )}
         </section>
       )}
+
+      <section className={s.card} aria-labelledby="src-team">
+        <h2 id="src-team" className={s.h2}>
+          Contributors
+        </h2>
+        <p className={t.muted}>VitalisX was designed and built by:</p>
+        <ul className={s.people}>
+          {CONTRIBUTORS.map((name) => (
+            <li key={name}>{name}</li>
+          ))}
+        </ul>
+      </section>
     </section>
   )
 }
