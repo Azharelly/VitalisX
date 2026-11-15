@@ -1,7 +1,6 @@
 # DONKI contract for the front
 
-What the Radiation screen (and anyone else) can rely on from the solar-event data. Everything here is plain
-TypeScript with no React; the UI only draws what these functions return.
+What the Radiation screen (and anyone else) can rely on from the solar-event data. Everything here is plain TypeScript with no React; the UI only draws what these functions return.
 
 ## 1. Loading the data
 
@@ -10,8 +9,7 @@ const load = await loadDonki()   // src/engine/donkiRadiation.ts
 // or in a component: const state = useDonki()  // src/features/useDonki.ts
 ```
 
-`loadDonki()` tries NASA live first and falls back to the saved snapshot on ANY failure (offline, timeout, HTTP
-error, bad data). It throws only if both fail.
+`loadDonki()` tries NASA live first and falls back to the saved snapshot on ANY failure (offline, timeout, HTTP error, bad data). It throws only if both fail.
 
 | Field | Meaning |
 |---|---|
@@ -30,20 +28,15 @@ No API key is needed. Since 30 September 2026, NASA has served DONKI at ccmc.gsf
 ## 2. The snapshot (`DonkiSnapshot`)
 
 - `source`: where it came from. `generated_at`: capture date, "yyyy-mm-dd". The UI must show it.
-- `ranges`: window of each list, "yyyy-mm-dd/yyyy-mm-dd". **They are not the same for all lists.**
-  In the bundled snapshot (captured 2026-11-14) flares, CME and geomagnetic storms cover 2026-10-01 to
-  2026-11-14, but SEP covers only 2026-07-17 to 2026-09-15.
+- `ranges`: window of each list, "yyyy-mm-dd/yyyy-mm-dd". **They are not the same for all lists.** In the bundled snapshot (captured 2026-11-14) flares, CME and geomagnetic storms cover 2026-10-01 to 2026-11-14, but SEP covers only 2026-07-17 to 2026-09-15.
 - `flares`, `cme`, `gst`, `sep`: slimmed records (only the fields we use; the raw files stay in `public/data`).
 
-Helpers in `src/data/donki.ts` (pure): `summary`, `latestFlares(snap, n)`, `sepEpisodes`, `lastSep`,
-`strongestFlare`, `fastestCme`, `strongestStorm`, `strongestEvents`. Counts of SEP are **records**, not
-episodes: one episode produces several records, so use `sepEpisodes()` to say how often it happens.
+Helpers in `src/data/donki.ts` (pure): `summary`, `latestFlares(snap, n)`, `sepEpisodes`, `lastSep`, `strongestFlare`, `fastestCme`, `strongestStorm`, `strongestEvents`. Counts of SEP are **records**, not episodes: one episode produces several records, so use `sepEpisodes()` to say how often it happens.
 
 ### SEP episode (`SepEpisode`)
 
 Records that share a linked flare or CME belong to the same episode (our own grouping rule, not NASA's).
-Fields: `id`, `start`, `end` (UTC), `recordCount`, `channels`, `over10MeV`, `over100MeV` (an observing
-instrument, not a model, reported that channel), `linkedEventIds`, `links` (DONKI pages).
+Fields: `id`, `start`, `end` (UTC), `recordCount`, `channels`, `over10MeV`, `over100MeV` (an observing instrument, not a model, reported that channel), `linkedEventIds`, `links` (DONKI pages).
 
 ## 3. Active solar storm
 
@@ -72,14 +65,11 @@ sepWarning(snapshot, now, windowHours = 24): { level, episode, rule }
 
 - `rule` is a plain-language reason for the "Why?" view. `episode` is the one behind a Watch or an Alert.
 - **This is our own design rule, not a NASA threshold.** The text must say so (the `rule` string already does).
-- With the bundled snapshot the SEP window ends 2026-09-15 and `asOf` is the capture day, so offline
-  `sepWarning` returns `no_data`. Live data (`origin: 'live'`) can return the other three.
+- With the bundled snapshot the SEP window ends 2026-09-15 and `asOf` is the capture day, so offline `sepWarning` returns `no_data`. Live data (`origin: 'live'`) can return the other three.
 - `sepWarning` is not wired to a screen yet. The Radiation tab uses `activeSepEpisode` today.
 
 ## 5. Labels
 
-- `DONKI_NOTE` (donkiRadiation.ts): DONKI reports solar events observed from near Earth. On Mars transit it is a
-  proxy for what the Sun is doing, not a measurement of the dose on board.
+- `DONKI_NOTE` (donkiRadiation.ts): DONKI reports solar events observed from near Earth. On Mars transit it is a proxy for what the Sun is doing, not a measurement of the dose on board.
 - Show `origin` (live or saved) and the capture date `generated_at` next to the data.
-- The 250 mSv figure is a design target for the reference solar particle event (NASA-STD-3001 Vol. 1, V1 4031),
-  not a personal dose limit.
+- The 250 mSv figure is a design target for the reference solar particle event (NASA-STD-3001 Vol. 1, V1 4031), not a personal dose limit.
