@@ -335,6 +335,12 @@
   font-size: 0.95rem;
 }
 
+.footerActions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .linkBtn {
   background: none;
   border: none;
