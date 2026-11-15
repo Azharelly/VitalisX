@@ -106,6 +106,7 @@ Plausible ranges catch typos (370 for 37.0) and are **not** clinical limits; tho
   `GUIDANCE` (`src/data/guidance.ts`), then **Get help now** (Alert only), **Why am I seeing this?**,
   **Message flight surgeon**, the 3-step ladder, and "Also: …" for the other changes.
 - Nothing changed: "Nothing new to act on", N readings saved.
+- Anything left empty is named: "12 of 13 readings saved … Temperature was left empty." (also under an alert).
 - **Back to Today** remounts Today, so it refetches and shows the new state.
 
 ## Try it

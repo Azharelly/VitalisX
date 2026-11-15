@@ -1,13 +1,19 @@
 import type { EmergencyCondition, EmergencyStep } from './model';
 
+/** In the order the crew sees them: the most time-critical first. */
 export const CONDITION_LABELS: Record<EmergencyCondition, string> = {
-  bleeding: 'Bleeding',
-  collapsed: 'Collapsed',
-  not_breathing: 'Not breathing',
   cardiac_arrest: 'No pulse',
+  not_breathing: 'Not breathing',
+  collapsed: 'Collapsed',
+  bleeding: 'Bleeding',
+  chest_pain: 'Chest pain',
   very_low_sugar: 'Very low sugar',
+  fever: 'Fever',
   other: 'Other',
 };
+
+/** Dossier R-01: every guide step is shown with this label until the mission's medical lead signs it off. */
+export const EXAMPLE_CONTENT_NOTE = 'Example content, not clinically validated. The Medical Checklist wins.';
 
 /**
  * Every protocol ends with the same hand-off: reassess, then tell the Flight Surgeon.
@@ -16,9 +22,9 @@ export const CONDITION_LABELS: Record<EmergencyCondition, string> = {
 const reassessStep = (id: string, stepNumber: number, checklistRefId: string): EmergencyStep => ({
   id,
   stepNumber,
-  title: 'Reassess, then send the packet to the Flight Surgeon.',
+  title: 'Reassess, then update the flight surgeon.',
   detail:
-    'Recheck responsiveness, breathing and vitals. Send the structured packet from Message to Ground. Keep treating while you wait: the reply will be delayed.',
+    'Recheck responsiveness, breathing and vitals, and record them. Send the message to the flight surgeon. Keep treating while you wait: the reply is delayed.',
   checklistRefId,
   vitalsCheckRequired: true,
 });
@@ -189,6 +195,82 @@ export const EMERGENCY_PROTOCOLS: Record<EmergencyCondition, EmergencyStep[]> = 
       vitalsCheckRequired: true,
     },
     reassessStep('sug-5', 5, 'MED-CHK-COM-05'),
+  ],
+  chest_pain: [
+    {
+      id: 'chp-1',
+      stepNumber: 1,
+      title: 'Stop all activity. Anchor the patient and keep them still.',
+      detail: 'Strap them to the medical restraint, loosen tight clothing and keep them calm. Ask when it started and what it feels like.',
+      checklistRefId: 'MED-CHK-CHP-01',
+      escalations: [
+        { to: 'cardiac_arrest', label: 'No pulse → start CPR' },
+        { to: 'collapsed', label: 'Stops responding → Collapsed' },
+      ],
+    },
+    {
+      id: 'chp-2',
+      stepNumber: 2,
+      title: 'Check vitals and attach the heart monitor.',
+      detail: 'Heart rate, blood pressure and oxygen. Compare them with their own in-flight usual, not Earth numbers.',
+      checklistRefId: 'MED-CHK-CHP-02',
+      vitalsCheckRequired: true,
+      escalations: [{ to: 'not_breathing', label: 'Not breathing → rescue breaths' }],
+    },
+    {
+      id: 'chp-3',
+      stepNumber: 3,
+      title: 'Open the Medical Checklist for chest pain and follow it.',
+      detail: 'Any medicine and its dose come from the Checklist only. This app gives no doses.',
+      checklistRefId: 'MED-CHK-CHP-03',
+    },
+    {
+      id: 'chp-4',
+      stepNumber: 4,
+      title: 'Keep the AED close and stay with the patient.',
+      detail: 'Recheck vitals every 5 minutes. Pain spreading, sweating or breathlessness: tell the Flight Surgeon now.',
+      checklistRefId: 'MED-CHK-CHP-04',
+      vitalsCheckRequired: true,
+      escalations: [{ to: 'cardiac_arrest', label: 'No pulse → start CPR' }],
+    },
+    reassessStep('chp-5', 5, 'MED-CHK-COM-05'),
+  ],
+  fever: [
+    {
+      id: 'fev-1',
+      stepNumber: 1,
+      title: 'Measure the temperature and compare it with their usual.',
+      detail: 'Bodies run warmer in flight, so their own in-flight usual matters more than 37 °C. Note the time.',
+      checklistRefId: 'MED-CHK-FEV-01',
+      vitalsCheckRequired: true,
+    },
+    {
+      id: 'fev-2',
+      stepNumber: 2,
+      title: 'Rest, fluids, and keep some distance from the crew.',
+      detail: 'In a closed cabin an infection spreads easily. Mask on if the Checklist says so, and use a separate sleep area if possible.',
+      checklistRefId: 'MED-CHK-FEV-02',
+    },
+    {
+      id: 'fev-3',
+      stepNumber: 3,
+      title: 'Look for danger signs.',
+      detail: 'Trouble breathing, confusion, a stiff neck, a new rash, or a very fast heart rate.',
+      checklistRefId: 'MED-CHK-FEV-03',
+      escalations: [
+        { to: 'not_breathing', label: 'Not breathing → rescue breaths' },
+        { to: 'collapsed', label: 'Confused or not responding → Collapsed' },
+      ],
+    },
+    {
+      id: 'fev-4',
+      stepNumber: 4,
+      title: 'Open the Medical Checklist for fever and follow it.',
+      detail: 'Any medicine and its dose come from the Checklist only. Recheck the temperature in 30 minutes.',
+      checklistRefId: 'MED-CHK-FEV-04',
+      vitalsCheckRequired: true,
+    },
+    reassessStep('fev-5', 5, 'MED-CHK-COM-05'),
   ],
   other: [
     {

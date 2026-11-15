@@ -1,3 +1,4 @@
+import { initialsOf } from '../crew/model.ts'
 import { Avatar } from '../crew/Avatar'
 import { useState } from 'react'
 import { BodyFigure, ZoneButton } from './BodyFigure'
@@ -56,7 +57,7 @@ export function TodayScreen({ data, ...actions }: { data: TodayView } & TodayAct
   const shown = ranked.filter((r) => !zone || r.zone === zone)
   const flagged = shown.filter((r) => isFlagged(r.level))
   const normal = shown.filter((r) => !isFlagged(r.level) && r.level !== 'none')
-  const initials = data.person.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+  const initials = initialsOf(data.person.name) // same rule as the crew row
 
   return (
     <section className={s.root} aria-labelledby="today-viewing">

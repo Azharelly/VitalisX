@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { VitalisDB } from './db';
-import { loadLatestEmergencySession, saveEmergencySession } from './emergencySessions';
+import { loadEndedEmergencySessions, loadLatestEmergencySession, saveEmergencySession } from './emergencySessions';
 import * as flow from '../features/emergency/session';
 import type { CrewRef } from '../features/emergency/session';
 
@@ -53,5 +53,14 @@ describe('emergency session persistence', () => {
     await saveEmergencySession(older, database);
 
     expect((await loadLatestEmergencySession(database))?.id).toBe(newer.id);
+  });
+
+  it('lists only finished emergencies, newest first', async () => {
+    const first = flow.endSession(flow.createSession(crew, '1', T0).session, T0 + 60_000).session;
+    const second = flow.endSession(flow.createSession(crew, '2', T0 + 120_000).session, T0 + 180_000).session;
+    const running = flow.createSession(crew, '1', T0 + 240_000).session;
+    for (const s of [first, running, second]) await saveEmergencySession(s, database);
+
+    expect((await loadEndedEmergencySessions(database)).map((s) => s.id)).toEqual([second.id, first.id]);
   });
 });

@@ -1,471 +1,619 @@
+/* Emergency (F-08). Same dark theme as the rest of the app (variables from today.module.css .theme);
+   colour only where it means something: the alert bar, the current step, flagged readings. */
+
 .overlay {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: #faf9f6;
-  color: #16181d;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  font-family: 'Inter', system-ui, sans-serif;
+  overscroll-behavior: contain;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 var(--sans);
+  text-align: left;
 }
 
-.emergencyBanner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.85rem 1rem;
-  background: #f4b8b4;
-  border-bottom: 2px solid #16181d;
-  color: #16181d;
+.overlay *,
+.overlay *::before,
+.overlay *::after {
+  box-sizing: border-box;
 }
 
-.persistenceWarning {
+.overlay :where(h1, h2, h3, p, ol, ul, dl, dd) {
   margin: 0;
-  padding: 0.75rem 1rem;
-  background: #fef2f2;
-  color: #991b1b;
-  border-bottom: 2px solid #b91c1c;
-  font-weight: 700;
 }
 
-.bannerLeft {
+/* ── Top bar (+ the vitals-due strip), always visible ── */
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 1.05rem;
+  gap: 12px;
+  min-height: 60px;
+  padding: 8px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--alert) 55%, transparent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--alert) 30%, var(--bg)), color-mix(in srgb, var(--alert) 14%, var(--bg)));
 }
 
-.stopOctagon {
-  font-size: 1.25rem;
+.barEnded {
+  border-bottom-color: var(--line-strong);
+  background: var(--surface);
 }
 
-.bannerTimer {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 1.45rem;
-  font-weight: 700;
+.barMark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--alert) 22%, transparent);
 }
 
-.bannerRight {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.barTitle {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
 }
 
-.loggingBadge {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.8rem;
-  padding: 0.2rem 0.5rem;
-  border: 1.5px solid #16181d;
-  border-radius: 4px;
-  background: #fff;
+.barTitle strong {
+  font: 700 13px/1.3 var(--heading);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.wallToggleBtn,
-.minimizeBtn {
-  padding: 0.45rem 0.7rem;
-  border: 1.5px solid #16181d;
-  border-radius: 6px;
-  background: #fff;
+.barWho {
+  overflow: hidden;
+  font-size: 16px;
   font-weight: 600;
-  cursor: pointer;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.unreadReplyBanner {
+.dueStrip {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.85rem 1rem;
-  background: #fde08d;
-  border-bottom: 2px solid #16181d;
-}
-
-.readBackBtn {
-  padding: 0.55rem 0.9rem;
-  background: #16181d;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.subNav {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.65rem 1rem;
-  border-bottom: 1.5px solid #d0d3da;
-  background: #f1efe9;
-}
-
-.subNavBtn,
-.subNavActive {
-  flex: 1;
-  padding: 0.65rem;
-  border-radius: 8px;
-  border: 1.5px solid #16181d;
+  gap: 12px;
+  padding: 6px 8px 6px 16px;
+  border-bottom: 1px solid var(--alert);
+  background: color-mix(in srgb, var(--alert) 18%, var(--bg));
   font-weight: 600;
-  cursor: pointer;
 }
 
-.subNavBtn {
-  background: #fff;
-  color: #16181d;
+.dueStrip > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
 }
 
-.subNavActive {
-  background: #16181d;
-  color: #fff;
+.dueBtn {
+  flex: none;
+  white-space: nowrap;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font-weight: 700;
 }
 
-.mainBody {
-  flex: 1;
-  max-width: 720px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 1rem;
+.timer {
+  flex: none;
+  font: 600 24px/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.barBtn {
+  flex: none;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg) 40%, transparent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.barBtn:hover {
+  background: var(--surface-2);
+}
+
+/* ── Fixed notice and warnings ── */
+.notice {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.warning,
+.reply {
+  margin: 16px 16px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--watch);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--watch) 10%, var(--surface));
+}
+
+.reply {
   display: flex;
-  flex-direction: column;
-  gap: 1.15rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 20px;
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
 }
 
-.wallGrid {
+/* ── Page body ── */
+.body {
   flex: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+}
+
+.page {
   display: grid;
-  grid-template-columns: 240px 1fr 280px;
-  gap: 1rem;
-  padding: 1rem;
+  grid-template-columns: minmax(0, 1fr); /* never wider than the screen (inputs have a built-in width) */
+  gap: 20px;
+  max-width: 760px;
 }
 
-.sectionTitle {
-  margin: 0 0 0.5rem;
-  font-size: 1.05rem;
-  font-weight: 700;
+.title {
+  font: 600 28px/1.2 var(--heading);
+  text-wrap: balance;
 }
 
-.chipGrid {
+.title:focus,
+.stepTitle:focus {
+  outline: none; /* focused on open so screen readers start here; not a control */
+}
+
+.subtitle {
+  font: 600 18px/1.3 var(--heading);
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ── Who and what ── */
+.tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
 }
 
-.chip,
-.chipSelected {
-  min-height: 54px;
-  padding: 0.75rem;
-  border-radius: 8px;
-  border: 2px solid #16181d;
-  font-size: 1.05rem;
-  font-weight: 700;
-  cursor: pointer;
+.tile {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 16px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.tile:hover {
+  background: var(--surface-2);
+}
+
+.tile[aria-pressed='true'] {
+  border: 2px solid var(--alert);
+  background: color-mix(in srgb, var(--alert) 12%, var(--surface));
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  font: 600 20px/1 var(--heading);
+}
+
+.tileName {
+  font-weight: 600;
+}
+
+.tileRole {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .chip {
+  min-height: 56px;
+  padding: 0 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.chip:hover {
+  border-color: var(--alert);
+  background: color-mix(in srgb, var(--alert) 12%, var(--surface));
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--alert);
+  background: color-mix(in srgb, var(--alert) 22%, var(--surface));
+}
+
+/* ── Running: step on the left, everything else on the right (stacked on phones) ── */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(300px, 4fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.stepCard {
+  display: grid;
+  gap: 16px;
+  padding: 28px;
+}
+
+.stepTitle {
+  font: 600 clamp(26px, 4vw, 40px)/1.15 var(--heading);
+  text-wrap: balance;
+}
+
+.stepDetail {
+  max-width: 60ch;
+  color: color-mix(in srgb, var(--text) 85%, var(--muted));
+  font-size: 17px;
+}
+
+.zeroG {
+  padding: 10px 14px;
+  border-left: 3px solid var(--watch);
+  border-radius: 0 12px 12px 0;
+  background: color-mix(in srgb, var(--watch) 9%, transparent);
+}
+
+.doneBtn {
+  min-height: 72px;
+  padding: 0 28px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--bg);
+  font: 700 20px/1.2 var(--heading);
+}
+
+.doneBtn:hover {
   background: #fff;
-  color: #16181d;
 }
 
-.chipSelected {
-  background: #16181d;
-  color: #fff;
+.doneBtn:disabled {
+  opacity: 0.5;
 }
 
-.roleList {
+.escalations {
+  display: grid;
+  gap: 8px;
+}
+
+.escalateBtn {
+  min-height: 52px;
+  padding: 8px 18px;
+  border: 1px solid var(--alert);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--alert) 10%, transparent);
+  color: var(--text);
+  font-weight: 600;
+  text-align: left;
+}
+
+.escalateBtn:hover {
+  background: color-mix(in srgb, var(--alert) 20%, transparent);
+}
+
+.fine,
+.fineTight {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.side {
+  display: grid;
+  gap: 16px;
+}
+
+.card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+}
+
+.cardHead {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.card > span:first-child {
+  margin: 0;
+}
+
+.due {
+  color: var(--alert);
+  font-weight: 600;
 }
 
 .roleRow {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  min-height: 52px;
-  padding: 0.75rem 1rem;
-  border: 2px solid #16181d;
-  border-radius: 8px;
-  background: #fff;
-  font-size: 1rem;
-  cursor: pointer;
-}
-
-.stepCard {
-  background: #fff;
-  border: 2px solid #16181d;
-  border-radius: 12px;
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.stepHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 600;
-  color: #4b5262;
-}
-
-.stepTitle {
-  margin: 0;
-  font-size: 1.9rem;
-  line-height: 1.2;
-  font-weight: 800;
-}
-
-.stepDetail {
-  margin: 0;
-  font-size: 1.1rem;
-  line-height: 1.45;
-  color: #2c313c;
-}
-
-.zeroGCallout {
-  margin: 0;
-  padding: 0.65rem 0.85rem;
-  background: #eef4fb;
-  border-left: 4px solid #2b6cb0;
-  font-weight: 600;
-}
-
-/* Oversized primary target for floating/gloved interaction (CREW 10 #3, CREW 12 #1) */
-.giantDoneBtn {
-  min-height: 78px;
-  width: 100%;
-  background: #16181d;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-size: 1.45rem;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.secondaryStepRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-}
-
-.secondaryBtn,
-.primaryActionBtn {
-  min-height: 52px;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  border: 2px solid #16181d;
-  font-size: 1.05rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.secondaryBtn {
-  background: #fff;
-  color: #16181d;
-}
-
-.primaryActionBtn {
-  background: #16181d;
-  color: #fff;
-  width: 100%;
-}
-
-.checklistHandoffBtn {
-  min-height: 48px;
-  padding: 0.65rem 0.9rem;
-  background: #f5f5f7;
-  border: 1.5px dashed #16181d;
-  border-radius: 8px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-}
-
-.checklistNotice {
-  padding: 0.65rem 0.85rem;
-  background: #fef3c7;
-  border: 1.5px solid #92400e;
-  border-radius: 6px;
-  font-size: 0.95rem;
-}
-
-.vitalsPanel,
-.packetCard,
-.wallSidebar {
-  background: #fff;
-  border: 2px solid #16181d;
-  border-radius: 10px;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.packetHistory {
-  padding: 0.9rem 1rem;
-  border: 1.5px solid #d0d3da;
-  border-radius: 8px;
-  background: #fff;
-}
-
-.packetHistory ol {
-  display: grid;
-  gap: 0.6rem;
-  margin: 0.65rem 0 0;
-  padding-left: 1.25rem;
-}
-
-.packetHistory li {
-  padding-left: 0.2rem;
-}
-
-.packetHistory li span {
-  display: block;
-}
-
-.packetHistory li span:first-child {
-  font-weight: 700;
-}
-
-.vitalsHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1.5px solid #e2e5ec;
-  padding-bottom: 0.5rem;
-}
-
-.nextCheckTag {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.85rem;
-}
-
-.vitalRow {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 0.75rem;
-  align-items: center;
-  font-size: 1.05rem;
-}
-
-.deltaWarn {
-  font-weight: 700;
-  color: #b45309;
-}
-
-.deltaNeutral {
-  color: #4b5262;
-}
-
-.groundFooterBar {
-  margin-top: 0.5rem;
-  padding-top: 0.6rem;
-  border-top: 1.5px solid #e2e5ec;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.95rem;
-}
-
-.footerActions {
-  display: flex;
-  flex-direction: column;
   gap: 12px;
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  text-align: left;
+}
+
+.roleRow:last-of-type {
+  border-bottom: 0;
+}
+
+.vitals {
+  display: grid;
+  padding: 0;
+  list-style: none;
+}
+
+.vital {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.vital:last-child {
+  border-bottom: 0;
+}
+
+/* A value typed in during the emergency that sits outside the person's usual band. */
+.vitalOut .vitalValue strong {
+  color: var(--alert);
+}
+
+.vital > span:first-child {
+  min-width: 0;
+}
+
+.vitalRight {
+  display: grid;
+  justify-items: end;
+  flex: none;
+}
+
+.outside {
+  color: var(--alert);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.usual {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.vitalValue {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.vitalValue strong {
+  font-size: 18px;
 }
 
 .linkBtn {
-  background: none;
-  border: none;
-  text-decoration: underline;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.delayTimeline {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
-  padding: 0.85rem;
-  background: #fff;
-  border: 2px solid #16181d;
-  border-radius: 8px;
-  text-align: center;
-}
-
-.delayTimeline span {
-  display: block;
-  font-size: 0.85rem;
-  color: #4b5262;
-}
-
-.delayTimeline strong {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 1.2rem;
-}
-
-.autonomousReminder {
-  margin: 0;
-  font-weight: 700;
-  text-align: center;
-}
-
-.addQuestionRow {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.questionInput {
-  flex: 1;
-  padding: 0.65rem;
-  border: 2px solid #16181d;
-  border-radius: 8px;
-  font-size: 1rem;
-}
-
-.auditList {
-  list-style: none;
-  margin: 0;
+  justify-self: start;
+  min-height: 44px;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
 }
 
-.auditRow {
-  display: flex;
-  gap: 0.75rem;
-  padding: 0.6rem 0.75rem;
-  background: #fff;
-  border: 1.5px solid #d0d3da;
-  border-radius: 6px;
+/* ── Record vitals ── */
+.vitalsForm {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--surface-2);
 }
 
+.vitalsInputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.vitalInput {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.inputWrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 3.2em; /* same unit column for bpm, mmHg and %, so the boxes line up */
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+}
+
+.inputWrap .input {
+  width: 100%;
+  font-size: 18px; /* 16px or more stops iOS zooming in on focus */
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Same look as the check-in's Demo tag. */
+.endCard {
+  margin-top: 12px; /* set apart from Send, so the two are never mixed up */
+}
+
+.demoTag {
+  margin-right: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--watch) 18%, transparent);
+  color: var(--watch);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.formError {
+  color: var(--alert);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ── Message and log ── */
+.packet {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+}
+
+.packet dt {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.questions,
+.sent {
+  display: grid;
+  gap: 6px;
+  padding-left: 22px;
+}
+
+.sent li {
+  display: grid;
+}
+
+.addRow {
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.log {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.log li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+}
+
+/* ── Hold to end ── */
 .holdEndBtn {
   position: relative;
   overflow: hidden;
-  min-height: 54px;
   width: 100%;
-  border: 2px solid #16181d;
-  border-radius: 8px;
-  background: #fff;
-  color: #16181d;
-  font-size: 1rem;
-  font-weight: 700;
+  min-height: 52px;
+  border: 1px solid color-mix(in srgb, var(--alert) 60%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
   cursor: pointer;
   user-select: none;
   touch-action: none;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .holdFill {
   position: absolute;
   inset: 0 auto 0 0;
   width: 0;
-  background: #ef4444;
-  opacity: 0.38;
+  background: var(--alert);
+  opacity: 0.45;
   transition: none;
   pointer-events: none;
 }
@@ -479,29 +627,108 @@
   position: relative;
   z-index: 1;
 }
-/* --- added with the protocol/flow fixes --- */
-.escalationRow {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+
+@media (max-width: 480px) {
+  .bar {
+    gap: 8px;
+    padding: 8px 12px;
+  }
+  /* Timer moves up next to EMERGENCY, so the second line has the whole width for who and what. */
+  .bar {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'mark kicker timer btn'
+      'mark who who btn';
+    column-gap: 8px;
+  }
+  .barMark { grid-area: mark; }
+  .barTitle { display: contents; }
+  .barTitle strong { grid-area: kicker; align-self: end; }
+  .barWho { grid-area: who; font-size: 15px; }
+  .timer { grid-area: timer; align-self: end; font-size: 14px; }
+  .barBtn { grid-area: btn; padding: 0 14px; }
+  .notice {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .body {
+    padding: 16px 12px 32px;
+  }
+  .title {
+    font-size: 24px;
+  }
+  .chip {
+    min-height: 52px;
+    padding: 0 18px;
+  }
+  .card {
+    padding: 16px;
+  }
+  .timer {
+    font-size: 20px;
+  }
+  .stepCard {
+    padding: 20px;
+  }
+  .doneBtn {
+    min-height: 64px;
+    font-size: 18px;
+  }
 }
 
-.escalateBtn {
-  min-height: 52px;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  border: 2px solid #b91c1c;
-  background: #fef2f2;
-  color: #7f1d1d;
-  font-size: 1.05rem;
-  font-weight: 700;
-  text-align: left;
-  cursor: pointer;
+@media (prefers-reduced-motion: reduce) {
+  .holdEndBtn[data-holding='true'] .holdFill {
+    transition: none;
+  }
 }
 
-.nextCheckOverdue {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #b91c1c;
+/* Compact person tiles on phones, and on any short screen (a phone held sideways),
+   so "What is happening?" is on screen without scrolling. */
+@media (max-width: 480px), (max-height: 500px) {
+  .tiles {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+  .tile {
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
+    align-items: center;
+    gap: 0 10px;
+    padding: 10px;
+    border-radius: 16px;
+    text-align: left;
+  }
+  .avatar {
+    grid-row: span 2;
+    width: 40px;
+    height: 40px;
+    margin: 0;
+    font-size: 15px;
+  }
+  .tileRole {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tileName {
+    line-height: 1.2;
+  }
+  .tileName {
+    font-size: 14px;
+  }
+  .tileRole {
+    font-size: 12px;
+  }
+}
+
+/* Short screens (a phone held sideways): the step and its Done button fit without scrolling. */
+@media (max-height: 500px) {
+  .notice { padding: 4px 16px; font-size: 12px; }
+  .body { padding: 10px 16px 24px; }
+  .stepCard { gap: 10px; padding: 16px 20px; }
+  .stepTitle { font-size: 22px; }
+  .stepDetail { font-size: 15px; }
+  .doneBtn { min-height: 56px; font-size: 17px; }
 }

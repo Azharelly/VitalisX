@@ -6,7 +6,7 @@ import { StatusIcon } from '../today/StatusIcon'
 import t from '../today/today.module.css'
 import s from './checkin.module.css'
 import {
-  CONTEXT_LABEL, DEMO_FORM, EMPTY_FORM, FIELDS, atypical, fromAnswers, outcomeHeadline, toAnswers,
+  CONTEXT_LABEL, DEMO_FORM, EMPTY_FORM, FIELDS, atypical, fromAnswers, outcomeHeadline, savedSummary, toAnswers,
   type CheckInAnswers, type ContextField, type FieldId, type FormState, type Outcome,
 } from './model'
 
@@ -52,7 +52,6 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone,
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [result, setResult] = useState<Outcome[] | null>(null)
-  const [blankLabels, setBlankLabels] = useState<string[]>([])
   const busy = useRef(false) // a double click lands before React disables the button
 
   const { answers, errors } = toAnswers(form)
@@ -80,7 +79,6 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone,
     setSaving(true)
     setSaveError('')
     try {
-      setBlankLabels((Object.keys(FIELDS) as FieldId[]).filter((id) => !(form.text[id] ?? '').trim()).map((id) => FIELDS[id].label))
       setResult(await onSave(answers))
       setEditing(true)
       setWarnings([])
@@ -113,8 +111,7 @@ export function CheckInScreen({ name, day, existing, usual = {}, onSave, onDone,
         <Result
           outcomes={result}
           first={name.split(' ')[0]}
-          count={count}
-          blanks={blankLabels}
+          summary={savedSummary(answers)}
           onDone={onDone}
           onEdit={() => setResult(null)}
           onEmergency={onEmergency}
@@ -319,8 +316,8 @@ function Pills<V extends string | number>({ label, ariaLabel, value, options, on
 const GUIDE_ID: Record<string, string> = { sys: 'bp_sys', dia: 'bp_dia' }
 
 /** After saving: the most urgent change, what to do now and how to escalate (PRD F-03, 3-step ladder). */
-function Result({ outcomes, first, count, blanks = [], onDone, onEdit, onEmergency, onWhy, onNoteForEarth }: {
-  outcomes: Outcome[]; first: string; count: number; blanks?: string[]; onDone?: () => void; onEdit: () => void
+function Result({ outcomes, first, summary, onDone, onEdit, onEmergency, onWhy, onNoteForEarth }: {
+  outcomes: Outcome[]; first: string; summary: ReturnType<typeof savedSummary>; onDone?: () => void; onEdit: () => void
 } & Pick<CheckInScreenProps, 'onEmergency' | 'onWhy' | 'onNoteForEarth'>) {
   const [top, ...rest] = outcomes
   const level = top?.level ?? 'ok'
@@ -342,13 +339,9 @@ function Result({ outcomes, first, count, blanks = [], onDone, onEdit, onEmergen
         </h2>
         <p className={t.nextText}>
           {top && flagged && top.rule && top.rule !== outcomeHeadline(top) ? `${top.rule} ` : ''}
-          {!top && `${count} reading${count === 1 ? '' : 's'} saved and compared with ${first}'s usual. Keep following your plan.`}
+          {!top && `${summary.saved} saved and compared with ${first}'s usual. ${summary.empty ? `${summary.empty} ` : ''}Keep following your plan.`}
+          {top && summary.empty && `${summary.saved} saved. ${summary.empty}`}
         </p>
-        {blanks.length > 0 && (
-          <p className={t.nextText} data-testid="ci-blanks">
-            Not saved (left blank): {blanks.join(', ')}. Tap Edit to add them.
-          </p>
-        )}
         {act && (
           <p className={s.doNow}>
             <strong>Do this now:</strong> {act}

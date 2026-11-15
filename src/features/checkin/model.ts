@@ -54,7 +54,7 @@ export function toAnswers(f: FormState): { answers: CheckInAnswers; errors: Part
     const { label, unit, min, max } = FIELDS[id]
     const v = parseNumber(f.text[id] ?? '')
     if (v === undefined) continue
-    if (Number.isNaN(v)) errors[id] = `${label}: type a number, like 36.6 or 36,6`
+    if (Number.isNaN(v)) errors[id] = `${label}: use digits only, with a dot or a comma for decimals`
     else if (v < min || v > max) errors[id] = `${label} must be between ${min} and ${max} ${unit}`
     else answers[id] = { value: v, ...(id in f.context ? { context: f.context[id as ContextField] } : {}) }
   }
@@ -127,6 +127,16 @@ export const METRIC_LABEL: Record<CheckInMetricId, string> = {
   ...Object.fromEntries(Object.entries(FIELDS).map(([id, f]) => [id, f.label])),
   sys: 'Blood pressure', dia: 'Blood pressure', mood: 'Mood', fluids: 'Fluids', symptoms: 'Symptoms', vision: 'Vision',
 } as Record<CheckInMetricId, string>
+
+/** "12 of 13 readings" and "Temperature was left empty." so the result says what was skipped. Blood pressure counts once in the note. */
+export function savedSummary(a: CheckInAnswers): { saved: string; empty: string } {
+  const total = Object.keys(METRIC_LABEL).length
+  const n = Object.keys(a).length
+  const empty = [...new Set((Object.keys(METRIC_LABEL) as CheckInMetricId[]).filter((id) => !a[id]).map((id) => METRIC_LABEL[id]))]
+  if (empty.length === 0) return { saved: `${n} readings`, empty: '' }
+  const list = empty.length === 1 ? empty[0] : `${empty.slice(0, -1).join(', ')} and ${empty[empty.length - 1]}`
+  return { saved: `${n} of ${total} reading${total === 1 ? '' : 's'}`, empty: `${list} ${empty.length === 1 ? 'was' : 'were'} left empty.` }
+}
 
 /** PRD 5.2 metric priority (1 = most urgent): breaks ties between outcomes of the same level. */
 const PRIORITY: Partial<Record<CheckInMetricId, number>> = { spo2: 1, glucose: 2, hr: 3, sys: 3, dia: 3, temp: 4, symptoms: 5, vision: 6 }

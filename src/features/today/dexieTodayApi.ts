@@ -141,7 +141,7 @@ function radiationEntry(ctx: Ctx, day: number): Entry {
   const pct = (v: number) => Math.round((v / 600) * 100)
   const note = r.recentSep
     ? 'Solar particle event recorded in the last 24 hours'
-    : `${pct(r.careerMsv)}% of the 600 mSv limit${r.projectionMsv === null ? '' : ` · ${Math.round(r.projectionMsv)} mSv (${pct(r.projectionMsv)}%) at arrival`}`
+    : `${pct(r.careerMsv)}% of the 600 mSv limit so far${r.projectionMsv === null ? '' : ` · ${Math.round(r.projectionMsv)} mSv (${pct(r.projectionMsv)}%) projected at arrival`}`
   const career = (d: number) => Math.round(careerDose(ctx.crew.prior_dose_msv, ctx.doses.filter((x) => x.mission_day <= d)))
   return {
     z: null,

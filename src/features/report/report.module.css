@@ -105,7 +105,7 @@
   font-size: 14px;
 }
 .events li:last-child { border-bottom: 0; }
-.eventDay { color: var(--muted); font-variant-numeric: tabular-nums; }
+.eventDay { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .eventLabel { font-weight: 500; }
 .eventLevel { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 13px; }
 .eventLevel.watch,
@@ -219,7 +219,7 @@
 
 @media (max-width: 640px) {
   .title { font-size: 24px; }
-  .events li { grid-template-columns: 56px minmax(0, 1fr) auto; }
+  .events li { grid-template-columns: 64px minmax(0, 1fr) auto; } /* "Day 139" on one line */
   .events li > :nth-child(3), .events li > :nth-child(4) { display: none; }
 }
 
@@ -232,3 +232,6 @@
 .hit { fill: transparent; cursor: pointer; }
 .dotActive { fill: none; stroke: var(--text); stroke-width: 1.5; pointer-events: none; }
 .readout { margin: 4px 0 0; min-height: 1.4em; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* Past emergencies of this person (the list itself is styled by the Messages page). */
+.emergencies { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }

@@ -13,11 +13,15 @@ import { StatusIcon } from '../today/StatusIcon'
 import { Today } from '../today/Today'
 import t from '../today/today.module.css'
 import s from './shell.module.css'
-import { TABS, onHashChange, readTab, type TabId } from './tabs.ts'
+import { TABS, onHashChange, readPage, type PageId, type TabId } from './tabs.ts'
 import { EmergencyProvider, useEmergency, type CrewMemberSummary } from '../emergency/EmergencyProvider'
 import { EmergencyScreen } from '../emergency/EmergencyScreen'
 import { isMedicRole } from '../emergency/roles'
-import { DEFAULT_COMMS_DELAY_SEC } from '../../data/outbox'
+import { DEFAULT_COMMS_DELAY_SEC, flushOutbox } from '../../data/outbox'
+import { MessagesScreen } from '../messages/MessagesScreen'
+import { SourcesScreen } from '../sources/SourcesScreen'
+import { tripOf } from '../messages/model'
+import { useEarthMessages } from '../messages/useEarthMessages'
 
 /** A teammate's screen. It receives the chosen person and mission day, and can switch tabs. */
 export type ScreenSlot = (ctx: {
@@ -26,6 +30,8 @@ export type ScreenSlot = (ctx: {
   go: (tab: TabId) => void
   /** Opens the Earth summary on Report (or only emits onNoteForEarth when there is no outbox). */
   noteForEarth: (metricId?: string) => void
+  /** Opens the emergency flow for this person ("Get help now"). */
+  emergency: () => void
 }) => ReactNode
 
 export interface AppShellProps extends ReportOutbox {
@@ -62,6 +68,7 @@ export function AppShell({ crewApi, day, ...rest }: AppShellProps) {
 const CONTENT_ID = 'vx-content'
 
 function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellProps, 'crewApi'>) {
+  const { outbox, send } = rest
   // One-way Earth delay in minutes, from mission config (via commsDelaySec); not a number baked into the UI.
   const oneWayDelayMinutes = (rest.commsDelaySec ?? DEFAULT_COMMS_DELAY_SEC) / 60
   const { board } = useCrew()
@@ -71,30 +78,16 @@ function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellP
   useEffect(() => {
     let live = true
     Promise.all(
-      members.map(async (member) => {
-        const data = await todayApi.getToday(member.id, day)
-        const values = new Map(data.readings.map((reading) => [reading.id, reading]))
-        const value = (id: string, fallback: number) => values.get(id)?.value ?? fallback
-        const baseline = (id: string, current: number) => {
-          const reading = values.get(id)
-          return reading?.usual ? (reading.usual[0] + reading.usual[1]) / 2 : current
-        }
-        const currentHr = value('hr', 70)
-        const currentBpSys = value('bp_sys', value('sys', 120))
-        const currentBpDia = value('bp_dia', value('dia', 80))
-        const currentSpo2 = value('spo2', 98)
+      members.map(async (member): Promise<CrewMemberSummary> => {
+        const today = await todayApi.getToday(member.id, day)
+        const value = (...ids: string[]) => today.readings.find((r) => ids.includes(r.id) && r.value !== null)?.value ?? null
         return {
-          id: member.id,
-          name: member.name,
-          isMedic: isMedicRole(member.role),
-          baselineHr: baseline('hr', currentHr),
-          baselineBpSys: baseline('bp_sys', baseline('sys', currentBpSys)),
-          baselineBpDia: baseline('bp_dia', baseline('dia', currentBpDia)),
-          baselineSpo2: baseline('spo2', currentSpo2),
-          currentHr,
-          currentBpSys,
-          currentBpDia,
-          currentSpo2,
+          ...summaryOf(member),
+          today,
+          currentHr: value('hr'),
+          currentBpSys: value('sys', 'bp_sys'),
+          currentBpDia: value('dia', 'bp_dia'),
+          currentSpo2: value('spo2'),
         }
       }),
     ).then(
@@ -110,42 +103,48 @@ function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellP
     }
   }, [day, members, todayApi])
 
-  const fallbackSummaries = useMemo(
-    () =>
-      members.map((member) => ({
-        id: member.id,
-        name: member.name,
-        isMedic: isMedicRole(member.role),
-        baselineHr: 70,
-        baselineBpSys: 120,
-        baselineBpDia: 80,
-        baselineSpo2: 98,
-        currentHr: 70,
-        currentBpSys: 120,
-        currentBpDia: 80,
-        currentSpo2: 98,
-      })),
-    [members],
-  )
+  // Until Today data arrives: names and roles only, no vitals (never invented numbers).
+  const fallbackSummaries = useMemo(() => members.map(summaryOf), [members])
   const activeSummaries =
     summaries.length === members.length && summaries.every((summary, index) => summary.id === members[index]?.id)
       ? summaries
       : fallbackSummaries
 
+  const missionDay = board.status === 'ready' ? board.board.missionDay : (day ?? 0)
+  // Each message to the flight surgeon also goes into the shared outbox, so it shows on the Messages page.
+  const sendToEarth = (crewId: string, text: string) => {
+    if (!outbox) return
+    outbox
+      .queue({ crewId, day: missionDay, text, delaySec: rest.commsDelaySec ?? DEFAULT_COMMS_DELAY_SEC })
+      .then(() => send && flushOutbox(outbox, crewId, send))
+      .catch((error: unknown) => console.error('Could not queue the emergency message', error))
+  }
+
   return (
-    <EmergencyProvider crew={activeSummaries} onPersistLog={onPersistLog} oneWayDelayMinutes={oneWayDelayMinutes}>
+    <EmergencyProvider crew={activeSummaries} onPersistLog={onPersistLog} oneWayDelayMinutes={oneWayDelayMinutes} onSendToEarth={sendToEarth}>
       <Frame todayApi={todayApi} day={day} {...rest} />
     </EmergencyProvider>
   )
 }
 
+const summaryOf = (member: { id: string; name: string; role: string }): CrewMemberSummary => ({
+  id: member.id,
+  name: member.name,
+  role: member.role,
+  isMedic: isMedicRole(member.role),
+  currentHr: null,
+  currentBpSys: null,
+  currentBpDia: null,
+  currentSpo2: null,
+})
+
 function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNoteForEarth, onSendSummary, outbox, send, commsDelaySec, demo }: Omit<AppShellProps, 'crewApi'>) {
   const { board, selected, addMember } = useCrew()
   const { crew, openEmergency, session, elapsedSeconds, oneWayDelayMinutes, isReady: emergencyReady } = useEmergency()
-  const tab = useSyncExternalStore(onHashChange, readTab, () => 'crew' as TabId)
+  const tab = useSyncExternalStore(onHashChange, readPage, () => 'crew' as PageId)
   const [adding, setAdding] = useState(false)
   const focusContent = () => document.getElementById(CONTENT_ID)?.focus({ preventScroll: true })
-  const go = (next: TabId) => {
+  const go = (next: PageId) => {
     if (next !== tab) window.location.assign(`#${next}`)
     window.scrollTo({ top: 0 })
     focusContent() // screen readers land on the new page, not on the tab bar
@@ -161,6 +160,8 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
   }
 
   const members = board.status === 'ready' ? board.board.members : []
+  const earth = useEarthMessages(outbox, members.map((m) => m.id))
+  const inFlight = earth.messages.filter((m) => ['waiting', 'travelling'].includes(tripOf(m, earth.loadedAt, commsDelaySec).stage)).length
   const missionDay = board.status === 'ready' ? board.board.missionDay : day
   const needAttention = members.filter((m) => isFlagged(m.status)).length
   const id = selected?.id
@@ -208,7 +209,7 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
     )
   const slot = (key: 'checkin' | 'radiation', label: string) => {
     const render = screens[key]
-    return needsPerson(render ? render({ crewId: id!, day, go, noteForEarth: (m) => noteForEarth(id!, m) }) : <Note title={label} text="This screen is being built by the team." />)
+    return needsPerson(render ? render({ crewId: id!, day, go, noteForEarth: (m) => noteForEarth(id!, m), emergency: triggerEmergency }) : <Note title={label} text="This screen is being built by the team." />)
   }
 
   return (
@@ -236,6 +237,23 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
           <nav className={s.navWide} aria-label="Main">
             {tabs}
           </nav>
+          <button
+            type="button"
+            className={s.earth}
+            aria-current={tab === 'messages' ? 'page' : undefined}
+            aria-label={`Messages to Earth${inFlight ? `, ${inFlight} on the way` : ''}`}
+            title="Messages to Earth"
+            onClick={() => go('messages')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 6h18v12H3zM3 7l9 6 9-6" />
+            </svg>
+            {inFlight > 0 && (
+              <span className={s.earthCount} aria-hidden="true">
+                {inFlight}
+              </span>
+            )}
+          </button>
           <button type="button" className={`${s.emergency} ${session && !session.endedAtIso ? s.emergencyActive : ''}`} onClick={triggerEmergency} disabled={!emergencyReady}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 3 22 20H2ZM12 10v4M12 17v.5" />
@@ -266,15 +284,48 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
         {tab === 'report' && needsPerson(<Report key={id} api={todayApi} crewId={id!} day={day} onSendSummary={onSendSummary} onWhy={onWhy} outbox={outbox} send={send} commsDelaySec={commsDelaySec} openSummary={summaryFor === id} onSummaryClosed={() => setSummaryFor(undefined)} />)}
         {tab === 'checkin' && slot('checkin', 'Check-in')}
         {tab === 'radiation' && slot('radiation', 'Radiation')}
+        {tab === 'sources' && <SourcesScreen />}
+        {tab === 'messages' && (
+          <MessagesScreen
+            messages={earth.messages}
+            error={earth.error}
+            names={Object.fromEntries(members.map((m) => [m.id, m.name]))}
+            outbox={outbox}
+            send={send}
+            commsDelaySec={commsDelaySec}
+            day={missionDay ?? 0}
+            onChanged={earth.reload}
+          />
+        )}
+        {/* F-11: fixed notice on every page, and the way to the sources. */}
+        <footer className={s.footer}>
+          Simulated data · Prototype, not a medical device ·{' '}
+          <a href="#sources" aria-current={tab === 'sources' ? 'page' : undefined}>
+            Sources &amp; AI use
+          </a>
+        </footer>
       </main>
 
       <EmergencyScreen crew={crew} oneWayDelayMinutes={oneWayDelayMinutes} />
       <nav className={s.navBottom} aria-label="Main">
         {tabs}
-        <button type="button" className={`${s.emergencyNavButton} ${session && !session.endedAtIso ? s.emergencyActive : ''}`} onClick={triggerEmergency} disabled={!emergencyReady}>
-          <span aria-hidden="true">⯃</span>{' '}
-          {emergencyLabel}
-        </button>
+        <div className={s.navExtra}>
+          <button type="button" className={`${s.emergencyNavButton} ${session && !session.endedAtIso ? s.emergencyActive : ''}`} onClick={triggerEmergency} disabled={!emergencyReady}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 3 22 20H2ZM12 10v4M12 17v.5" />
+            </svg>
+            {emergencyLabel}
+          </button>
+          {/* Phones and tablets: Messages lives here, the header has no room next to Demo and Emergency. */}
+          <button type="button" className={s.messagesNavButton} aria-current={tab === 'messages' ? 'page' : undefined} onClick={() => go('messages')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 6h18v12H3zM3 7l9 6 9-6" />
+            </svg>
+            Messages
+            {inFlight > 0 && <span className={s.navExtraCount}>{inFlight}</span>}
+            {inFlight > 0 && <span className={t.srOnly}>, {inFlight} on the way</span>}
+          </button>
+        </div>
       </nav>
 
       {adding && <AddMemberDialog currentNames={members.map((m) => m.name)} onAdd={addMember} onClose={() => setAdding(false)} />}

@@ -21,3 +21,11 @@ export async function loadLatestEmergencySession(
     groundPackets: stored.groundPackets ?? (stored.groundPacket ? [stored.groundPacket] : []),
   };
 }
+
+/** Every finished emergency, newest first: the history behind "Emergency logs" on the Messages page. */
+export async function loadEndedEmergencySessions(
+  database: VitalisDB = defaultDb,
+): Promise<EmergencySession[]> {
+  const stored = await database.emergency_session.orderBy('startedAtIso').reverse().toArray();
+  return stored.filter((s) => !!s.endedAtIso);
+}
