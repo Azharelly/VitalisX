@@ -19,6 +19,7 @@ import { EmergencyScreen } from '../emergency/EmergencyScreen'
 import { isMedicRole } from '../emergency/roles'
 import { DEFAULT_COMMS_DELAY_SEC, flushOutbox } from '../../data/outbox'
 import { MessagesScreen } from '../messages/MessagesScreen'
+import { SourcesScreen } from '../sources/SourcesScreen'
 import { tripOf } from '../messages/model'
 import { useEarthMessages } from '../messages/useEarthMessages'
 
@@ -283,6 +284,7 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
         {tab === 'report' && needsPerson(<Report key={id} api={todayApi} crewId={id!} day={day} onSendSummary={onSendSummary} onWhy={onWhy} outbox={outbox} send={send} commsDelaySec={commsDelaySec} openSummary={summaryFor === id} onSummaryClosed={() => setSummaryFor(undefined)} />)}
         {tab === 'checkin' && slot('checkin', 'Check-in')}
         {tab === 'radiation' && slot('radiation', 'Radiation')}
+        {tab === 'sources' && <SourcesScreen />}
         {tab === 'messages' && (
           <MessagesScreen
             messages={earth.messages}
@@ -295,6 +297,13 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
             onChanged={earth.reload}
           />
         )}
+        {/* F-11: fixed notice on every page, and the way to the sources. */}
+        <footer className={s.footer}>
+          Simulated data · Prototype, not a medical device ·{' '}
+          <a href="#sources" aria-current={tab === 'sources' ? 'page' : undefined}>
+            Sources &amp; AI use
+          </a>
+        </footer>
       </main>
 
       <EmergencyScreen crew={crew} oneWayDelayMinutes={oneWayDelayMinutes} />

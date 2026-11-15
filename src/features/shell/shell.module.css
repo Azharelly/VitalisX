@@ -285,6 +285,21 @@
 }
 
 /* ── Content ── */
+.footer {
+  max-width: 1200px;
+  margin: 8px auto 0;
+  padding: 16px 24px 28px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+.footer a {
+  display: inline-block;
+  min-height: 24px;
+  padding: 4px 2px;
+  color: var(--accent);
+  font-weight: 600;
+}
 .content { display: block; min-width: 0; overflow-x: clip; } /* safety net: a too-wide element is cut, never makes the page drag sideways */
 .content:focus { outline: none; }
 @media (max-width: 1023px) {

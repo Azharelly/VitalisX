@@ -639,7 +639,7 @@ const SPO2_SAFE_MIN = 92;
 /** Where a value typed in during the emergency sits against the usual band (or the oxygen floor). Not an engine judgment. */
 const sideOf = (key: string, value: number, usual?: [number, number]) =>
   key === 'spo2' && value < SPO2_SAFE_MIN
-    ? `below ${SPO2_SAFE_MIN}%`
+    ? `below ${SPO2_SAFE_MIN}% · design rule` // metric.json abs_rule: "our own design rule"
     : !usual
       ? undefined
       : value > usual[1]

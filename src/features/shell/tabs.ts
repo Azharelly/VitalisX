@@ -16,8 +16,11 @@ export const readTab = (): TabId => {
 }
 
 /** Pages reached from the header rather than the tab bar. */
-export type PageId = TabId | 'messages'
-export const readPage = (): PageId => (window.location.hash === '#messages' ? 'messages' : readTab())
+export type PageId = TabId | 'messages' | 'sources'
+export const readPage = (): PageId => {
+  const h = window.location.hash.slice(1)
+  return h === 'messages' || h === 'sources' ? h : readTab()
+}
 
 export const onHashChange = (cb: () => void) => {
   window.addEventListener('hashchange', cb)

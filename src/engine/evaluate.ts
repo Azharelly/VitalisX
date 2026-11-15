@@ -146,7 +146,7 @@ export function evaluate(metric: Metric, readings: Measurement[], options: Evalu
 
   // Rule 5
   if (badZ(metric, z) >= ALERT_Z) {
-    return result('alert', value, `${metric.label} is ${Math.abs(z).toFixed(1)} times your usual variation ${z > 0 ? 'above' : 'below'} your normal of ${usual} (Alert from ${ALERT_Z}).`, extra);
+    return result('alert', value, `${metric.label} is ${Math.abs(z).toFixed(1)} times your usual variation ${z > 0 ? 'above' : 'below'} your normal of ${usual} (Alert from ${ALERT_Z}: our own design rule).`, extra);
   }
 
   // Rule 6: the last 3 same-context readings, close together in time, all clearly off.
@@ -157,7 +157,7 @@ export function evaluate(metric: Metric, readings: Measurement[], options: Evalu
     const zs = run.map((m) => zScore(m.value, baseline));
     if (zs.every((x) => badZ(metric, x) >= WATCH_Z)) {
       const side = zs.every((x) => x > 0) ? 'above' : zs.every((x) => x < 0) ? 'below' : 'away from';
-      return result('watch', value, `${metric.label} has been ${side} your usual of ${usual} on ${WATCH_RUN} readings in a row (each at least ${WATCH_Z} times your usual variation).`, extra);
+      return result('watch', value, `${metric.label} has been ${side} your usual of ${usual} on ${WATCH_RUN} readings in a row (each at least ${WATCH_Z} times your usual variation: our own design rule).`, extra);
     }
   }
 
