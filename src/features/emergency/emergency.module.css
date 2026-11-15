@@ -376,6 +376,12 @@
   gap: 4px 12px;
 }
 
+/* The countdown changes every second. Fixed-width digits and no wrapping keep it from jumping between lines. */
+.countdown {
+  flex-basis: 100%;
+  white-space: nowrap;
+}
+
 .card > span:first-child {
   margin: 0;
 }
