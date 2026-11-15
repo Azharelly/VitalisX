@@ -62,6 +62,8 @@ interface Props {
   /** One-way Earth–crew delay in minutes (comes from mission config via the shell). */
   oneWayDelayMinutes: number;
   onPersistLog?: (entry: { timestampIso: string; event: string; sessionId: string }) => void;
+  /** Puts each message to the flight surgeon in the shared outbox (Messages page). */
+  onSendToEarth?: (patientId: string, text: string) => void;
   children: React.ReactNode;
 }
 
@@ -69,6 +71,7 @@ export const EmergencyProvider: React.FC<Props> = ({
   crew,
   oneWayDelayMinutes,
   onPersistLog,
+  onSendToEarth,
   children,
 }) => {
   const [session, setSession] = useState<EmergencySession | null>(null);
@@ -217,8 +220,14 @@ export const EmergencyProvider: React.FC<Props> = ({
   const recordVitalsCheck = (values?: Omit<VitalsReading, 'atIso'>) =>
     dispatch((prev, now) => flow.recordVitalsCheck(prev, now, patientName(prev), values));
 
-  const sendGroundMessage = (questions: string[], customNote?: string) =>
+  const sendGroundMessage = (questions: string[], customNote?: string) => {
+    const before = sessionRef.current?.groundPacket?.id;
     dispatch((prev, now) => flow.sendGroundMessage(prev, crew, questions, customNote, oneWayDelayMinutes, now));
+    const after = sessionRef.current;
+    if (after?.groundPacket && after.groundPacket.id !== before) {
+      onSendToEarth?.(after.patientId, flow.emergencyMessageText(after, crew.find((c) => c.id === after.patientId)));
+    }
+  };
   const addGroundQuestion = (question: string) =>
     dispatch((prev) => flow.addGroundQuestion(prev, question));
   const confirmGroundReplyReadBack = () => dispatch((prev) => flow.confirmReadBack(prev));

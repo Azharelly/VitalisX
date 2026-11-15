@@ -52,7 +52,11 @@
 }
 
 .root button:focus-visible,
-.theme button:focus-visible {
+.theme button:focus-visible,
+.root summary:focus-visible,
+.theme summary:focus-visible,
+.root a:focus-visible,
+.theme a:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

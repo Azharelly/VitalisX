@@ -70,6 +70,41 @@
   transition: background 0.15s;
 }
 .emergency svg { width: 18px; height: 18px; }
+
+/* Messages to Earth: envelope with how many are still waiting or on their way. */
+.earth {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-left: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text);
+}
+.earth svg { width: 20px; height: 20px; }
+.earth:hover { background: var(--surface-2); }
+.earth[aria-current='page'] { border-color: var(--accent); color: var(--accent); }
+.earth + .emergency { margin-left: 0; }
+.earthCount {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 700;
+}
 .emergency:hover { background: color-mix(in srgb, var(--alert) 22%, transparent); }
 .emergency:active { background: #d93636; border-color: #d93636; color: #fff; }
 .emergencyActive { animation: emergencyPulse 1.6s ease-in-out infinite; }
@@ -141,7 +176,7 @@
     border-radius: 999px;
     background: rgba(11, 15, 20, 0.5);
   }
-  .navWide .tab { min-height: 40px; padding: 0 16px; border-radius: 999px; }
+  .navWide .tab { min-height: 44px; padding: 0 16px; border-radius: 999px; } /* 44 px: iPads in landscape are touch screens */
   .navWide .tab:hover { background: var(--surface); }
   .navWide .tab[aria-current='page'] { background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line-strong); }
   .navWide .tab[aria-current='page'] svg { color: var(--accent); }
@@ -152,8 +187,10 @@
 }
 /* 1024–1279 px (iPad landscape): brand, Demo chip, five tabs and Emergency only fit with slimmer tabs. */
 @media (min-width: 1024px) and (max-width: 1279px) {
-  .navWide { margin-left: 8px; }
-  .navWide .tab { padding: 0 10px; }
+  .topRow { gap: 10px; padding-left: 16px; padding-right: 16px; }
+  .navWide { margin-left: 4px; }
+  .navWide .tab { padding: 0 9px; }
+  .brand:has(.demo) .brandText { display: none; } /* the Demo chip shows the day; Messages + Emergency need the room */
 }
 
 /* Phones and tablets: a bottom bar within thumb reach. */
@@ -181,25 +218,70 @@
 }
 .navBottom .tabIcon { width: 56px; height: 30px; border-radius: 999px; transition: background 0.15s; }
 .navBottom .tab[aria-current='page'] .tabIcon { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.emergencyNavButton svg,
+.messagesNavButton svg { width: 15px; height: 15px; flex: none; }
+.navExtra { display: none; }
+.messagesNavButton {
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+}
+.messagesNavButton[aria-current='page'] { border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.navExtraCount {
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 11px;
+}
 .emergencyNavButton {
   display: none;
-  border: 0;
-  background: transparent;
+  border: 1px solid var(--alert); /* outlined like the header button, so it reads as a button */
+  background: color-mix(in srgb, var(--alert) 12%, transparent);
   color: var(--alert);
+  letter-spacing: 0.06em;
+}
+/* The two bottom-row buttons are one matched pair: same size, same shape. */
+.emergencyNavButton,
+.messagesNavButton {
+  position: relative;
+  justify-content: center;
+  gap: 6px;
+  min-width: 124px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.01em;
   white-space: nowrap;
 }
+.emergencyNavButton::after,
+.messagesNavButton::after { content: ''; position: absolute; inset: -4px; } /* 36 px visible, 44 px to tap */
+.messagesNavButton { display: inline-flex; align-items: center; }
+.emergencyNavButton:active { background: #d93636; border-color: #d93636; color: #fff; }
 @keyframes emergencyPulse {
   50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--alert) 18%, transparent); }
 }
 @media (max-width: 1023px) {
   .navBottom .emergencyNavButton {
-    display: block;
-    min-height: 56px;
-    padding: 6px 8px 4px;
+    display: inline-flex;
+    align-items: center;
   }
+  .navExtra {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    max-width: 640px;
+    margin: 10px auto 4px; /* clear of the tab labels above */
+    padding: 0 8px;
+  }
+  .earth { display: none; } /* Messages sits in the bottom bar instead */
+  .earth + .emergency { margin-left: auto; }
 }
 
 /* ── Content ── */
@@ -229,6 +311,11 @@
 }
 @media (max-width: 340px) {
   .brandText { display: none; }
+  .demo > summary svg { display: none; } /* the chevron is the last few px Emergency needs at 320 */
+}
+/* With the Demo chip (it shows the day too), the brand text does not fit next to Emergency on small phones. */
+@media (max-width: 440px) {
+  .brand:has(.demo) .brandText { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -54,7 +54,7 @@ export function toAnswers(f: FormState): { answers: CheckInAnswers; errors: Part
     const { label, unit, min, max } = FIELDS[id]
     const v = parseNumber(f.text[id] ?? '')
     if (v === undefined) continue
-    if (Number.isNaN(v)) errors[id] = `${label}: type a number, like 36.6 or 36,6`
+    if (Number.isNaN(v)) errors[id] = `${label}: use digits only, with a dot or a comma for decimals`
     else if (v < min || v > max) errors[id] = `${label} must be between ${min} and ${max} ${unit}`
     else answers[id] = { value: v, ...(id in f.context ? { context: f.context[id as ContextField] } : {}) }
   }

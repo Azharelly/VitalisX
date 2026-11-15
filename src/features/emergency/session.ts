@@ -8,6 +8,7 @@ import type {
 } from './model';
 import { ALL_STEPS_BY_ID, CONDITION_LABELS, EMERGENCY_PROTOCOLS } from './protocols';
 import { pickRoles, reassignRole } from './roles';
+import { EMERGENCY_PREFIX, LOG_PREFIX } from '../messages/model';
 
 /**
  * Pure session logic. Nothing here touches React, the clock or storage: every function takes `now`
@@ -268,6 +269,47 @@ export function latestVitalsSummary(session: EmergencySession, patient: CrewRef 
     spo2: patient.currentSpo2 ?? undefined,
   });
   return fromCheckIn ? `${fromCheckIn} (last check-in, not measured since)` : 'Not measured yet';
+}
+
+const hhmm = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+};
+
+/** The latest packet as plain text for the outbox (Messages page). First line marks it as an emergency. */
+export function emergencyMessageText(session: EmergencySession, patient: CrewRef | undefined): string {
+  const packet = session.groundPacket;
+  const count = session.groundPackets?.length ?? (packet ? 1 : 0);
+  const skipped = stepsOf(session.condition).filter((s) => session.skippedStepIds.includes(s.id));
+  return [
+    `${EMERGENCY_PREFIX}${CONDITION_LABELS[session.condition]} · ${patient?.name ?? 'Crew member'}`,
+    `Started ${hhmm(session.startedAtIso)}${count > 1 ? ` · update ${count - 1}` : ''}.`,
+    `Now: ${latestVitalsSummary(session, patient)}.`,
+    `Done: ${doneTitles(session).join('; ') || 'nothing yet'}.`,
+    ...(skipped.length ? [`Could not do: ${skipped.map((s) => s.title.replace(/\.$/, '')).join('; ')}.`] : []),
+    ...(packet?.questions.length ? ['Questions:', ...packet.questions.map((q, i) => `${i + 1}. ${q}`)] : []),
+  ].join('\n');
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const clock = (sec: number) => `${Math.floor(sec / 60).toString().padStart(2, '0')}:${(sec % 60).toString().padStart(2, '0')}`;
+
+/** A finished emergency as plain text, to send to the flight surgeon later or copy. */
+export function emergencyLogText(session: EmergencySession, patient: Pick<CrewRef, 'name'> | undefined): string {
+  const start = new Date(session.startedAtIso);
+  const end = session.endedAtIso ? new Date(session.endedAtIso) : undefined;
+  const minutes = end ? Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000)) : undefined;
+  const vitals = session.vitals ?? [];
+  const sent = session.groundPackets?.length ?? (session.groundPacket ? 1 : 0);
+  return [
+    `${LOG_PREFIX}${CONDITION_LABELS[session.condition]} · ${patient?.name ?? 'Crew member'}`,
+    `Started ${start.getDate()} ${MONTHS[start.getMonth()]} ${hhmm(session.startedAtIso)}${end ? `, ended ${hhmm(session.endedAtIso!)} (${minutes} min)` : ', still open'}.`,
+    `Steps done: ${session.completedStepIds.length}${session.skippedStepIds.length ? `, could not do: ${session.skippedStepIds.length}` : ''}.`,
+    `Vitals recorded: ${vitals.length ? vitals.map((v) => `${hhmm(v.atIso)} ${vitalsText(v)}`).join('; ') : 'none'}.`,
+    `Messages sent to the flight surgeon during it: ${sent}.`,
+    'Log:',
+    ...session.logEntries.map((e) => `+${clock(e.elapsedSec)} ${e.event}`),
+  ].join('\n');
 }
 
 export function addGroundQuestion(prev: EmergencySession, question: string): Transition | null {

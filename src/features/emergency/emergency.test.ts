@@ -272,6 +272,33 @@ describe('session flow', () => {
     expect(s.vitals).toHaveLength(1);
   });
 
+  it('turns the packet into an outbox message marked as an emergency', () => {
+    let s = apply(flow.createSession(crew, '2', T0, 'bleeding'), T0);
+    s = apply(flow.startSteps(s), T0);
+    s = apply(flow.completeStep(s, T0, 'Crew 2'), T0);
+    s = apply(flow.skipStep(s, T0, 'Crew 2'), T0);
+    s = apply(flow.sendGroundMessage(s, crew, ['Start IV fluids?'], undefined, 12, T0), T0);
+    const text = flow.emergencyMessageText(s, crew[1]);
+    expect(text.split('\n')[0]).toBe('EMERGENCY · Bleeding · Crew 2');
+    expect(text).toContain('Now: Heart 70 · BP 120/80 · O₂ 98% (last check-in, not measured since).');
+    expect(text).toContain('Done: Apply firm direct pressure to the wound.');
+    expect(text).toContain('Could not do: Strap patient to the medical restraint.');
+    expect(text).toContain('1. Start IV fluids?');
+  });
+
+  it('writes a finished emergency as a log to send later', () => {
+    let s = apply(flow.createSession(crew, '2', T0, 'fever'), T0);
+    s = apply(flow.recordVitalsCheck(s, T0 + 60_000, 'Crew 2', { hr: 110 }), T0 + 60_000);
+    s = apply(flow.endSession(s, T0 + 6 * 60_000), T0 + 6 * 60_000);
+    const text = flow.emergencyLogText(s, crew[1]);
+    const lines = text.split('\n');
+    expect(lines[0]).toBe('EMERGENCY LOG · Fever · Crew 2');
+    expect(lines[1]).toMatch(/ended \d\d:\d\d \(6 min\)\.$/);
+    expect(text).toMatch(/Vitals recorded: \d\d:\d\d Heart 110\./);
+    expect(text).toContain('Messages sent to the flight surgeon during it: 0.');
+    expect(lines.at(-1)).toMatch(/^\+06:00 Emergency ended/);
+  });
+
   it('read-back needs a packet', () => {
     expect(flow.confirmReadBack(fresh())).toBeNull();
   });

@@ -13,11 +13,14 @@ import { StatusIcon } from '../today/StatusIcon'
 import { Today } from '../today/Today'
 import t from '../today/today.module.css'
 import s from './shell.module.css'
-import { TABS, onHashChange, readTab, type TabId } from './tabs.ts'
+import { TABS, onHashChange, readPage, type PageId, type TabId } from './tabs.ts'
 import { EmergencyProvider, useEmergency, type CrewMemberSummary } from '../emergency/EmergencyProvider'
 import { EmergencyScreen } from '../emergency/EmergencyScreen'
 import { isMedicRole } from '../emergency/roles'
-import { DEFAULT_COMMS_DELAY_SEC } from '../../data/outbox'
+import { DEFAULT_COMMS_DELAY_SEC, flushOutbox } from '../../data/outbox'
+import { MessagesScreen } from '../messages/MessagesScreen'
+import { tripOf } from '../messages/model'
+import { useEarthMessages } from '../messages/useEarthMessages'
 
 /** A teammate's screen. It receives the chosen person and mission day, and can switch tabs. */
 export type ScreenSlot = (ctx: {
@@ -64,6 +67,7 @@ export function AppShell({ crewApi, day, ...rest }: AppShellProps) {
 const CONTENT_ID = 'vx-content'
 
 function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellProps, 'crewApi'>) {
+  const { outbox, send } = rest
   // One-way Earth delay in minutes, from mission config (via commsDelaySec); not a number baked into the UI.
   const oneWayDelayMinutes = (rest.commsDelaySec ?? DEFAULT_COMMS_DELAY_SEC) / 60
   const { board } = useCrew()
@@ -105,8 +109,18 @@ function EmergencyShell({ todayApi, day, onPersistLog, ...rest }: Omit<AppShellP
       ? summaries
       : fallbackSummaries
 
+  const missionDay = board.status === 'ready' ? board.board.missionDay : (day ?? 0)
+  // Each message to the flight surgeon also goes into the shared outbox, so it shows on the Messages page.
+  const sendToEarth = (crewId: string, text: string) => {
+    if (!outbox) return
+    outbox
+      .queue({ crewId, day: missionDay, text, delaySec: rest.commsDelaySec ?? DEFAULT_COMMS_DELAY_SEC })
+      .then(() => send && flushOutbox(outbox, crewId, send))
+      .catch((error: unknown) => console.error('Could not queue the emergency message', error))
+  }
+
   return (
-    <EmergencyProvider crew={activeSummaries} onPersistLog={onPersistLog} oneWayDelayMinutes={oneWayDelayMinutes}>
+    <EmergencyProvider crew={activeSummaries} onPersistLog={onPersistLog} oneWayDelayMinutes={oneWayDelayMinutes} onSendToEarth={sendToEarth}>
       <Frame todayApi={todayApi} day={day} {...rest} />
     </EmergencyProvider>
   )
@@ -126,10 +140,10 @@ const summaryOf = (member: { id: string; name: string; role: string }): CrewMemb
 function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNoteForEarth, onSendSummary, outbox, send, commsDelaySec, demo }: Omit<AppShellProps, 'crewApi'>) {
   const { board, selected, addMember } = useCrew()
   const { crew, openEmergency, session, elapsedSeconds, oneWayDelayMinutes, isReady: emergencyReady } = useEmergency()
-  const tab = useSyncExternalStore(onHashChange, readTab, () => 'crew' as TabId)
+  const tab = useSyncExternalStore(onHashChange, readPage, () => 'crew' as PageId)
   const [adding, setAdding] = useState(false)
   const focusContent = () => document.getElementById(CONTENT_ID)?.focus({ preventScroll: true })
-  const go = (next: TabId) => {
+  const go = (next: PageId) => {
     if (next !== tab) window.location.assign(`#${next}`)
     window.scrollTo({ top: 0 })
     focusContent() // screen readers land on the new page, not on the tab bar
@@ -145,6 +159,8 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
   }
 
   const members = board.status === 'ready' ? board.board.members : []
+  const earth = useEarthMessages(outbox, members.map((m) => m.id))
+  const inFlight = earth.messages.filter((m) => ['waiting', 'travelling'].includes(tripOf(m, earth.loadedAt, commsDelaySec).stage)).length
   const missionDay = board.status === 'ready' ? board.board.missionDay : day
   const needAttention = members.filter((m) => isFlagged(m.status)).length
   const id = selected?.id
@@ -220,6 +236,23 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
           <nav className={s.navWide} aria-label="Main">
             {tabs}
           </nav>
+          <button
+            type="button"
+            className={s.earth}
+            aria-current={tab === 'messages' ? 'page' : undefined}
+            aria-label={`Messages to Earth${inFlight ? `, ${inFlight} on the way` : ''}`}
+            title="Messages to Earth"
+            onClick={() => go('messages')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 6h18v12H3zM3 7l9 6 9-6" />
+            </svg>
+            {inFlight > 0 && (
+              <span className={s.earthCount} aria-hidden="true">
+                {inFlight}
+              </span>
+            )}
+          </button>
           <button type="button" className={`${s.emergency} ${session && !session.endedAtIso ? s.emergencyActive : ''}`} onClick={triggerEmergency} disabled={!emergencyReady}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 3 22 20H2ZM12 10v4M12 17v.5" />
@@ -250,15 +283,40 @@ function Frame({ todayApi, day, screens = {}, onEmergency, onWhy, onStart, onNot
         {tab === 'report' && needsPerson(<Report key={id} api={todayApi} crewId={id!} day={day} onSendSummary={onSendSummary} onWhy={onWhy} outbox={outbox} send={send} commsDelaySec={commsDelaySec} openSummary={summaryFor === id} onSummaryClosed={() => setSummaryFor(undefined)} />)}
         {tab === 'checkin' && slot('checkin', 'Check-in')}
         {tab === 'radiation' && slot('radiation', 'Radiation')}
+        {tab === 'messages' && (
+          <MessagesScreen
+            messages={earth.messages}
+            error={earth.error}
+            names={Object.fromEntries(members.map((m) => [m.id, m.name]))}
+            outbox={outbox}
+            send={send}
+            commsDelaySec={commsDelaySec}
+            day={missionDay ?? 0}
+            onChanged={earth.reload}
+          />
+        )}
       </main>
 
       <EmergencyScreen crew={crew} oneWayDelayMinutes={oneWayDelayMinutes} />
       <nav className={s.navBottom} aria-label="Main">
         {tabs}
-        <button type="button" className={`${s.emergencyNavButton} ${session && !session.endedAtIso ? s.emergencyActive : ''}`} onClick={triggerEmergency} disabled={!emergencyReady}>
-          <span aria-hidden="true">⯃</span>{' '}
-          {emergencyLabel}
-        </button>
+        <div className={s.navExtra}>
+          <button type="button" className={`${s.emergencyNavButton} ${session && !session.endedAtIso ? s.emergencyActive : ''}`} onClick={triggerEmergency} disabled={!emergencyReady}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 3 22 20H2ZM12 10v4M12 17v.5" />
+            </svg>
+            {emergencyLabel}
+          </button>
+          {/* Phones and tablets: Messages lives here, the header has no room next to Demo and Emergency. */}
+          <button type="button" className={s.messagesNavButton} aria-current={tab === 'messages' ? 'page' : undefined} onClick={() => go('messages')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M3 6h18v12H3zM3 7l9 6 9-6" />
+            </svg>
+            Messages
+            {inFlight > 0 && <span className={s.navExtraCount}>{inFlight}</span>}
+            {inFlight > 0 && <span className={t.srOnly}>, {inFlight} on the way</span>}
+          </button>
+        </div>
       </nav>
 
       {adding && <AddMemberDialog currentNames={members.map((m) => m.name)} onAdd={addMember} onClose={() => setAdding(false)} />}

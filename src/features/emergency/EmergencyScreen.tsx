@@ -5,6 +5,8 @@ import { EMERGENCY_PROTOCOLS, CONDITION_LABELS, EXAMPLE_CONTENT_NOTE } from './p
 import { doneTitles, latestVitalsSummary } from './session';
 import type { EmergencyCondition, EmergencyRoleAssignment, VitalsReading } from './model';
 import { FIELDS, parseNumber } from '../checkin/model';
+import { SIMULATED_REPLY } from '../messages/model';
+import { initialsOf } from '../crew/model';
 import { HoldToEndButton } from './HoldToEndButton';
 import { LEVEL_WORD, formatValue, isFlagged, type Reading } from '../today/model';
 import { StatusIcon } from '../today/StatusIcon';
@@ -24,7 +26,6 @@ function formatTimeHHMM(iso: string): string {
 
 const formatMinutes = (min: number) => (Number.isInteger(min) ? String(min) : min.toFixed(1));
 const firstName = (name: string) => name.split(' ')[0] ?? name;
-const initials = (name: string) => name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 const CONDITIONS = Object.keys(CONDITION_LABELS) as EmergencyCondition[];
 
 /** Fixed notice (dossier F-08, D13): always on screen while the emergency view is open. */
@@ -86,6 +87,13 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
 
   const patient = session ? crew.find((c) => c.id === session.patientId) : undefined;
   const condition = session ? CONDITION_LABELS[session.condition] : '';
+  // No real Earth link: once the round trip is over, the simulated reply arrives (the screen re-renders every second).
+  const packet = session?.groundPacket;
+  const reply =
+    packet && !packet.replyReadBack
+      ? packet.replyText ??
+        (Date.parse(session.startedAtIso) + em.elapsedSeconds * 1000 >= Date.parse(packet.earliestReplyAtIso) ? SIMULATED_REPLY.emergency : undefined)
+      : undefined;
 
   return (
     <div
@@ -107,7 +115,8 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
           <p className={s.barTitle}>
             <strong>{mode === 'ended' ? 'Emergency ended' : 'Emergency'}</strong>
             <span className={s.barWho}>
-              {mode === 'armed' ? 'Not started yet' : patient ? `${patient.name} · ${condition}` : condition}
+              {/* First name: a long full name would push the condition off a phone screen. */}
+              {mode === 'armed' ? 'Not started yet' : patient ? `${firstName(patient.name)} · ${condition}` : condition}
             </span>
           </p>
           {mode === 'active' && (
@@ -150,10 +159,10 @@ export const EmergencyScreen: React.FC<Props> = ({ crew, oneWayDelayMinutes }) =
         {mode === 'ended' && session && <Ended crew={crew} headingRef={headingRef} />}
         {mode === 'active' && session && (
           <>
-            {session.groundPacket?.replyText && !session.groundPacket.replyReadBack && (
+            {reply && (
               <div className={s.reply} role="alert">
                 <p>
-                  <strong>Flight surgeon replied:</strong> {session.groundPacket.replyText}
+                  <strong>Flight surgeon replied{session.groundPacket?.replyText ? '' : ' (simulated)'}:</strong> {reply}
                 </p>
                 <button type="button" className={t.primaryBtn} onClick={em.confirmGroundReplyReadBack}>
                   Read back to crew ✓
@@ -229,7 +238,7 @@ function PersonTile({ person, pressed, onClick }: { person: CrewMemberSummary; p
   return (
     <button type="button" className={s.tile} aria-pressed={pressed} onClick={onClick}>
       <span className={s.avatar} aria-hidden="true">
-        {initials(person.name)}
+        {initialsOf(person.name)}
       </span>
       <span className={s.tileName}>{person.name}</span>
       <span className={s.tileRole}>{person.role || 'Crew'}</span>
@@ -418,7 +427,7 @@ function PatientCard({ patient, formOpen, setFormOpen }: { patient: CrewMemberSu
   const shown = new Set([...vitals, sys, dia].filter(Boolean));
   const otherFlagged = today?.readings.filter((r) => isFlagged(r.level) && !shown.has(r)) ?? [];
   const symptoms = byId('symptoms');
-  const radiation = today?.readings.find((r) => r.zone === 'radiation' && r.note);
+  const radiation = today?.readings.find((r) => r.zone === 'radiation' && r.note && r.level !== 'none'); // no dose data is not 0%
   const due = vitalsCountdownSeconds === 0;
   const hasData = today?.readings.some((r) => r.value !== null);
 
@@ -428,7 +437,7 @@ function PatientCard({ patient, formOpen, setFormOpen }: { patient: CrewMemberSu
   const now = (r: Reading | undefined, key: 'hr' | 'sys' | 'dia' | 'spo2') => {
     const m = latest(key);
     return m
-      ? { text: String(m[key]), at: formatTimeHHMM(m.atIso), level: undefined, side: sideOf(m[key]!, r?.usual) }
+      ? { text: String(m[key]), at: formatTimeHHMM(m.atIso), level: undefined, side: sideOf(key, m[key]!, r?.usual) }
       : r
         ? { text: formatValue(r), at: undefined, level: r.level, side: undefined }
         : undefined;
@@ -449,7 +458,7 @@ function PatientCard({ patient, formOpen, setFormOpen }: { patient: CrewMemberSu
         </p>
       )}
 
-      {formOpen && <VitalsForm onClose={() => setFormOpen(false)} />}
+      {formOpen && <VitalsForm usual={{ hr: byId('hr')?.usual, sys: sys?.usual, dia: dia?.usual }} onClose={() => setFormOpen(false)} />}
       {!formOpen && (
         <div>
           <button type="button" className={due ? t.primaryBtn : t.ghostBtn} onClick={() => setFormOpen(true)}>
@@ -526,7 +535,22 @@ const VITAL_FIELDS = [
   { key: 'spo2', ...FIELDS.spo2 },
 ] as const;
 
-function VitalsForm({ onClose }: { onClose: () => void }) {
+type Band = [number, number] | undefined;
+
+/**
+ * Demo only: a patient getting worse against their own usual (fast heart, low pressure, oxygen down), so the
+ * "above/below usual" marks show. Without a usual range, typical numbers for the same picture.
+ */
+function demoVitals(usual: { hr: Band; sys: Band; dia: Band }): Record<string, string> {
+  return {
+    hr: String(usual.hr ? Math.round(usual.hr[1] + 25) : 118),
+    sys: String(usual.sys ? Math.round(usual.sys[0] - 15) : 96),
+    dia: String(usual.dia ? Math.round(usual.dia[0] - 8) : 60),
+    spo2: '93',
+  };
+}
+
+function VitalsForm({ usual, onClose }: { usual: { hr: Band; sys: Band; dia: Band }; onClose: () => void }) {
   const { recordVitalsCheck } = useEmergency();
   const [text, setText] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
@@ -585,6 +609,18 @@ function VitalsForm({ onClose }: { onClose: () => void }) {
         </p>
       )}
       <p className={s.fineTight}>Leave blank what you did not measure. Saving restarts the 5-minute countdown.</p>
+      <div>
+        <button
+          type="button"
+          className={t.ghostBtn}
+          onClick={() => {
+            setText(demoVitals(usual));
+            setError('');
+          }}
+        >
+          <span className={s.demoTag}>Demo</span> Fill example vitals
+        </button>
+      </div>
       <div className={s.row}>
         <button type="submit" className={t.primaryBtn}>
           Save vitals
@@ -597,12 +633,23 @@ function VitalsForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** Where a value typed in during the emergency sits against the usual band. Not an engine judgment, just the range. */
-const sideOf = (value: number, usual?: [number, number]) =>
-  !usual ? undefined : value > usual[1] ? ('above' as const) : value < usual[0] ? ('below' as const) : undefined;
+/** Same as metric.json abs_low for spo2 (the team's design rule): it applies even before a usual range exists. */
+const SPO2_SAFE_MIN = 92;
+
+/** Where a value typed in during the emergency sits against the usual band (or the oxygen floor). Not an engine judgment. */
+const sideOf = (key: string, value: number, usual?: [number, number]) =>
+  key === 'spo2' && value < SPO2_SAFE_MIN
+    ? `below ${SPO2_SAFE_MIN}%`
+    : !usual
+      ? undefined
+      : value > usual[1]
+        ? 'above usual'
+        : value < usual[0]
+          ? 'below usual'
+          : undefined;
 
 function VitalRow({ label, value, unit, usual, level, at, side }: {
-  label: string; value: string; unit: string; usual?: string; level: Reading['level']; at?: string; side?: 'above' | 'below';
+  label: string; value: string; unit: string; usual?: string; level: Reading['level']; at?: string; side?: string;
 }) {
   // Values measured during the emergency carry their time, and "above/below usual" instead of an engine Watch/Alert.
   const flagged = isFlagged(level);
@@ -611,17 +658,17 @@ function VitalRow({ label, value, unit, usual, level, at, side }: {
       <span>
         {label}
         <span className={s.usual}>
-          {usual ? `usual ${usual}` : value === '—' ? 'no reading' : 'still learning'}
+          {usual ? `usual ${usual}` : !/\d/.test(value) ? 'no reading' : 'still learning'}
           {at && ` · measured ${at}`}
         </span>
       </span>
       <span className={s.vitalRight}>
         <span className={s.vitalValue}>
           {flagged && <StatusIcon level={level} />}
-          <strong>{value}</strong> <span className={t.muted}>{value === '—' ? '' : unit}</span>
+          <strong>{value}</strong> <span className={t.muted}>{/\d/.test(value) ? unit : ''}</span>
           {flagged && <span className={t.srOnly}>, {LEVEL_WORD[level]}</span>}
         </span>
-        {side && <span className={s.outside}>{side} usual</span>}
+        {side && <span className={s.outside}>{side}</span>}
       </span>
     </li>
   );
@@ -719,7 +766,20 @@ function Ground({ crew, headingRef, oneWayDelayMinutes, onBack }: { crew: CrewMe
           </ol>
         </section>
       )}
+
+      <EndHere />
     </div>
+  );
+}
+
+/** Ending is also possible from the message and log screens, so the last update is not followed by a trip back. Still a 2 s hold. */
+function EndHere() {
+  const { endEmergency } = useEmergency();
+  return (
+    <section className={`${s.card} ${s.endCard}`} aria-label="End the emergency">
+      <p className={t.muted}>Patient stable and Earth updated? End the emergency here. Its log is kept.</p>
+      <HoldToEndButton onConfirmEnd={endEmergency} />
+    </section>
   );
 }
 
@@ -752,6 +812,8 @@ function Log({ headingRef, onBack }: { headingRef: HeadingRef; onBack: () => voi
       <section className={s.card}>
         <LogList />
       </section>
+
+      <EndHere />
     </div>
   );
 }
