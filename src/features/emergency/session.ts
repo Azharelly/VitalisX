@@ -70,6 +70,8 @@ export function createSession(
       skippedStepIds: [],
       nextVitalsCheckAtIso: new Date(now + VITALS_CHECK_INTERVAL_MS).toISOString(),
       wallMode: false,
+      groundQuestions: ['Start IV fluids?'],
+      groundPackets: [],
       logEntries: [],
     },
     events: [{ actor: 'System', event: 'EMERGENCY activated — timer and auto-log started. Patient readings opened to crew.' }],
@@ -206,6 +208,7 @@ export function sendGroundMessage(
 ): Transition {
   const patient = crew.find((c) => c.id === prev.patientId);
   const delayMs = oneWayDelayMinutes * 60 * 1000;
+  const cleanQuestions = questions.filter((q) => q.trim().length > 0);
   const packet: GroundMessagePacket = {
     id: `pkt-${now}`,
     sentAtIso: new Date(now).toISOString(),
@@ -216,19 +219,38 @@ export function sendGroundMessage(
       ? `Heart ${patient.currentHr} | BP ${patient.currentBpSys}/${patient.currentBpDia} | O₂ ${patient.currentSpo2}%`
       : 'Vitals pending',
     doneSummary: doneTitles(prev).join(', ') || 'Initial triage & role assignment',
-    questions: questions.filter((q) => q.trim().length > 0),
+    questions: cleanQuestions,
     replyReadBack: false,
   };
+  const groundPackets = prev.groundPackets ?? (prev.groundPacket ? [prev.groundPacket] : []);
   return {
-    session: { ...prev, groundPacket: packet },
-    events: [{ actor: 'Radio + log', event: `Sent structured packet to Flight Surgeon (${oneWayDelayMinutes} min one-way delay)` }],
+    session: { ...prev, groundQuestions: cleanQuestions, groundPacket: packet, groundPackets: [...groundPackets, packet] },
+    events: [{
+      actor: 'Radio + log',
+      event: `${groundPackets.length ? 'Re-sent updated' : 'Sent structured'} packet to Flight Surgeon (${oneWayDelayMinutes} min one-way delay)`,
+    }],
+  };
+}
+
+export function addGroundQuestion(prev: EmergencySession, question: string): Transition | null {
+  const cleanQuestion = question.trim();
+  if (!cleanQuestion) return null;
+  return {
+    session: { ...prev, groundQuestions: [...(prev.groundQuestions ?? []), cleanQuestion] },
+    events: [{ actor: 'Radio + log', event: 'Added a question to the Flight Surgeon packet draft.' }],
   };
 }
 
 export function confirmReadBack(prev: EmergencySession): Transition | null {
   if (!prev.groundPacket) return null;
+  const groundPacket = { ...prev.groundPacket, replyReadBack: true };
+  const groundPackets = prev.groundPackets ?? [prev.groundPacket];
   return {
-    session: { ...prev, groundPacket: { ...prev.groundPacket, replyReadBack: true } },
+    session: {
+      ...prev,
+      groundPacket,
+      groundPackets: groundPackets.map((packet) => packet.id === groundPacket.id ? groundPacket : packet),
+    },
     events: [{ actor: 'Reader', event: 'Flight Surgeon reply confirmed via crew read-back' }],
   };
 }

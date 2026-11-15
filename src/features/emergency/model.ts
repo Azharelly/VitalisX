@@ -63,7 +63,9 @@ export interface EmergencySession {
   skippedStepIds: string[];
   nextVitalsCheckAtIso: string;
   wallMode: boolean; // Toggles CREW 12 landscape layout
+  groundQuestions: string[]; // editable packet draft, saved with the emergency
   groundPacket?: GroundMessagePacket;
+  groundPackets?: GroundMessagePacket[]; // sent packet history; groundPacket remains the latest packet
   logEntries: Array<{
     timestampIso: string;
     elapsedSec: number;

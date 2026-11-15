@@ -14,6 +14,7 @@ export const HoldToEndButton: React.FC<Props> = ({
   const [progress, setProgress] = useState(0);
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number | null>(null);
+  const pointerIdRef = useRef<number | null>(null);
 
   // Always call the latest callback, without restarting a hold in progress when the parent re-renders.
   const onConfirmRef = useRef(onConfirmEnd);
@@ -27,23 +28,36 @@ export const HoldToEndButton: React.FC<Props> = ({
     startRef.current = null;
   }, []);
 
-  const cancelHold = useCallback(() => {
+  const cancelHold = useCallback((pointerId?: number) => {
+    if (pointerId !== undefined && pointerIdRef.current !== pointerId) return;
     stopLoop();
+    pointerIdRef.current = null;
     setProgress(0);
   }, [stopLoop]);
 
   // If the button unmounts mid-hold (e.g. the drawer closes), stop the loop so it can never fire onConfirmEnd.
   useEffect(() => stopLoop, [stopLoop]);
 
-  const startHold = () => {
+  const startHold = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (startRef.current !== null) return; // already holding
+    event.preventDefault();
+    pointerIdRef.current = event.pointerId;
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is unavailable in a few older browser engines; pointer events still work.
+    }
     startRef.current = performance.now();
+    setProgress(1);
     const tick = (now: number) => {
       const start = startRef.current;
       if (start === null) return;
       const pct = holdProgressPct(now, start, holdDurationMs);
       if (pct >= 100) {
-        cancelHold();
+        startRef.current = null;
+        rafRef.current = null;
+        pointerIdRef.current = null;
+        setProgress(100);
         onConfirmRef.current();
       } else {
         setProgress(pct);
@@ -60,9 +74,16 @@ export const HoldToEndButton: React.FC<Props> = ({
       type="button"
       className={styles.holdEndBtn}
       onPointerDown={startHold}
-      onPointerUp={cancelHold}
-      onPointerLeave={cancelHold}
-      onPointerCancel={cancelHold}
+      onPointerUp={(event) => cancelHold(event.pointerId)}
+      onPointerMove={(event) => {
+        if (pointerIdRef.current !== event.pointerId) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) {
+          cancelHold(event.pointerId);
+        }
+      }}
+      onPointerCancel={(event) => cancelHold(event.pointerId)}
+      onLostPointerCapture={(event) => cancelHold(event.pointerId)}
       // A long press opens the context menu on Android; that would cancel the hold.
       onContextMenu={(e) => e.preventDefault()}
       aria-label={`End emergency, hold for ${holdText}`}

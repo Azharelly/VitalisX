@@ -228,6 +228,17 @@ describe('session flow', () => {
     expect(p.vitalsSummary).toContain('Heart 70');
   });
 
+  it('adds a question and re-sends a revised packet without replacing packet history', () => {
+    let s = apply(flow.sendGroundMessage(fresh(), crew, ['Start IV fluids?'], undefined, 12.5, T0), T0);
+    s = apply(flow.addGroundQuestion(s, 'Should we repeat the reading?'), T0 + 30_000);
+    s = apply(flow.sendGroundMessage(s, crew, s.groundQuestions, undefined, 12.5, T0 + 60_000), T0 + 60_000);
+
+    expect(s.groundPackets).toHaveLength(2);
+    expect(s.groundPackets?.[0]?.questions).toEqual(['Start IV fluids?']);
+    expect(s.groundPacket?.questions).toEqual(['Start IV fluids?', 'Should we repeat the reading?']);
+    expect(s.groundPacket?.sentAtIso).toBe(new Date(T0 + 60_000).toISOString());
+  });
+
   it('read-back needs a packet', () => {
     expect(flow.confirmReadBack(fresh())).toBeNull();
   });
