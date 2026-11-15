@@ -10,6 +10,7 @@ import type { CrewApi } from '../crew/api.ts'
 import { dexieCrewApi } from '../crew/dexieCrewApi.ts'
 import { dexieTodayApi } from '../today/dexieTodayApi.ts'
 import { AppShell } from './AppShell'
+import { useCloseOnOutsideTap } from './useCloseOnOutsideTap'
 import s from './shell.module.css'
 
 // One boot for the whole page, so React StrictMode (which runs effects twice in development) seeds only once.
@@ -81,6 +82,7 @@ function Live({ mission }: { mission: MissionConfig }) {
     const todayApi = useMemo(() => dexieTodayApi({ mission }), [mission])
     const [day, setDay] = useState(mission.today_mission_day)
     const [event, setEvent] = useState('Actions you trigger appear here.')
+    const demoRef = useCloseOnOutsideTap()
     const log = (name: string, ...args: (string | number | undefined)[]) =>
         setEvent(`${name}(${args.filter((a) => a !== undefined).map((a) => `'${a}'`).join(', ')})`)
 
@@ -92,14 +94,14 @@ function Live({ mission }: { mission: MissionConfig }) {
                 day={day}
                 screens={{
                     radiation: ({ crewId, day: d = mission.today_mission_day }) => <LiveRadiation crewId={crewId} day={d} arrivalDay={mission.arrival_day} />,
-                    checkin: ({ crewId, day: d, go, noteForEarth }) => (
+                    checkin: ({ crewId, day: d, go, noteForEarth, emergency }) => (
                         <CheckInConnected
                             todayApi={todayApi}
                             crewId={crewId}
                             day={d}
                             launchDate={mission.launch_date}
                             onDone={() => go('today')}
-                            onEmergency={() => log('onEmergency', crewId)}
+                            onEmergency={emergency}
                             onWhy={(m) => log('onWhy', m)}
                             onNoteForEarth={noteForEarth}
                         />
@@ -114,29 +116,35 @@ function Live({ mission }: { mission: MissionConfig }) {
                 outbox={outbox}
                 send={simulatedEarthLink} // no real Earth link yet
                 commsDelaySec={mission.comms_delay_sec}
+                // in the header, like AppPreview: floating after the app it covered the bottom bar's Emergency button
+                demo={
+                <details ref={demoRef} className={s.demo}>
+                    <summary aria-label={`Demo controls, mission day ${day}`}>
+                        <span className={s.demoTag}>Demo</span> Day {day}
+                        <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                            <path d="M3 4.5 6 7.5 9 4.5" />
+                        </svg>
+                    </summary>
+                    <div className={s.demoPanel}>
+                        <label className={s.demoDay}>
+                            <span>
+                                Mission day <strong>{day}</strong>
+                            </span>
+                            <input type="range" min={1} max={mission.arrival_day} value={day} onChange={(e) => setDay(Number(e.target.value))} />
+                        </label>
+                        <button type="button" className={s.demoBtn} onClick={() => setDay(mission.today_mission_day)}>
+                            Back to day {mission.today_mission_day}
+                        </button>
+                        <button type="button" className={s.demoBtn} onClick={() => resetDemo().then(() => window.location.reload())}>
+                            Reset demo
+                        </button>
+                        <output className={s.demoLog} aria-live="polite">
+                            {event}
+                        </output>
+                    </div>
+                </details>
+                }
             />
-            <details className={s.demo}>
-                <summary>
-                    <span className={s.demoTag}>Demo</span> Day {day}
-                </summary>
-                <div className={s.demoPanel}>
-                    <label className={s.demoDay}>
-                        <span>
-                            Mission day <strong>{day}</strong>
-                        </span>
-                        <input type="range" min={1} max={mission.arrival_day} value={day} onChange={(e) => setDay(Number(e.target.value))} />
-                    </label>
-                    <button type="button" className={s.demoBtn} onClick={() => setDay(mission.today_mission_day)}>
-                        Back to day {mission.today_mission_day}
-                    </button>
-                    <button type="button" className={s.demoBtn} onClick={() => resetDemo().then(() => window.location.reload())}>
-                        Reset demo
-                    </button>
-                    <output className={s.demoLog} aria-live="polite">
-                        {event}
-                    </output>
-                </div>
-            </details>
         </>
     )
 }

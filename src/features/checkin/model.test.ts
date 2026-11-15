@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEMO_FORM, EMPTY_FORM, atypical, fromAnswers, outcomeHeadline, parseNumber, toAnswers, toOutcomes, type FormState } from './model'
+import { DEMO_FORM, EMPTY_FORM, atypical, fromAnswers, outcomeHeadline, parseNumber, savedSummary, toAnswers, toOutcomes, type FormState } from './model'
 
 const form = (patch: Partial<FormState>): FormState => ({ ...EMPTY_FORM, ...patch })
 
@@ -82,5 +82,13 @@ describe('check-in result', () => {
       ],
     })
     expect(out.map((o) => `${o.metric}:${o.change}`)).toEqual(['temp:ongoing', 'sys:opened'])
+  })
+
+  it('names what was left empty after saving, blood pressure once', () => {
+    const all = toAnswers(form({ text: { sleep: '7', hr: '60', spo2: '98', temp: '36.6', glucose: '90', sys: '120', dia: '80', weight: '70', exercise: '30' }, fluidsMl: 2000, mood: 4, symptoms: 0, vision: 0 })).answers
+    expect(savedSummary(all)).toEqual({ saved: '13 readings', empty: '' })
+    const without = (...ids: string[]) => Object.fromEntries(Object.entries(all).filter(([id]) => !ids.includes(id)))
+    expect(savedSummary(without('temp'))).toEqual({ saved: '12 of 13 readings', empty: 'Temperature was left empty.' })
+    expect(savedSummary(without('temp', 'sys', 'dia')).empty).toBe('Temperature and Blood pressure were left empty.')
   })
 })

@@ -208,14 +208,14 @@ describe('evaluate: ok, watch, alert', () => {
 
   it('the alert wording names the metric, the side and the usual value', () => {
     const r = evaluate(metric(), [...hist(), reading(15, 59)]);
-    expect(r.rule).toBe('Resting heart rate is 3.0 times your usual variation below your normal of 65 bpm (Alert from 3).');
+    expect(r.rule).toBe('Resting heart rate is 3.0 times your usual variation below your normal of 65 bpm (Alert from 3: our own design rule).');
   });
 
   it('watch: 3 readings in a row, each z >= 1.5', () => {
     const r = evaluate(metric(), [...hist(), reading(15, 68), reading(16, 69), reading(17, 68)]);
     expect(r.state).toBe('watch');
     expect(r.z).toBe(1.5);
-    expect(r.rule).toBe('Resting heart rate has been above your usual of 65 bpm on 3 readings in a row (each at least 1.5 times your usual variation).');
+    expect(r.rule).toBe('Resting heart rate has been above your usual of 65 bpm on 3 readings in a row (each at least 1.5 times your usual variation: our own design rule).');
   });
 
   it('watch needs all three: one reading just under 1.5 breaks it', () => {

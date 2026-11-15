@@ -6,6 +6,8 @@ import type { OutboxPort, SendToEarth } from '../../data/outbox'
 import { StatusIcon } from '../today/StatusIcon'
 import { ZoneIcon } from '../today/ZoneIcon'
 import { BudgetBar, DoseChart, TrendChart, ZoneRibbon } from './ReportCharts'
+import { EmergencyLogs } from '../messages/EmergencyLogs'
+import { useEarthMessages } from '../messages/useEarthMessages'
 import { SbarDialog } from './SbarDialog'
 import { LEVEL_RANK as RANK, openItems as getOpenItems, percentOf, radiationLevel } from './summary.ts'
 import s from './report.module.css'
@@ -213,6 +215,9 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
         </>)}
         <p className={s.fine}>The app records dosimeter readings; it does not measure radiation. Limit: NASA-STD-3001 Vol. 1.</p>
       </section>
+      <section className={s.panel}>
+        <PersonEmergencies report={report} outbox={outbox} send={send} commsDelaySec={commsDelaySec} />
+      </section>
       {sbarOpen && outbox && (
         <SbarDialog report={report} outbox={outbox} send={send} commsDelaySec={commsDelaySec} onClose={() => {
             setSbarOpen(false)
@@ -222,6 +227,24 @@ export function ReportScreen({ report, outbox, send, commsDelaySec, ...actions }
       )}
       {why && <WhyModal e={why} onClose={() => setWhyId(null)} />}
     </section>
+  )
+}
+
+/** This person's past emergencies, with the same read / send / copy actions as the Messages page. */
+function PersonEmergencies({ report, outbox, send, commsDelaySec }: { report: ReportView } & ReportOutbox) {
+  const earth = useEarthMessages(outbox, [report.person.id])
+  return (
+    <EmergencyLogs
+      patientId={report.person.id}
+      names={{ [report.person.id]: report.person.name }}
+      messages={earth.messages}
+      outbox={outbox}
+      send={send}
+      commsDelaySec={commsDelaySec}
+      day={report.missionDay}
+      onSent={earth.reload}
+      className={s.emergencies}
+    />
   )
 }
 

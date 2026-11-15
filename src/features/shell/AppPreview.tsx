@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { db } from '../../data/db'
 import { dexieOutbox, simulatedEarthLink } from '../../data/outbox'
 import { RadiationScreen } from '../RadiationScreen'
 import { CheckInPreview } from '../checkin'
 import { MISSION, simulatedCrewApi, simulatedDoses, simulatedTodayApi } from '../today/simulate.ts'
 import { AppShell } from './AppShell'
+import { useCloseOnOutsideTap } from './useCloseOnOutsideTap'
 import s from './shell.module.css'
 
 // The demo's simulated crew ids are words, the action_log table wants numbers: the four founders keep fixed numbers
@@ -20,16 +21,7 @@ const demoOutbox = dexieOutbox(db, (id) => (DEMO_CREW[id] ??= nextExtra++))
 export function AppPreview() {
   const [day, setDay] = useState(MISSION.currentDay)
   const [event, setEvent] = useState('Actions you trigger appear here.')
-  const demoRef = useRef<HTMLDetailsElement>(null)
-  // Close the Demo panel on a tap outside it, like any dropdown (a <details> only closes from its own summary).
-  useEffect(() => {
-    const close = (e: PointerEvent) => {
-      const d = demoRef.current
-      if (d?.open && !d.contains(e.target as Node)) d.open = false
-    }
-    document.addEventListener('pointerdown', close)
-    return () => document.removeEventListener('pointerdown', close)
-  }, [])
+  const demoRef = useCloseOnOutsideTap()
   const log = (name: string, ...args: (string | number | undefined)[]) =>
     setEvent(`${name}(${args.filter((a) => a !== undefined).map((a) => `'${a}'`).join(', ')})`)
 
@@ -41,13 +33,13 @@ export function AppPreview() {
       screens={{
         // the team's screen, fed the chosen person's simulated doses up to the chosen day
         radiation: ({ crewId, day: d = MISSION.currentDay }) => <RadiationScreen key={crewId} {...simulatedDoses(crewId, d)} currentDay={d} arrivalDay={MISSION.arrivalDay} />,
-        checkin: ({ crewId, day, go, noteForEarth }) => (
+        checkin: ({ crewId, day, go, noteForEarth, emergency }) => (
           <CheckInPreview
             api={simulatedTodayApi}
             crewId={crewId}
             day={day}
             onDone={() => go('today')}
-            onEmergency={() => log('onEmergency', crewId)}
+            onEmergency={emergency}
             onWhy={(m) => log('onWhy', m)}
             onNoteForEarth={noteForEarth}
           />

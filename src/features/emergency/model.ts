@@ -4,6 +4,8 @@ export type EmergencyCondition =
   | 'not_breathing'
   | 'cardiac_arrest'
   | 'very_low_sugar'
+  | 'chest_pain'
+  | 'fever'
   | 'other';
 
 /** How often the patient's vitals should be re-checked while an emergency is open. */
@@ -46,6 +48,15 @@ export interface GroundMessagePacket {
   replyReadBack: boolean;     // Stays unread until explicitly confirmed
 }
 
+/** One set of vitals typed in during the emergency. Any field can be left out (not measured). */
+export interface VitalsReading {
+  atIso: string;
+  hr?: number;
+  sys?: number;
+  dia?: number;
+  spo2?: number;
+}
+
 export interface EmergencySession {
   id: string;
   startedAtIso: string;
@@ -54,7 +65,7 @@ export interface EmergencySession {
   condition: EmergencyCondition;
   roles: EmergencyRoleAssignment;
   /**
-   * -1 = Roles & Triage screen.
+   * -1 = "Change who or what" screen (Back from step 1).
    * 0..n-1 = the step being read aloud.
    * n (= steps.length) = every step has been done or skipped (checklist finished).
    */
@@ -62,10 +73,11 @@ export interface EmergencySession {
   completedStepIds: string[]; // in the order they were completed
   skippedStepIds: string[];
   nextVitalsCheckAtIso: string;
-  wallMode: boolean; // Toggles CREW 12 landscape layout
   groundQuestions: string[]; // editable packet draft, saved with the emergency
   groundPacket?: GroundMessagePacket;
   groundPackets?: GroundMessagePacket[]; // sent packet history; groundPacket remains the latest packet
+  /** Vitals measured during the emergency, oldest first. Absent on sessions saved before this existed. */
+  vitals?: VitalsReading[];
   logEntries: Array<{
     timestampIso: string;
     elapsedSec: number;

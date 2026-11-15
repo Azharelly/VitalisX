@@ -85,6 +85,16 @@ describe('protocols', () => {
     expect(steps[0]!.title).toMatch(/glucose/i);
     expect(steps.findIndex((s) => /Administer/.test(s.title))).toBeGreaterThan(0);
   });
+
+  it('chest pain and fever leave medicine to the Medical Checklist and can escalate', () => {
+    for (const c of ['chest_pain', 'fever'] as const) {
+      const steps = EMERGENCY_PROTOCOLS[c];
+      expect(steps.some((x) => /Medical Checklist/.test(x.title))).toBe(true);
+      expect(steps.some((x) => x.escalations?.length)).toBe(true);
+      expect(steps.some((x) => x.vitalsCheckRequired)).toBe(true);
+    }
+    expect(EMERGENCY_PROTOCOLS.chest_pain[0]!.escalations!.map((e) => e.to)).toContain('cardiac_arrest');
+  });
 });
 
 describe('roles', () => {
@@ -237,6 +247,56 @@ describe('session flow', () => {
     expect(s.groundPackets?.[0]?.questions).toEqual(['Start IV fluids?']);
     expect(s.groundPacket?.questions).toEqual(['Start IV fluids?', 'Should we repeat the reading?']);
     expect(s.groundPacket?.sentAtIso).toBe(new Date(T0 + 60_000).toISOString());
+  });
+
+  it('starts on the chosen category, and never invents vitals that are missing', () => {
+    const noData = crew.map((c) => (c.id === '2' ? { ...c, currentHr: null, currentBpSys: null, currentBpDia: null, currentSpo2: null } : c));
+    const s = apply(flow.createSession(noData, '2', T0, 'fever'), T0);
+    expect(s.condition).toBe('fever');
+    const p = apply(flow.sendGroundMessage(s, noData, [], undefined, 12, T0), T0).groundPacket!;
+    expect(p.vitalsSummary).toBe('Not measured yet');
+  });
+
+  it('sends the vitals measured during the emergency, with their time, instead of the check-in ones', () => {
+    let s = fresh();
+    expect(flow.latestVitalsSummary(s, crew[1])).toBe('Heart 70 · BP 120/80 · O₂ 98% (last check-in, not measured since)');
+    const later = T0 + 3 * 60_000;
+    s = apply(flow.recordVitalsCheck(s, later, 'Crew 2', { hr: 128, spo2: 93 }), later);
+    expect(s.vitals).toHaveLength(1);
+    expect(s.nextVitalsCheckAtIso).toBe(new Date(later + VITALS_CHECK_INTERVAL_MS).toISOString());
+    expect(s.logEntries.at(-1)!.event).toContain('Heart 128 · O₂ 93%');
+    const packet = apply(flow.sendGroundMessage(s, crew, [], undefined, 12, later), later).groundPacket!;
+    expect(packet.vitalsSummary).toMatch(/^Heart 128 · O₂ 93% \(measured \d\d:\d\d\)$/);
+    // "Checked" with no numbers restarts the countdown but stores no reading
+    s = apply(flow.recordVitalsCheck(s, later + 60_000, 'Crew 2'), later + 60_000);
+    expect(s.vitals).toHaveLength(1);
+  });
+
+  it('turns the packet into an outbox message marked as an emergency', () => {
+    let s = apply(flow.createSession(crew, '2', T0, 'bleeding'), T0);
+    s = apply(flow.startSteps(s), T0);
+    s = apply(flow.completeStep(s, T0, 'Crew 2'), T0);
+    s = apply(flow.skipStep(s, T0, 'Crew 2'), T0);
+    s = apply(flow.sendGroundMessage(s, crew, ['Start IV fluids?'], undefined, 12, T0), T0);
+    const text = flow.emergencyMessageText(s, crew[1]);
+    expect(text.split('\n')[0]).toBe('EMERGENCY · Bleeding · Crew 2');
+    expect(text).toContain('Now: Heart 70 · BP 120/80 · O₂ 98% (last check-in, not measured since).');
+    expect(text).toContain('Done: Apply firm direct pressure to the wound.');
+    expect(text).toContain('Could not do: Strap patient to the medical restraint.');
+    expect(text).toContain('1. Start IV fluids?');
+  });
+
+  it('writes a finished emergency as a log to send later', () => {
+    let s = apply(flow.createSession(crew, '2', T0, 'fever'), T0);
+    s = apply(flow.recordVitalsCheck(s, T0 + 60_000, 'Crew 2', { hr: 110 }), T0 + 60_000);
+    s = apply(flow.endSession(s, T0 + 6 * 60_000), T0 + 6 * 60_000);
+    const text = flow.emergencyLogText(s, crew[1]);
+    const lines = text.split('\n');
+    expect(lines[0]).toBe('EMERGENCY LOG · Fever · Crew 2');
+    expect(lines[1]).toMatch(/ended \d\d:\d\d \(6 min\)\.$/);
+    expect(text).toMatch(/Vitals recorded: \d\d:\d\d Heart 110\./);
+    expect(text).toContain('Messages sent to the flight surgeon during it: 0.');
+    expect(lines.at(-1)).toMatch(/^\+06:00 Emergency ended/);
   });
 
   it('read-back needs a packet', () => {
