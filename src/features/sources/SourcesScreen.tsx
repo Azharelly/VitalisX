@@ -77,7 +77,7 @@ export function SourcesScreen() {
         <h2 id="src-refs" className={s.h2}>
           References
         </h2>
-        <p className={t.muted}>What each one is used for in the app. An entry still marked "to be confirmed" is being checked.</p>
+        <p className={t.muted}>What each one is used for in the app.</p>
         {error && (
           <p className={s.error} role="alert">
             Could not read the references: {error}
