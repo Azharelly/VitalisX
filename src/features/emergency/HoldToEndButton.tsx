@@ -1,5 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './emergency.module.css';
+import { holdProgressPct, holdSecondsText } from './hold';
 
 interface Props {
   onConfirmEnd: () => void;
@@ -14,28 +15,45 @@ export const HoldToEndButton: React.FC<Props> = ({
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number | null>(null);
 
+  // Always call the latest callback, without restarting a hold in progress when the parent re-renders.
+  const onConfirmRef = useRef(onConfirmEnd);
+  useEffect(() => {
+    onConfirmRef.current = onConfirmEnd;
+  }, [onConfirmEnd]);
+
+  const stopLoop = useCallback(() => {
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    startRef.current = null;
+  }, []);
+
+  const cancelHold = useCallback(() => {
+    stopLoop();
+    setProgress(0);
+  }, [stopLoop]);
+
+  // If the button unmounts mid-hold (e.g. the drawer closes), stop the loop so it can never fire onConfirmEnd.
+  useEffect(() => stopLoop, [stopLoop]);
+
   const startHold = () => {
+    if (startRef.current !== null) return; // already holding
     startRef.current = performance.now();
     const tick = (now: number) => {
-      if (!startRef.current) return;
-      const pct = Math.min(100, ((now - startRef.current) / holdDurationMs) * 100);
-      setProgress(pct);
+      const start = startRef.current;
+      if (start === null) return;
+      const pct = holdProgressPct(now, start, holdDurationMs);
       if (pct >= 100) {
         cancelHold();
-        onConfirmEnd();
+        onConfirmRef.current();
       } else {
+        setProgress(pct);
         rafRef.current = requestAnimationFrame(tick);
       }
     };
     rafRef.current = requestAnimationFrame(tick);
   };
 
-  const cancelHold = () => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-    startRef.current = null;
-    setProgress(0);
-  };
+  const holdText = holdSecondsText(holdDurationMs);
 
   return (
     <button
@@ -45,7 +63,9 @@ export const HoldToEndButton: React.FC<Props> = ({
       onPointerUp={cancelHold}
       onPointerLeave={cancelHold}
       onPointerCancel={cancelHold}
-      aria-label="End emergency, hold for 2 seconds"
+      // A long press opens the context menu on Android; that would cancel the hold.
+      onContextMenu={(e) => e.preventDefault()}
+      aria-label={`End emergency, hold for ${holdText}`}
     >
       <span
         className={styles.holdFill}
@@ -53,7 +73,7 @@ export const HoldToEndButton: React.FC<Props> = ({
         aria-hidden="true"
       />
       <span className={styles.holdLabel}>
-        {progress > 0 ? 'Keep holding to end…' : 'End emergency · hold 2 seconds'}
+        {progress > 0 ? 'Keep holding to end…' : `End emergency · hold ${holdText}`}
       </span>
     </button>
   );

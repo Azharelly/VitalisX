@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { EmergencyCondition, EmergencySession } from './model';
 import { VITALS_CHECK_INTERVAL_MS } from './model';
 import { ALL_STEPS_BY_ID, EMERGENCY_PROTOCOLS } from './protocols';
+import { holdProgressPct, holdSecondsText } from './hold';
 import { isMedicRole, pickRoles, reassignRole } from './roles';
 import * as flow from './session';
 import type { CrewRef } from './session';
@@ -234,5 +235,29 @@ describe('session flow', () => {
   it('logs elapsed seconds from the start', () => {
     const s = apply(flow.setCondition(fresh(), 'other'), T0 + 90_000);
     expect(s.logEntries[s.logEntries.length - 1]!.elapsedSec).toBe(90);
+  });
+});
+
+describe('hold to end', () => {
+  it('measures progress against the duration and clamps to 0–100', () => {
+    expect(holdProgressPct(1000, 1000, 2000)).toBe(0);
+    expect(holdProgressPct(2000, 1000, 2000)).toBe(50);
+    expect(holdProgressPct(3000, 1000, 2000)).toBe(100);
+    expect(holdProgressPct(9000, 1000, 2000)).toBe(100);
+  });
+
+  it('never goes negative when the first frame is stamped before the press', () => {
+    expect(holdProgressPct(995, 1000, 2000)).toBe(0);
+  });
+
+  it('treats a zero duration as already complete instead of dividing by zero', () => {
+    expect(holdProgressPct(1000, 1000, 0)).toBe(100);
+  });
+
+  it('words the label from the real duration', () => {
+    expect(holdSecondsText(2000)).toBe('2 seconds');
+    expect(holdSecondsText(1000)).toBe('1 second');
+    expect(holdSecondsText(1500)).toBe('1.5 seconds');
+    expect(holdSecondsText(3000)).toBe('3 seconds');
   });
 });
